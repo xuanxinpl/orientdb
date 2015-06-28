@@ -16,9 +16,8 @@
  */
 package com.orientechnologies.orient.object.metadata;
 
-import java.io.IOException;
-
 import com.orientechnologies.orient.core.cache.OCommandCache;
+import com.orientechnologies.orient.core.cache.OGlobalRecordCache;
 import com.orientechnologies.orient.core.index.OIndexManagerProxy;
 import com.orientechnologies.orient.core.metadata.OMetadata;
 import com.orientechnologies.orient.core.metadata.OMetadataInternal;
@@ -27,6 +26,8 @@ import com.orientechnologies.orient.core.metadata.schema.OImmutableSchema;
 import com.orientechnologies.orient.core.metadata.security.OSecurity;
 import com.orientechnologies.orient.core.schedule.OSchedulerListener;
 import com.orientechnologies.orient.object.metadata.schema.OSchemaProxyObject;
+
+import java.io.IOException;
 
 /**
  * @author luca.molino
@@ -82,6 +83,11 @@ public class OMetadataObject implements OMetadataInternal {
   @Override
   public OCommandCache getCommandCache() {
     return underlying.getCommandCache();
+  }
+
+  @Override
+  public OGlobalRecordCache getGlobalRecordCache() {
+    return underlying.getGlobalRecordCache();
   }
 
   @Override

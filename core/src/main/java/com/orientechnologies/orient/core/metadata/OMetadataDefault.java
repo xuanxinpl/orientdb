@@ -24,6 +24,7 @@ import com.orientechnologies.common.profiler.OProfilerMBean;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.cache.OCommandCache;
 import com.orientechnologies.orient.core.cache.OCommandCacheSoftRefs;
+import com.orientechnologies.orient.core.cache.OGlobalRecordCache;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
@@ -64,6 +65,8 @@ public class OMetadataDefault implements OMetadataInternal {
   protected OSchedulerListenerProxy     scheduler;
 
   protected OCommandCache               commandCache;
+  protected OGlobalRecordCache          globalRecordCache;
+
   protected static final OProfilerMBean PROFILER                  = Orient.instance().getProfiler();
 
   private OImmutableSchema              immutableSchema           = null;
@@ -105,6 +108,11 @@ public class OMetadataDefault implements OMetadataInternal {
   @Override
   public OCommandCache getCommandCache() {
     return commandCache;
+  }
+
+  @Override
+  public OGlobalRecordCache getGlobalRecordCache() {
+    return globalRecordCache;
   }
 
   @Override
@@ -196,6 +204,12 @@ public class OMetadataDefault implements OMetadataInternal {
     commandCache = database.getStorage().getResource(OCommandCache.class.getSimpleName(), new Callable<OCommandCache>() {
       public OCommandCache call() {
         return new OCommandCacheSoftRefs(database.getName());
+      }
+    });
+
+    globalRecordCache = database.getStorage().getResource(OGlobalRecordCache.class.getSimpleName(), new Callable<OGlobalRecordCache>() {
+      public OGlobalRecordCache call() {
+        return new OGlobalRecordCache();
       }
     });
 
