@@ -19,12 +19,12 @@
  */
 package com.orientechnologies.orient.core.sql;
 
+import java.util.Collection;
+import java.util.Map;
+
 import com.orientechnologies.orient.core.command.OCommandRequest;
 import com.orientechnologies.orient.core.command.OCommandRequestText;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-
-import java.util.Collection;
-import java.util.Map;
 
 /**
  * Explains the execution of a command returning profiling information.
