@@ -20,22 +20,6 @@
 
 package com.orientechnologies.orient.core.index;
 
-import static com.orientechnologies.orient.core.hook.ORecordHook.TYPE.BEFORE_CREATE;
-import static com.orientechnologies.orient.core.hook.ORecordHook.TYPE.BEFORE_UPDATE;
-
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.OOrientShutdownListener;
@@ -58,6 +42,11 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.record.impl.ODocumentInternal;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.orientechnologies.orient.core.version.ORecordVersion;
+
+import java.util.*;
+
+import static com.orientechnologies.orient.core.hook.ORecordHook.TYPE.BEFORE_CREATE;
+import static com.orientechnologies.orient.core.hook.ORecordHook.TYPE.BEFORE_UPDATE;
 
 /**
  * Handles indexing when records change.
@@ -83,6 +72,12 @@ public class OClassIndexManager extends ODocumentHookAbstract implements OOrient
   public void onStartup() {
     if (lockedKeys == null)
       lockedKeys = new ArrayDeque<TreeMap<OIndex<?>, List<Object>>>();
+  }
+
+  @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.BEFORE_CREATE, TYPE.AFTER_CREATE, TYPE.BEFORE_UPDATE, TYPE.AFTER_UPDATE, TYPE.BEFORE_DELETE,
+        TYPE.AFTER_DELETE, TYPE.FINALIZE_CREATION, TYPE.FINALIZE_UPDATE };
   }
 
   private static void processCompositeIndexUpdate(final OIndex<?> index, final Set<String> dirtyFields, final ODocument iRecord) {
@@ -360,7 +355,7 @@ public class OClassIndexManager extends ODocumentHookAbstract implements OOrient
     for (final OIndex<?> index : indexes) {
 
       if (index.getInternal() instanceof OIndexUnique) {
-        final OIndexRecorder indexRecorder = new OIndexRecorder((OIndexInternal<OIdentifiable>)index.getInternal());
+        final OIndexRecorder indexRecorder = new OIndexRecorder((OIndexInternal<OIdentifiable>) index.getInternal());
         processIndexUpdate(record, dirtyFields, indexRecorder);
 
         indexKeysMap.put(index, indexRecorder.getAffectedKeys());
@@ -420,14 +415,6 @@ public class OClassIndexManager extends ODocumentHookAbstract implements OOrient
   }
 
   @Override
-  public void onRecordCreateFailed(final ODocument iDocument) {
-  }
-
-  @Override
-  public void onRecordCreateReplicated(final ODocument iDocument) {
-  }
-
-  @Override
   public RESULT onRecordBeforeUpdate(final ODocument iDocument) {
     checkIndexes(iDocument, BEFORE_UPDATE);
     return RESULT.RECORD_NOT_CHANGED;
@@ -462,14 +449,6 @@ public class OClassIndexManager extends ODocumentHookAbstract implements OOrient
   }
 
   @Override
-  public void onRecordUpdateFailed(final ODocument iDocument) {
-  }
-
-  @Override
-  public void onRecordUpdateReplicated(final ODocument iDocument) {
-  }
-
-  @Override
   public RESULT onRecordBeforeDelete(final ODocument iDocument) {
     final ORecordVersion version = iDocument.getRecordVersion(); // Cache the transaction-provided value
     if (iDocument.fields() == 0 && iDocument.getIdentity().isPersistent()) {
@@ -489,14 +468,6 @@ public class OClassIndexManager extends ODocumentHookAbstract implements OOrient
   @Override
   public void onRecordAfterDelete(final ODocument iDocument) {
     deleteIndexEntries(iDocument);
-  }
-
-  @Override
-  public void onRecordDeleteFailed(final ODocument iDocument) {
-  }
-
-  @Override
-  public void onRecordDeleteReplicated(final ODocument iDocument) {
   }
 
   private void addIndexesEntries(ODocument document, final Collection<OIndex<?>> indexes) {

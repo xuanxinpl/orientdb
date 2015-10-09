@@ -47,6 +47,11 @@ public class ORestrictedAccessHook extends ODocumentHookAbstract {
   }
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.BEFORE_CREATE, TYPE.BEFORE_UPDATE, TYPE.BEFORE_DELETE, TYPE.BEFORE_READ };
+  }
+
+  @Override
   public RESULT onRecordBeforeCreate(final ODocument iDocument) {
     final OImmutableClass cls = ODocumentInternal.getImmutableSchemaClass(iDocument);
     if (cls != null && cls.isRestricted()) {

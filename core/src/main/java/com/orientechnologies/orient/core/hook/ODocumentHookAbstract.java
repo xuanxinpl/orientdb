@@ -20,8 +20,8 @@
 package com.orientechnologies.orient.core.hook;
 
 import com.orientechnologies.orient.core.db.ODatabase.STATUS;
-import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -318,6 +318,14 @@ public abstract class ODocumentHookAbstract implements ORecordHook {
       throw new IllegalStateException("Cannot exclude classes if include classes has been set");
     this.excludeClasses = excludeClasses;
     return this;
+  }
+
+  /**
+   * By default listen to all the events. This is important to guarantee the compatibility with <v2.2.
+   */
+  @Override
+  public TYPE[] getRecordHookEvents() {
+    return TYPE.values();
   }
 
   protected boolean filterBySchemaClass(final ODocument iDocument) {

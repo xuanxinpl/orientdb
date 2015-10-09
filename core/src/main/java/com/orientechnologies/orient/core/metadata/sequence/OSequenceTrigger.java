@@ -19,6 +19,11 @@ public class OSequenceTrigger extends ODocumentHookAbstract {
   }
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.AFTER_CREATE, TYPE.AFTER_UPDATE, TYPE.AFTER_DELETE };
+  }
+
+  @Override
   public DISTRIBUTED_EXECUTION_MODE getDistributedExecutionMode() {
     return DISTRIBUTED_EXECUTION_MODE.TARGET_NODE;
   }

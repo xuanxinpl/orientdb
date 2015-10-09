@@ -248,4 +248,12 @@ public abstract class ORecordHookAbstract implements ORecordHook {
     }
     return RESULT.RECORD_NOT_CHANGED;
   }
+
+  /**
+   * By default listen to all the events. This is important to guarantee the compatibility with <v2.2.
+   */
+  @Override
+  public TYPE[] getRecordHookEvents() {
+    return TYPE.values();
+  }
 }

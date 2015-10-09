@@ -19,12 +19,6 @@
  */
 package com.orientechnologies.orient.core.query.live;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.orientechnologies.common.concur.resource.OCloseable;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.command.OCommandExecutor;
@@ -38,6 +32,12 @@ import com.orientechnologies.orient.core.db.record.ORecordOperation;
 import com.orientechnologies.orient.core.hook.ODocumentHookAbstract;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Created by luigidellaquila on 16/03/15.
  */
@@ -45,9 +45,9 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
 
   static class OLiveQueryOps implements OCloseable {
 
-    protected Map<ODatabaseDocument, List<ORecordOperation>> pendingOps  = new ConcurrentHashMap<ODatabaseDocument, List<ORecordOperation>>();
-    OLiveQueryQueueThread                                    queueThread = new OLiveQueryQueueThread();
-    Object                                                   threadLock  = new Object();
+    private final Map<ODatabaseDocument, List<ORecordOperation>> pendingOps  = new ConcurrentHashMap<ODatabaseDocument, List<ORecordOperation>>();
+    private OLiveQueryQueueThread                                queueThread = new OLiveQueryQueueThread();
+    private final Object                                         threadLock  = new Object();
 
     @Override
     public void close() {
@@ -61,13 +61,18 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
     }
   }
 
-  public OLiveQueryHook(ODatabaseDocumentTx db) {
+  @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.AFTER_CREATE, TYPE.AFTER_UPDATE, TYPE.BEFORE_DELETE };
+  }
+
+  public OLiveQueryHook(final ODatabaseDocumentTx db) {
     super(db);
     getOpsReference(db);
     db.registerListener(this);
   }
 
-  private static OLiveQueryOps getOpsReference(ODatabaseInternal db) {
+  private static OLiveQueryOps getOpsReference(final ODatabaseInternal db) {
     return (OLiveQueryOps) db.getStorage().getResource("LiveQueryOps", new Callable<Object>() {
       @Override
       public Object call() throws Exception {
@@ -76,8 +81,8 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
     });
   }
 
-  public static Integer subscribe(Integer token, OLiveQueryListener iListener, ODatabaseInternal db) {
-    OLiveQueryOps ops = getOpsReference(db);
+  public static Integer subscribe(final Integer token, final OLiveQueryListener iListener, final ODatabaseInternal db) {
+    final OLiveQueryOps ops = getOpsReference(db);
     synchronized (ops.threadLock) {
       if (!ops.queueThread.isAlive()) {
         ops.queueThread = ops.queueThread.clone();
@@ -88,9 +93,9 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
     return ops.queueThread.subscribe(token, iListener);
   }
 
-  public static void unsubscribe(Integer id, ODatabaseInternal db) {
+  public static void unsubscribe(final Integer id, final ODatabaseInternal db) {
     try {
-      OLiveQueryOps ops = getOpsReference(db);
+      final OLiveQueryOps ops = getOpsReference(db);
       synchronized (ops.threadLock) {
         ops.queueThread.unsubscribe(id);
       }
@@ -105,8 +110,8 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
   }
 
   @Override
-  public void onDelete(ODatabase iDatabase) {
-    OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
+  public void onDelete(final ODatabase iDatabase) {
+    final OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
     synchronized (ops.pendingOps) {
       ops.pendingOps.remove(iDatabase);
     }
@@ -128,8 +133,8 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
   }
 
   @Override
-  public void onAfterTxRollback(ODatabase iDatabase) {
-    OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
+  public void onAfterTxRollback(final ODatabase iDatabase) {
+    final OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
     synchronized (ops.pendingOps) {
       ops.pendingOps.remove(iDatabase);
     }
@@ -142,7 +147,7 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
 
   @Override
   public void onAfterTxCommit(ODatabase iDatabase) {
-    OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
+    final OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
     List<ORecordOperation> list;
     synchronized (ops.pendingOps) {
       list = ops.pendingOps.remove(iDatabase);
@@ -156,8 +161,8 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
   }
 
   @Override
-  public void onClose(ODatabase iDatabase) {
-    OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
+  public void onClose(final ODatabase iDatabase) {
+    final OLiveQueryOps ops = getOpsReference((ODatabaseInternal) iDatabase);
     synchronized (ops.pendingOps) {
       ops.pendingOps.remove(iDatabase);
     }
@@ -169,29 +174,29 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
   }
 
   @Override
-  public void onAfterCommand(OCommandRequestText iCommand, OCommandExecutor executor, Object result) {
+  public void onAfterCommand(final OCommandRequestText iCommand, OCommandExecutor executor, Object result) {
 
   }
 
   @Override
-  public void onRecordAfterCreate(ODocument iDocument) {
+  public void onRecordAfterCreate(final ODocument iDocument) {
     addOp(iDocument, ORecordOperation.CREATED);
   }
 
   @Override
-  public void onRecordAfterUpdate(ODocument iDocument) {
+  public void onRecordAfterUpdate(final ODocument iDocument) {
     addOp(iDocument, ORecordOperation.UPDATED);
   }
 
   @Override
-  public RESULT onRecordBeforeDelete(ODocument iDocument) {
+  public RESULT onRecordBeforeDelete(final ODocument iDocument) {
     addOp(iDocument, ORecordOperation.DELETED);
     return RESULT.RECORD_NOT_CHANGED;
   }
 
-  protected void addOp(ODocument iDocument, byte iType) {
-    ODatabaseDocument db = database;
-    OLiveQueryOps ops = getOpsReference((ODatabaseInternal) db);
+  protected void addOp(final ODocument iDocument, final byte iType) {
+    final ODatabaseDocument db = database;
+    final OLiveQueryOps ops = getOpsReference((ODatabaseInternal) db);
     if (db.getTransaction() == null || !db.getTransaction().isActive()) {
 
       // TODO synchronize
@@ -199,7 +204,7 @@ public class OLiveQueryHook extends ODocumentHookAbstract implements ODatabaseLi
       ops.queueThread.enqueue(op);
       return;
     }
-    ORecordOperation result = new ORecordOperation(iDocument, iType);
+    final ORecordOperation result = new ORecordOperation(iDocument, iType);
     synchronized (ops.pendingOps) {
       List<ORecordOperation> list = ops.pendingOps.get(db);
       if (list == null) {

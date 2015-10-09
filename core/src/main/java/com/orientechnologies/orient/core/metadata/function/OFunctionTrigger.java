@@ -55,6 +55,11 @@ public class OFunctionTrigger extends ODocumentHookAbstract {
   }
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.AFTER_CREATE, TYPE.AFTER_UPDATE, TYPE.AFTER_DELETE };
+  }
+
+  @Override
   public void onRecordAfterCreate(final ODocument iDocument) {
     reloadLibrary();
   }

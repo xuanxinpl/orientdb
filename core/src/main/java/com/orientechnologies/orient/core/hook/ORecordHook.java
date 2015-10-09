@@ -49,6 +49,13 @@ public interface ORecordHook {
     RECORD_NOT_CHANGED, RECORD_CHANGED, SKIP, SKIP_IO, RECORD_REPLACED
   }
 
+  /**
+   * Returns all the events the hook is interested.
+   * 
+   * @since 2.2
+   */
+  TYPE[] getRecordHookEvents();
+
   void onUnregister();
 
   RESULT onTrigger(TYPE iType, ORecord iRecord);

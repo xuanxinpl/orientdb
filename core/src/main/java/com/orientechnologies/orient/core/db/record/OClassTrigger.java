@@ -16,14 +16,6 @@
 
 package com.orientechnologies.orient.core.db.record;
 
-import java.lang.reflect.Method;
-
-import javax.script.Bindings;
-import javax.script.Invocable;
-import javax.script.ScriptContext;
-import javax.script.ScriptEngine;
-import javax.script.ScriptException;
-
 import com.orientechnologies.common.concur.resource.OPartitionedObjectPool;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
@@ -46,6 +38,13 @@ import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.record.impl.ODocumentInternal;
 import com.orientechnologies.orient.core.serialization.serializer.OStringSerializerHelper;
+
+import javax.script.Bindings;
+import javax.script.Invocable;
+import javax.script.ScriptContext;
+import javax.script.ScriptEngine;
+import javax.script.ScriptException;
+import java.lang.reflect.Method;
 
 /**
  * Author : henryzhao81@gmail.com Feb 19, 2013
@@ -82,6 +81,12 @@ public class OClassTrigger extends ODocumentHookAbstract {
 
   public DISTRIBUTED_EXECUTION_MODE getDistributedExecutionMode() {
     return DISTRIBUTED_EXECUTION_MODE.SOURCE_NODE;
+  }
+
+  @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.BEFORE_CREATE, TYPE.AFTER_CREATE, TYPE.BEFORE_UPDATE, TYPE.AFTER_UPDATE, TYPE.BEFORE_DELETE,
+        TYPE.AFTER_DELETE, TYPE.BEFORE_READ, TYPE.AFTER_READ };
   }
 
   @Override

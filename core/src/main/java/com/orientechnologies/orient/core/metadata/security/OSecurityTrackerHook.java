@@ -21,6 +21,12 @@ public class OSecurityTrackerHook extends ODocumentHookAbstract {
   }
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.AFTER_CREATE, TYPE.AFTER_UPDATE, TYPE.AFTER_DELETE, TYPE.CREATE_REPLICATED, TYPE.DELETE_REPLICATED,
+        TYPE.UPDATE_REPLICATED };
+  }
+
+  @Override
   public DISTRIBUTED_EXECUTION_MODE getDistributedExecutionMode() {
     return DISTRIBUTED_EXECUTION_MODE.TARGET_NODE;
   }

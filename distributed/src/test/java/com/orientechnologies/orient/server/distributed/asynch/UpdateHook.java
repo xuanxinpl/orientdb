@@ -9,6 +9,11 @@ import com.tinkerpop.blueprints.impls.orient.OrientEdgeType;
 public class UpdateHook implements ORecordHook {
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return TYPE.values();
+  }
+
+  @Override
   public void onUnregister() {
   }
 

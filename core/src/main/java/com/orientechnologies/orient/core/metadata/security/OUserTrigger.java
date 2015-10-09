@@ -56,6 +56,11 @@ public class OUserTrigger extends ODocumentHookAbstract {
   }
 
   @Override
+  public TYPE[] getRecordHookEvents() {
+    return new TYPE[] { TYPE.BEFORE_CREATE, TYPE.BEFORE_UPDATE };
+  }
+
+  @Override
   public RESULT onRecordBeforeCreate(final ODocument iDocument) {
     if (ODocumentInternal.getImmutableSchemaClass(iDocument).isOuser())
       return encodePassword(iDocument);
