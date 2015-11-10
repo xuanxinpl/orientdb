@@ -21,6 +21,7 @@ package com.orientechnologies.orient.core.config;
 
 import com.orientechnologies.common.io.OFileUtils;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.profiler.OProfiler;
 import com.orientechnologies.common.util.OApi;
 import com.orientechnologies.orient.core.OConstants;
 import com.orientechnologies.orient.core.Orient;
@@ -395,10 +396,12 @@ public enum OGlobalConfiguration {
       PROFILER_ENABLED("profiler.enabled", "Enables the recording of statistics and counters.", Boolean.class, false,
           new OConfigurationChangeCallback() {
             public void change(final Object iCurrentValue, final Object iNewValue) {
-              if ((Boolean) iNewValue)
-                Orient.instance().getProfiler().startRecording();
-              else
-                Orient.instance().getProfiler().stopRecording();
+              final OProfiler prof = Orient.instance().getProfiler();
+              if (prof != null)
+                if ((Boolean) iNewValue)
+                  prof.startRecording();
+                else
+                  prof.stopRecording();
             }
           }),
 
@@ -416,12 +419,14 @@ public enum OGlobalConfiguration {
         }
       }),
 
+  PROFILER_MAXVALUES("profiler.maxValues", "Maximum values to store. Values are managed in a LRU", Integer.class, 200),
+
   // LOG
-      LOG_CONSOLE_LEVEL("log.console.level", "Console logging level.", String.class, "info", new OConfigurationChangeCallback() {
-        public void change(final Object iCurrentValue, final Object iNewValue) {
-          OLogManager.instance().setLevel((String) iNewValue, ConsoleHandler.class);
-        }
-      }),
+  LOG_CONSOLE_LEVEL("log.console.level", "Console logging level.", String.class, "info", new OConfigurationChangeCallback() {
+    public void change(final Object iCurrentValue, final Object iNewValue) {
+      OLogManager.instance().setLevel((String) iNewValue, ConsoleHandler.class);
+    }
+  }),
 
   LOG_FILE_LEVEL("log.file.level", "File logging level.", String.class, "fine", new OConfigurationChangeCallback() {
     public void change(final Object iCurrentValue, final Object iNewValue) {
@@ -554,7 +559,8 @@ public enum OGlobalConfiguration {
    * @Since 2.2.0
    */
   DISTRIBUTED_PUBLISH_NODE_STATUS_EVERY("distributed.publishNodeStatusEvery",
-      "Time in ms to publish the node status on distributed map. Set to 0 to disable such refresh of node configuration", Long.class, 5000l),
+      "Time in ms to publish the node status on distributed map. Set to 0 to disable such refresh of node configuration",
+      Long.class, 5000l),
 
   /**
    * @Since 2.1.3
