@@ -2,6 +2,10 @@
 /* JavaCCOptions:MULTI=true,NODE_USES_PARSER=false,VISITOR=true,TRACK_TOKENS=true,NODE_PREFIX=O,NODE_EXTENDS=,NODE_FACTORY=,SUPPORT_CLASS_VISIBILITY_PUBLIC=true */
 package com.orientechnologies.orient.core.sql.parser;
 
+import com.orientechnologies.orient.core.command.OCommandContext;
+import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
+import com.orientechnologies.orient.core.db.record.OIdentifiable;
+
 import java.util.Map;
 
 public class OProjectionItem extends SimpleNode {
@@ -40,6 +44,8 @@ public class OProjectionItem extends SimpleNode {
   }
 
   public String getAlias() {
+    if(alias==null)
+      return expression.getDefaultAlias();
     return alias;
   }
 
@@ -74,6 +80,16 @@ public class OProjectionItem extends SimpleNode {
     return expression.getDefaultAlias();
   }
 
+  public boolean isAggregate(OCommandContext ctx, ODatabaseDocumentInternal database){
+    if(expression!=null){
+      return expression.isAggregate();
+    }
+    return false;
 
+  }
+
+  public Object calculate(OIdentifiable targetRecord, OCommandContext ctx){
+    return expression.execute(targetRecord, ctx);
+  }
 }
 /* JavaCC - OriginalChecksum=6d6010734c7434a6f516e2eac308e9ce (do not edit this line) */

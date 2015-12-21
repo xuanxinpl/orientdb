@@ -19,17 +19,6 @@
  */
 package com.orientechnologies.orient.server.distributed;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.*;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
-
 import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
@@ -73,7 +62,6 @@ import com.orientechnologies.orient.core.replication.OAsyncReplicationOk;
 import com.orientechnologies.orient.core.sql.OCommandExecutorSQLDelegate;
 import com.orientechnologies.orient.core.sql.OCommandExecutorSQLSelect;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.orientechnologies.orient.core.sql.functions.OSQLFunctionRuntime;
 import com.orientechnologies.orient.core.storage.OAutoshardedStorage;
 import com.orientechnologies.orient.core.storage.OCluster;
 import com.orientechnologies.orient.core.storage.OPhysicalPosition;
@@ -90,8 +78,41 @@ import com.orientechnologies.orient.core.tx.OTransactionInternal;
 import com.orientechnologies.orient.core.tx.OTransactionRealAbstract;
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.distributed.ODistributedRequest.EXECUTION_MODE;
-import com.orientechnologies.orient.server.distributed.task.*;
+import com.orientechnologies.orient.server.distributed.task.OAbstractCommandTask;
+import com.orientechnologies.orient.server.distributed.task.OAbstractRecordReplicatedTask;
+import com.orientechnologies.orient.server.distributed.task.OAbstractRemoteTask;
+import com.orientechnologies.orient.server.distributed.task.OCompletedTxTask;
+import com.orientechnologies.orient.server.distributed.task.OCreateRecordTask;
+import com.orientechnologies.orient.server.distributed.task.ODeleteRecordTask;
+import com.orientechnologies.orient.server.distributed.task.ODistributedRecordLockedException;
+import com.orientechnologies.orient.server.distributed.task.OReadRecordIfNotLatestTask;
+import com.orientechnologies.orient.server.distributed.task.OReadRecordTask;
+import com.orientechnologies.orient.server.distributed.task.OSQLCommandTask;
+import com.orientechnologies.orient.server.distributed.task.OScriptTask;
+import com.orientechnologies.orient.server.distributed.task.OTxTask;
+import com.orientechnologies.orient.server.distributed.task.OTxTaskResult;
+import com.orientechnologies.orient.server.distributed.task.OUpdateRecordTask;
 import com.orientechnologies.orient.server.security.OSecurityServerUser;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Distributed storage implementation that routes to the owner node the request.
@@ -378,59 +399,63 @@ public class ODistributedStorage implements OStorage, OFreezableStorage, OAutosh
     final ODocument doc = new ODocument();
     list.add(doc);
 
-    boolean hasNonAggregates = false;
-    final Map<String, Object> proj = select.getProjections();
-    for (Map.Entry<String, Object> p : proj.entrySet()) {
-      if (!(p.getValue() instanceof OSQLFunctionRuntime)) {
-        hasNonAggregates = true;
-        break;
-      }
+    if(1==1){
+      throw new UnsupportedOperationException();
     }
-
-    if (hasNonAggregates) {
-      // MERGE NON AGGREGATED FIELDS
-      for (Map.Entry<String, Object> entry : iResults.entrySet()) {
-        final List<Object> resultSet = (List<Object>) entry.getValue();
-
-        for (Object r : resultSet) {
-          if (r instanceof ODocument) {
-            final ODocument d = (ODocument) r;
-
-            for (Map.Entry<String, Object> p : proj.entrySet()) {
-              // WRITE THE FIELD AS IS
-              if (!(p.getValue() instanceof OSQLFunctionRuntime))
-                doc.field(p.getKey(), ((ODocument) r).field(p.getKey()));
-            }
-          }
-        }
-      }
-    }
-
-    final List<Object> toMerge = new ArrayList<Object>();
-
-    // MERGE AGGREGATED FIELDS
-    for (Map.Entry<String, Object> p : proj.entrySet()) {
-      if (p.getValue() instanceof OSQLFunctionRuntime) {
-        // MERGE RESULTS
-        final OSQLFunctionRuntime f = (OSQLFunctionRuntime) p.getValue();
-
-        toMerge.clear();
-        for (Map.Entry<String, Object> entry : iResults.entrySet()) {
-          final List<Object> resultSet = (List<Object>) entry.getValue();
-
-          for (Object r : resultSet) {
-            if (r instanceof ODocument) {
-              final ODocument d = (ODocument) r;
-              toMerge.add(d.rawField(p.getKey()));
-            }
-          }
-
-        }
-
-        // WRITE THE FINAL MERGED RESULT
-        doc.field(p.getKey(), f.getFunction().mergeDistributedResult(toMerge));
-      }
-    }
+    //TODO
+//    boolean hasNonAggregates = false;
+//    final Map<String, Object> proj = select.getProjections();
+//    for (Map.Entry<String, Object> p : proj.entrySet()) {
+//      if (!(p.getValue() instanceof OSQLFunctionRuntime)) {
+//        hasNonAggregates = true;
+//        break;
+//      }
+//    }
+//
+//    if (hasNonAggregates) {
+//      // MERGE NON AGGREGATED FIELDS
+//      for (Map.Entry<String, Object> entry : iResults.entrySet()) {
+//        final List<Object> resultSet = (List<Object>) entry.getValue();
+//
+//        for (Object r : resultSet) {
+//          if (r instanceof ODocument) {
+//            final ODocument d = (ODocument) r;
+//
+//            for (Map.Entry<String, Object> p : proj.entrySet()) {
+//              // WRITE THE FIELD AS IS
+//              if (!(p.getValue() instanceof OSQLFunctionRuntime))
+//                doc.field(p.getKey(), ((ODocument) r).field(p.getKey()));
+//            }
+//          }
+//        }
+//      }
+//    }
+//
+//    final List<Object> toMerge = new ArrayList<Object>();
+//
+//    // MERGE AGGREGATED FIELDS
+//    for (Map.Entry<String, Object> p : proj.entrySet()) {
+//      if (p.getValue() instanceof OSQLFunctionRuntime) {
+//        // MERGE RESULTS
+//        final OSQLFunctionRuntime f = (OSQLFunctionRuntime) p.getValue();
+//
+//        toMerge.clear();
+//        for (Map.Entry<String, Object> entry : iResults.entrySet()) {
+//          final List<Object> resultSet = (List<Object>) entry.getValue();
+//
+//          for (Object r : resultSet) {
+//            if (r instanceof ODocument) {
+//              final ODocument d = (ODocument) r;
+//              toMerge.add(d.rawField(p.getKey()));
+//            }
+//          }
+//
+//        }
+//
+//        // WRITE THE FINAL MERGED RESULT
+//        doc.field(p.getKey(), f.getFunction().mergeDistributedResult(toMerge));
+//      }
+//    }
 
     return list;
   }

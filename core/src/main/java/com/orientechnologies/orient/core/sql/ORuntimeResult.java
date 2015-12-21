@@ -19,11 +19,9 @@
  */
 package com.orientechnologies.orient.core.sql;
 
-import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.common.util.OResettable;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
-import com.orientechnologies.orient.core.db.record.ORecordLazyList;
 import com.orientechnologies.orient.core.db.record.ORecordLazyMultiValue;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
 import com.orientechnologies.orient.core.id.ORID;
@@ -32,19 +30,15 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.sql.filter.OSQLFilterItemAbstract;
-import com.orientechnologies.orient.core.sql.filter.OSQLFilterItemField;
-import com.orientechnologies.orient.core.sql.filter.OSQLFilterItemVariable;
 import com.orientechnologies.orient.core.sql.functions.OSQLFunctionRuntime;
-import com.orientechnologies.orient.core.sql.method.misc.OSQLMethodField;
-import com.orientechnologies.orient.core.sql.method.OSQLMethodRuntime;
+import com.orientechnologies.orient.core.sql.parser.OProjection;
+import com.orientechnologies.orient.core.sql.parser.OProjectionItem;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -54,11 +48,11 @@ import java.util.Set;
  */
 public class ORuntimeResult {
   private final Object              fieldValue;
-  private final Map<String, Object> projections;
+  private final OProjection projections;
   private final ODocument           value;
   private       OCommandContext     context;
 
-  public ORuntimeResult(final Object iFieldValue, final Map<String, Object> iProjections, final int iProgressive, final OCommandContext iContext) {
+  public ORuntimeResult(final Object iFieldValue, final OProjection iProjections, final int iProgressive, final OCommandContext iContext) {
     fieldValue = iFieldValue;
     projections = iProjections;
     context = iContext;
@@ -74,58 +68,34 @@ public class ORuntimeResult {
   }
 
   @SuppressWarnings("unchecked")
-  public static ODocument applyRecord(final ODocument iValue, final Map<String, Object> iProjections, final OCommandContext iContext, final OIdentifiable iRecord) {
+  public static ODocument applyRecord(final ODocument iValue, final OProjection iProjections, final OCommandContext iContext, final OIdentifiable iRecord) {
     // APPLY PROJECTIONS
     final ODocument inputDocument = (ODocument) (iRecord != null ? iRecord.getRecord() : null);
 
-    if (iProjections.isEmpty())
+    if (iProjections==null ||iProjections.getItems()==null || iProjections.getItems().isEmpty())
       // SELECT * CASE
       inputDocument.copyTo(iValue);
     else {
 
-      for (Entry<String, Object> projection : iProjections.entrySet()) {
-        final String prjName = projection.getKey();
+      for (OProjectionItem projection : iProjections.getItems()) {
+        final String prjName = projection.getAlias();
 
-        final Object v = projection.getValue();
 
-        if (v == null && prjName != null) {
-          iValue.field(prjName, (Object) null);
-          continue;
-        }
+//        if (v == null && prjName != null) {
+//          iValue.field(prjName, (Object) null);
+//          continue;
+//        }
 
+        //TODO!!!
         final Object projectionValue;
-        if (v != null && v.equals("*")) {
+        if (projection.isAll()) {
           // COPY ALL
           inputDocument.copyTo(iValue);
           // CONTINUE WITH NEXT ITEM
           continue;
 
-        } else if (v instanceof OSQLFilterItemVariable || v instanceof OSQLFilterItemField) {
-          final OSQLFilterItemAbstract var = (OSQLFilterItemAbstract) v;
-          final OPair<OSQLMethodRuntime, Object[]> last = var.getLastChainOperator();
-          if (last != null && last.getKey().getMethod() instanceof OSQLMethodField && last.getValue() != null && last.getValue().length == 1 && last.getValue()[0].equals("*")) {
-            final Object value = ((OSQLFilterItemAbstract) v).getValue(inputDocument, iValue, iContext);
-            if (inputDocument != null && value != null && inputDocument instanceof ODocument && value instanceof ODocument) {
-              // COPY FIELDS WITH PROJECTION NAME AS PREFIX
-              for (String fieldName : ((ODocument) value).fieldNames()) {
-                iValue.field(prjName + fieldName, ((ODocument) value).field(fieldName));
-              }
-            }
-            projectionValue = null;
-          } else
-            // RETURN A VARIABLE FROM THE CONTEXT
-            projectionValue = ((OSQLFilterItemAbstract) v).getValue(inputDocument, iValue, iContext);
-
-        } else if (v instanceof OSQLFunctionRuntime) {
-          final OSQLFunctionRuntime f = (OSQLFunctionRuntime) v;
-          projectionValue = f.execute(inputDocument, inputDocument, iValue, iContext);
-        } else {
-          if (v == null) {
-            // SIMPLE NULL VALUE: SET IT IN DOCUMENT
-            iValue.field(prjName, v);
-            continue;
-          }
-          projectionValue = v;
+        }else{
+          projectionValue = projection.calculate(iRecord, iContext);
         }
 
         if (projectionValue != null)
@@ -197,13 +167,13 @@ public class ORuntimeResult {
     return true;
   }
 
-  public static ODocument getResult(final ODocument iValue, final Map<String, Object> iProjections) {
+  public static ODocument getResult(final ODocument iValue, final OProjection iProjections) {
     if (iValue != null) {
 
       boolean canExcludeResult = false;
 
-      for (Entry<String, Object> projection : iProjections.entrySet()) {
-        if (!iValue.containsField(projection.getKey())) {
+      for (OProjectionItem projection : iProjections.getItems()) {
+        if (!iValue.containsField(projection.getAlias())) {
           // ONLY IF NOT ALREADY CONTAINS A VALUE, OTHERWISE HAS BEEN SET MANUALLY (INDEX?)
           final Object v = projection.getValue();
           if (v instanceof OSQLFunctionRuntime) {
@@ -213,7 +183,7 @@ public class ORuntimeResult {
             Object fieldValue = f.getResult();
 
             if (fieldValue != null)
-              iValue.field(projection.getKey(), fieldValue);
+              iValue.field(projection.getAlias(), fieldValue);
           }
         }
       }
@@ -228,7 +198,7 @@ public class ORuntimeResult {
     return iValue;
   }
 
-  public static ODocument getProjectionResult(final int iId, final Map<String, Object> iProjections, final OCommandContext iContext, final OIdentifiable iRecord) {
+  public static ODocument getProjectionResult(final int iId, final OProjection iProjections, final OCommandContext iContext, final OIdentifiable iRecord) {
     return ORuntimeResult.getResult(ORuntimeResult.applyRecord(ORuntimeResult.createProjectionDocument(iId), iProjections, iContext, iRecord), iProjections);
   }
 

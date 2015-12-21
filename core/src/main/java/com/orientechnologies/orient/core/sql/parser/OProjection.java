@@ -2,6 +2,11 @@
 /* JavaCCOptions:MULTI=true,NODE_USES_PARSER=false,VISITOR=true,TRACK_TOKENS=true,NODE_PREFIX=O,NODE_EXTENDS=,NODE_FACTORY=,SUPPORT_CLASS_VISIBILITY_PUBLIC=true */
 package com.orientechnologies.orient.core.sql.parser;
 
+import com.orientechnologies.orient.core.command.OCommandContext;
+import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.ORuntimeResult;
+
 import java.util.List;
 import java.util.Map;
 
@@ -62,7 +67,9 @@ public class OProjection extends SimpleNode {
     }
   }
 
-
-
+  public OIdentifiable calculate(int temporaryRIDCounter, OCommandContext iContext, OIdentifiable iRecord) {
+    ODocument doc = ORuntimeResult.createProjectionDocument(temporaryRIDCounter);
+    throw new UnsupportedOperationException(); //TODO
+  }
 }
 /* JavaCC - OriginalChecksum=3a650307b53bae626dc063c4b35e62c3 (do not edit this line) */

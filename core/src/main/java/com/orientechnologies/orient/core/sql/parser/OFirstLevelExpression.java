@@ -27,5 +27,12 @@ public class OFirstLevelExpression extends OMathExpression {
     }
     return false;
   }
+
+  @Override public boolean isAggregate() {
+    if(value instanceof OFunctionCall){
+      return ((OFunctionCall)value).isAggregate();
+    }
+    return super.isAggregate();
+  }
 }
 /* JavaCC - OriginalChecksum=30dc1016b686d4841bbd57d6e6c0bfbd (do not edit this line) */

@@ -354,5 +354,18 @@ public class OMathExpression extends SimpleNode {
     }
     return true;
   }
+
+  public boolean isAggregate() {
+    if (childExpressions == null) {
+      return false;
+    }
+    for (OMathExpression child : childExpressions) {
+      if (child.isAggregate()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 }
 /* JavaCC - OriginalChecksum=c255bea24e12493e1005ba2a4d1dbb9d (do not edit this line) */

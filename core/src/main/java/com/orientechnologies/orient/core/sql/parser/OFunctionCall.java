@@ -133,5 +133,10 @@ public class OFunctionCall extends SimpleNode {
     }
     return -1;
   }
+
+  public boolean isAggregate() {
+    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    return function.aggregateResults();
+  }
 }
 /* JavaCC - OriginalChecksum=290d4e1a3f663299452e05f8db718419 (do not edit this line) */
