@@ -72,5 +72,19 @@ public class OBaseIdentifier extends SimpleNode {
   public boolean isBaseIdentifier() {
     return suffix!=null && suffix.isBaseIdentifier();
   }
+
+  public boolean isAggregate() {
+    if(levelZero!=null){
+      return levelZero.isAggregate();//only functions
+    }
+    return false;
+  }
+
+  public boolean isFiltering() {
+    if(levelZero!=null){
+      return levelZero.isFiltering();//only functions
+    }
+    return false;
+  }
 }
 /* JavaCC - OriginalChecksum=ed89af10d8be41a83428c5608a4834f6 (do not edit this line) */

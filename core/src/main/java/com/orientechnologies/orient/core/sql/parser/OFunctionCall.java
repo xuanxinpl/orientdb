@@ -6,6 +6,7 @@ import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.exception.OCommandExecutionException;
 import com.orientechnologies.orient.core.sql.OSQLEngine;
 import com.orientechnologies.orient.core.sql.functions.OIndexableSQLFunction;
 import com.orientechnologies.orient.core.sql.functions.OSQLFunction;
@@ -78,11 +79,29 @@ public class OFunctionCall extends SimpleNode {
     for (OExpression expr : this.params) {
       paramValues.add(expr.execute((OIdentifiable) ctx.getVariable("$current"), ctx));
     }
+    if (isExpand()) {
+      return expanded(targetObjects, ctx, paramValues);
+    }
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name);
+    if (function != null && (function.aggregateResults() || function.filterResult())) {
+      OSQLFunction statefulFunction = ctx.getAggregateFunction(this);
+      if (statefulFunction != null) {
+        function = statefulFunction;
+      } else {
+        ctx.setAggregateFunction(this, function);
+      }
+    }
     if (function != null) {
       return function.execute(targetObjects, (OIdentifiable) ctx.getVariable("$current"), null, paramValues.toArray(), ctx);
     }
     throw new UnsupportedOperationException("finisho OFunctionCall implementation!");
+  }
+
+  private Object expanded(Object targetObjects, OCommandContext ctx, List<Object> paramValues) {
+    if(paramValues==null || paramValues.size()!=1){
+      throw new OCommandExecutionException("Invalid "+name+": wrong number of parameters");
+    }
+    return paramValues.get(0);
   }
 
   public static ODatabaseDocumentInternal getDatabase() {
@@ -135,8 +154,36 @@ public class OFunctionCall extends SimpleNode {
   }
 
   public boolean isAggregate() {
+    if (isExpand()) {
+      return false;
+    }
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
-    return function.aggregateResults();
+    return function != null && function.aggregateResults();
+  }
+
+  public boolean isFiltering() {
+    if (isExpand()) {
+      return false;
+    }
+    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    return function != null && function.filterResult();
+  }
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    OSQLFunction runtimeFunction = ctx.getAggregateFunction(this);
+    if (runtimeFunction == null) {
+      return null;
+    }
+    return runtimeFunction.getResult();
+  }
+
+  public boolean isExpand() {
+    // TODO REMOVE THIS!!! it's here only for backward compatibility with the old executor
+    String functionName = name.toString().toLowerCase();
+    if (functionName.equals("expand") || functionName.equals("flatten")) {
+      return true;
+    }
+    return false;
   }
 }
 /* JavaCC - OriginalChecksum=290d4e1a3f663299452e05f8db718419 (do not edit this line) */

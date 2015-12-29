@@ -2,9 +2,13 @@
 /* JavaCCOptions:MULTI=true,NODE_USES_PARSER=false,VISITOR=true,TRACK_TOKENS=true,NODE_PREFIX=O,NODE_EXTENDS=,NODE_FACTORY=,SUPPORT_CLASS_VISIBILITY_PUBLIC=true */
 package com.orientechnologies.orient.core.sql.parser;
 
+import com.orientechnologies.common.collection.OMultiValue;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.record.impl.ODocument;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class OArraySelector extends SimpleNode {
@@ -39,23 +43,45 @@ public class OArraySelector extends SimpleNode {
     }
   }
 
-    public Integer getValue(OIdentifiable iCurrentRecord, Object iResult, OCommandContext ctx) {
-      Object result = null;
+    public Object getValue(OIdentifiable iCurrentRecord, Object iResult, OCommandContext ctx) {
+      Object key = null;
       if (inputParam!= null) {
-        result = inputParam.bindFromInputParams(ctx.getInputParameters());
+        key = inputParam.bindFromInputParams(ctx.getInputParameters());
       } else if (expression != null) {
-        result = expression.execute(iCurrentRecord, ctx);
+        key = expression.execute(iCurrentRecord, ctx);
       } else if (integer != null) {
-        result = integer;
+        key = integer;
       }
 
-      if (result == null) {
+      if (key == null) {
         return null;
       }
-      if (result instanceof Number) {
-        return ((Number) result).intValue();
+      Object result = getValueFromKey(iResult, ctx, key);
+      return result;
+  }
+
+  private Object getValueFromKey(Object iResult, OCommandContext ctx, Object key) {
+    Object result = null;
+    if(iResult instanceof OIdentifiable) {
+      result = ((ODocument)((OIdentifiable) iResult).getRecord()).field(key.toString());
+    }else if(iResult instanceof Map) {
+      result = ((Map) iResult).get(key);
+    }else if(OMultiValue.isMultiValue(iResult)) {
+      if (key instanceof Number) {
+        result = OMultiValue.getValue(iResult, ((Number) key).intValue());
+      }else {
+        result = getPropertyFromList(iResult, key, ctx);
       }
-      return null;
+    }
+    return result;
+  }
+
+  private Object getPropertyFromList( Object iResult, Object key, OCommandContext ctx) {
+    List<Object> result = new ArrayList<Object>();
+    for(Object o: OMultiValue.getMultiValueIterable(iResult)){
+      result.add(getValueFromKey(iResult, ctx, key ));
+    }
+    return result;
   }
 }
 /* JavaCC - OriginalChecksum=f87a5543b1dad0fb5f6828a0663a7c9e (do not edit this line) */

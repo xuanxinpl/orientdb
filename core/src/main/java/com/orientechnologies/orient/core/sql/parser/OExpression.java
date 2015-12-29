@@ -89,8 +89,16 @@ public class OExpression extends SimpleNode {
     // return null;// TODO
     // }
 
-    return ("" + value).replaceAll("\\.", "_").replaceAll(" ", "_").replaceAll("\n", "_").replaceAll("\b", "_")
+    String result = ("" + value).replaceAll("\\.", "_").replaceAll(" ", "_").replaceAll("\n", "_").replaceAll("\b", "_")
         .replaceAll("\\[", "_").replaceAll("\\]", "_").replaceAll("\\(", "_").replaceAll("\\)", "_");
+
+    //TODO REMOVE THIS!!!
+    if(result.toLowerCase().startsWith("expand_") && result.endsWith("_")){
+      result = result.substring("expand_".length(), result.length()-1);
+    }else if(result.toLowerCase().startsWith("flatten_") && result.endsWith("_")){
+      result = result.substring("flatten_".length(), result.length()-1);
+    }
+    return result;
 
   }
 
@@ -182,6 +190,21 @@ public class OExpression extends SimpleNode {
   if (value instanceof OMathExpression) {
     return ((OMathExpression)value).isAggregate();
   }
+    return false;
+  }
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression)value).getAggregateResult(ctx);
+    }
+    return null;
+  }
+
+  public boolean isFiltering() {
+
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression)value).isFiltering();
+    }
     return false;
   }
 }

@@ -6,6 +6,8 @@ import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class OSuffixIdentifier extends SimpleNode {
@@ -71,6 +73,20 @@ public class OSuffixIdentifier extends SimpleNode {
       }
       if (currentValue instanceof Map) {
         return ((Map) currentValue).get(varName);
+      }
+      if(currentValue instanceof Iterable){
+        List result = new ArrayList();
+        for(Object item:(Iterable) currentValue){
+          Object subResult = execute(item, ctx);
+          if(subResult instanceof Iterable){
+            for(Object subItem:(Iterable) subResult){
+              result.add(subItem);
+            }
+          }else{
+            result.add(subResult);
+          }
+        }
+        return result;
       }
       throw new UnsupportedOperationException("Implement SuffixIdentifier!");
       // TODO other cases?

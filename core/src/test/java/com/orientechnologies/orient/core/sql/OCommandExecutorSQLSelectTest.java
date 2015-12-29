@@ -804,7 +804,7 @@ public class OCommandExecutorSQLSelectTest {
     List<ODocument> results = db.query(sql);
     assertEquals(results.size(), 1);
     ODocument doc = results.get(0);
-    assertEquals(doc.field("integer"), 1);
+    assertEquals(doc.field("integer"), 1l);
     assertEquals(doc.field("string"), "Test");
     assertNull(doc.field("nothing"));
     boolean nullFound = false;

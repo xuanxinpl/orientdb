@@ -12,6 +12,7 @@ import java.util.Map;
 
 public class OMathExpression extends SimpleNode {
 
+
   public enum Operator {
     PLUS {
       @Override
@@ -366,6 +367,29 @@ public class OMathExpression extends SimpleNode {
     }
     return false;
   }
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    if (childExpressions == null || childExpressions.size()!=1) {
+      return null;
+    }
+    for (OMathExpression child : childExpressions) {
+      return getAggregateResult(ctx);
+    }
+    return null;
+  }
+
+  public boolean isFiltering() {
+    if (childExpressions == null) {
+      return false;
+    }
+    for (OMathExpression child : childExpressions) {
+      if (child.isFiltering()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 
 }
 /* JavaCC - OriginalChecksum=c255bea24e12493e1005ba2a4d1dbb9d (do not edit this line) */

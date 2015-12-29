@@ -116,7 +116,7 @@ public class OSQLFunctionAverage extends OSQLFunctionMathAbstract {
 
   @Override
   public boolean aggregateResults() {
-    return configuredParameters.length == 1;
+    return configuredParameters!=null && configuredParameters.length == 1;
   }
 
   private Object computeAverage(Number iSum, int iTotal) {

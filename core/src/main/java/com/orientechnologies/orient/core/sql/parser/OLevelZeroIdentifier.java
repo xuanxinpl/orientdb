@@ -70,5 +70,20 @@ public class OLevelZeroIdentifier extends SimpleNode {
     }
     return null;
   }
+
+  public boolean isAggregate() {
+    if(this.functionCall!=null){
+      return functionCall.isAggregate();
+    }
+    return false;
+  }
+
+  public boolean isFiltering() {
+    if(this.functionCall!=null){
+      return functionCall.isFiltering();
+    }
+    return false;
+  }
+
 }
 /* JavaCC - OriginalChecksum=0305fcf120ba9395b4c975f85cdade72 (do not edit this line) */

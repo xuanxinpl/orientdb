@@ -19,12 +19,12 @@
   */
 package com.orientechnologies.orient.core.sql.functions.math;
 
-import java.util.Collection;
-import java.util.List;
-
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Compute the maximum value for a field. Uses the context to save the last maximum number. When different Number class are used,
@@ -87,7 +87,7 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
 
   public boolean aggregateResults() {
     // LET definitions (contain $current) does not require results aggregation
-    return ((configuredParameters.length == 1) && !configuredParameters[0].toString().contains("$current"));
+    return (configuredParameters!=null && configuredParameters.length == 1 && !configuredParameters[0].toString().contains("$current"));
   }
 
   public String getSyntax() {

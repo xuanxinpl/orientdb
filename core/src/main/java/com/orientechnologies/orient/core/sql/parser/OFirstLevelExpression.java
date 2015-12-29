@@ -2,6 +2,8 @@
 /* JavaCCOptions:MULTI=true,NODE_USES_PARSER=false,VISITOR=true,TRACK_TOKENS=true,NODE_PREFIX=O,NODE_EXTENDS=,NODE_FACTORY=,SUPPORT_CLASS_VISIBILITY_PUBLIC=true */
 package com.orientechnologies.orient.core.sql.parser;
 
+import com.orientechnologies.orient.core.command.OCommandContext;
+
 public class OFirstLevelExpression extends OMathExpression {
   public OFirstLevelExpression(int id) {
     super(id);
@@ -33,6 +35,21 @@ public class OFirstLevelExpression extends OMathExpression {
       return ((OFunctionCall)value).isAggregate();
     }
     return super.isAggregate();
+  }
+
+  public boolean isFiltering() {
+    if(value instanceof OFunctionCall){
+      return ((OFunctionCall)value).isFiltering();
+    }
+    return super.isFiltering();
+  }
+
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    if(value instanceof OFunctionCall){
+      return ((OFunctionCall)value).getAggregateResult(ctx);
+    }
+    return null;
   }
 }
 /* JavaCC - OriginalChecksum=30dc1016b686d4841bbd57d6e6c0bfbd (do not edit this line) */

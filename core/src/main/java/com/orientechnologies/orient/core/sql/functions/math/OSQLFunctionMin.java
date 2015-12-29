@@ -88,7 +88,7 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
 
   public boolean aggregateResults() {
     // LET definitions (contain $current) does not require results aggregation
-    return ((configuredParameters.length == 1) && !configuredParameters[0].toString().contains("$current"));
+    return (configuredParameters!=null && configuredParameters.length == 1 && !configuredParameters[0].toString().contains("$current"));
   }
 
   public String getSyntax() {

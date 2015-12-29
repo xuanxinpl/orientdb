@@ -113,5 +113,25 @@ public class OBaseExpression extends OMathExpression {
     }
     return false;
   }
+
+  public boolean isAggregate() {
+    if(super.isAggregate()){
+      return true;
+    }
+    if(identifier!=null){
+      return identifier.isAggregate();
+    }
+    return false;
+  }
+
+  public boolean isFiltering() {
+    if(super.isFiltering()){
+      return true;
+    }
+    if(identifier!=null){
+      return identifier.isFiltering();
+    }
+    return false;
+  }
 }
 /* JavaCC - OriginalChecksum=71b3e2d1b65c923dc7cfe11f9f449d2b (do not edit this line) */

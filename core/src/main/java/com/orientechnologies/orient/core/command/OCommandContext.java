@@ -20,6 +20,9 @@
 package com.orientechnologies.orient.core.command;
 
 import com.orientechnologies.common.concur.OTimeoutException;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.sql.functions.OSQLFunction;
+import com.orientechnologies.orient.core.sql.parser.OFunctionCall;
 
 import java.util.Map;
 
@@ -30,6 +33,11 @@ import java.util.Map;
  * 
  */
 public interface OCommandContext {
+
+  OSQLFunction getAggregateFunction(OFunctionCall oFunctionCall);
+
+  void setAggregateFunction(OFunctionCall oFunctionCall, OSQLFunction function);
+
   enum TIMEOUT_STRATEGY {
     RETURN, EXCEPTION
   }
@@ -91,5 +99,7 @@ public interface OCommandContext {
    * @param iContext
    */
   void merge(OCommandContext iContext);
+
+  ODatabaseDocumentTx getDatabase();
 
 }

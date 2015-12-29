@@ -79,7 +79,6 @@ import com.orientechnologies.orient.core.serialization.serializer.OStringSeriali
 import com.orientechnologies.orient.core.sql.filter.OFilterOptimizer;
 import com.orientechnologies.orient.core.sql.filter.OSQLFilter;
 import com.orientechnologies.orient.core.sql.filter.OSQLFilterCondition;
-import com.orientechnologies.orient.core.sql.filter.OSQLFilterItem;
 import com.orientechnologies.orient.core.sql.filter.OSQLFilterItemField;
 import com.orientechnologies.orient.core.sql.filter.OSQLFilterItemVariable;
 import com.orientechnologies.orient.core.sql.functions.OSQLFunctionRuntime;
@@ -2586,14 +2585,16 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
         }
 
         for (OIdentifiable id : tempResult) {
-          final Object fieldValue;
-          if (expandTarget instanceof OSQLFilterItem) {
-            fieldValue = ((OSQLFilterItem) expandTarget).getValue(id.getRecord(), null, context);
-          } else if (expandTarget instanceof OSQLFunctionRuntime) {
-            fieldValue = ((OSQLFunctionRuntime) expandTarget).getResult();
-          } else {
-            fieldValue = expandTarget.toString();
-          }
+//          final Object fieldValue;
+//          if (expandTarget instanceof OSQLFilterItem) {
+//            fieldValue = ((OSQLFilterItem) expandTarget).getValue(id.getRecord(), null, context);
+//          } else if (expandTarget instanceof OSQLFunctionRuntime) {
+//            fieldValue = ((OSQLFunctionRuntime) expandTarget).getResult();
+//          } else {
+//            fieldValue = expandTarget.toString();
+//          }
+          ODocument envelope = ((ODocument) id.getRecord());
+          final Object fieldValue = envelope.field(envelope.fieldNames()[0]);
 
           if (fieldValue != null) {
             if (fieldValue instanceof ODocument) {

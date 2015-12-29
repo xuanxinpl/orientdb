@@ -20,10 +20,14 @@
 package com.orientechnologies.orient.core.command;
 
 import com.orientechnologies.common.concur.OTimeoutException;
+import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.record.impl.ODocumentHelper;
 import com.orientechnologies.orient.core.serialization.serializer.OStringSerializerHelper;
+import com.orientechnologies.orient.core.sql.functions.OSQLFunction;
+import com.orientechnologies.orient.core.sql.parser.OFunctionCall;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,6 +54,8 @@ public class OBasicCommandContext implements OCommandContext {
   protected Map<String, Object>                                                      variables;
 
   protected Map<Object, Object>                                                      inputParameters;
+
+  protected Map<Object, OSQLFunction>                                                aggregateFunctions             = new HashMap<Object, OSQLFunction>();
 
   // MANAGES THE TIMEOUT
   private long                                                                       executionStartedOn;
@@ -139,7 +145,7 @@ public class OBasicCommandContext implements OCommandContext {
     if (this.variables != null && variables.containsKey(varName)) {
       return variables.get(varName);
     }
-    if (parent!=null && parent instanceof OBasicCommandContext) {
+    if (parent != null && parent instanceof OBasicCommandContext) {
       return ((OBasicCommandContext) parent).getVariableFromParentHierarchy(varName);
     }
     return null;
@@ -341,14 +347,28 @@ public class OBasicCommandContext implements OCommandContext {
 
   /**
    * adds an item to the unique result set
-   * @param o the result item to add
+   * 
+   * @param o
+   *          the result item to add
    * @return true if the element is successfully added (it was not present yet), false otherwise (it was already present)
    */
   public synchronized boolean addToUniqueResult(Object o) {
     Object toAdd = o;
-    if(o instanceof ODocument){
+    if (o instanceof ODocument) {
       toAdd = new ODocumentEqualityWrapper((ODocument) o);
     }
     return this.uniqueResult.add(toAdd);
+  }
+
+  public OSQLFunction getAggregateFunction(OFunctionCall oFunctionCall) {
+      return this.aggregateFunctions.get(oFunctionCall);
+  }
+
+  public void setAggregateFunction(OFunctionCall oFunctionCall, OSQLFunction function){
+    this.aggregateFunctions.put(oFunctionCall, function);
+  }
+
+  @Override public ODatabaseDocumentTx getDatabase() {
+    return (ODatabaseDocumentTx)ODatabaseRecordThreadLocal.INSTANCE.get();
   }
 }

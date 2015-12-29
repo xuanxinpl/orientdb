@@ -30,7 +30,6 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.sql.functions.OSQLFunctionRuntime;
 import com.orientechnologies.orient.core.sql.parser.OProjection;
 import com.orientechnologies.orient.core.sql.parser.OProjectionItem;
 
@@ -80,11 +79,10 @@ public class ORuntimeResult {
       for (OProjectionItem projection : iProjections.getItems()) {
         final String prjName = projection.getAlias();
 
-
-//        if (v == null && prjName != null) {
-//          iValue.field(prjName, (Object) null);
-//          continue;
-//        }
+        //        if (v == null && prjName != null) {
+        //          iValue.field(prjName, (Object) null);
+        //          continue;
+        //        }
 
         //TODO!!!
         final Object projectionValue;
@@ -94,14 +92,15 @@ public class ORuntimeResult {
           // CONTINUE WITH NEXT ITEM
           continue;
 
-        }else{
+        } else {
           projectionValue = projection.calculate(iRecord, iContext);
         }
 
-        if (projectionValue != null)
+        if (projectionValue != null){
           if (projectionValue instanceof ORidBag)
             iValue.field(prjName, new ORidBag((ORidBag) projectionValue));
-          else if (projectionValue instanceof OIdentifiable && !(projectionValue instanceof ORID) && !(projectionValue instanceof ORecord))
+          else if (projectionValue instanceof OIdentifiable && !(projectionValue instanceof ORID)
+              && !(projectionValue instanceof ORecord))
             iValue.field(prjName, ((OIdentifiable) projectionValue).getRecord());
           else if (projectionValue instanceof Iterator) {
             boolean link = true;
@@ -144,6 +143,9 @@ public class ORuntimeResult {
 
           } else
             iValue.field(prjName, projectionValue);
+        } else if(!projection.isFiltering(iContext, iContext.getDatabase()) && !projection.isAggregate(iContext, iContext.getDatabase())){
+          iValue.field(prjName, (Object) null);
+        }
       }
     }
 
@@ -167,7 +169,7 @@ public class ORuntimeResult {
     return true;
   }
 
-  public static ODocument getResult(final ODocument iValue, final OProjection iProjections) {
+  public static ODocument getResult(final ODocument iValue, final OProjection iProjections, OCommandContext ctx) {
     if (iValue != null) {
 
       boolean canExcludeResult = false;
@@ -175,16 +177,20 @@ public class ORuntimeResult {
       for (OProjectionItem projection : iProjections.getItems()) {
         if (!iValue.containsField(projection.getAlias())) {
           // ONLY IF NOT ALREADY CONTAINS A VALUE, OTHERWISE HAS BEEN SET MANUALLY (INDEX?)
-          final Object v = projection.getValue();
-          if (v instanceof OSQLFunctionRuntime) {
-            final OSQLFunctionRuntime f = (OSQLFunctionRuntime) v;
-            canExcludeResult = f.filterResult();
-
-            Object fieldValue = f.getResult();
-
+//          final Object v = projection.getValue();
+          if (projection.isFiltering(ctx, ctx.getDatabase())) {
+            canExcludeResult=true;
+            Object  fieldValue = projection.getAggregateResult(ctx);
+            //TODO
+//            final OSQLFunctionRuntime f = (OSQLFunctionRuntime) v;
+//            canExcludeResult = f.filterResult();
+//
+//            Object fieldValue = f.getResult();
+//
             if (fieldValue != null)
               iValue.field(projection.getAlias(), fieldValue);
           }
+
         }
       }
 
@@ -199,7 +205,7 @@ public class ORuntimeResult {
   }
 
   public static ODocument getProjectionResult(final int iId, final OProjection iProjections, final OCommandContext iContext, final OIdentifiable iRecord) {
-    return ORuntimeResult.getResult(ORuntimeResult.applyRecord(ORuntimeResult.createProjectionDocument(iId), iProjections, iContext, iRecord), iProjections);
+    return ORuntimeResult.getResult(ORuntimeResult.applyRecord(ORuntimeResult.createProjectionDocument(iId), iProjections, iContext, iRecord), iProjections, iContext);
   }
 
   public ODocument applyRecord(final OIdentifiable iRecord) {
@@ -220,7 +226,7 @@ public class ORuntimeResult {
   }
 
   public ODocument getResult() {
-    return getResult(value, projections);
+    return getResult(value, projections, context);
   }
 
   public Object getFieldValue() {

@@ -4,6 +4,7 @@ package com.orientechnologies.orient.core.sql.parser;
 
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 
 import java.util.Map;
@@ -90,6 +91,20 @@ public class OProjectionItem extends SimpleNode {
 
   public Object calculate(OIdentifiable targetRecord, OCommandContext ctx){
     return expression.execute(targetRecord, ctx);
+  }
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    if(expression!=null){
+      return expression.getAggregateResult(ctx);
+    }
+    return null;
+  }
+
+  public boolean isFiltering(OCommandContext ctx, ODatabaseDocumentTx database) {
+    if(expression!=null){
+      return expression.isFiltering();
+    }
+    return false;
   }
 }
 /* JavaCC - OriginalChecksum=6d6010734c7434a6f516e2eac308e9ce (do not edit this line) */

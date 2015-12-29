@@ -70,7 +70,7 @@ public class OSQLFunctionSum extends OSQLFunctionMathAbstract {
 
   @Override
   public boolean aggregateResults() {
-    return configuredParameters.length == 1;
+    return configuredParameters!=null && configuredParameters.length == 1;
   }
 
   public String getSyntax() {
