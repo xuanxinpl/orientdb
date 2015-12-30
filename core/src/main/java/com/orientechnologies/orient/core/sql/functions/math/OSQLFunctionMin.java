@@ -79,7 +79,7 @@ public class OSQLFunctionMin extends OSQLFunctionMathAbstract {
           context = (Comparable) min;
       }
 
-      return null;
+      return getResult();
     }
 
     // for non aggregated results (a result per output record)

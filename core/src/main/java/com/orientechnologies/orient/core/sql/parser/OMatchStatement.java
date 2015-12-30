@@ -581,6 +581,7 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
         }
         ODocument mapDoc = new ODocument();
         mapDoc.fromMap((Map) matchContext.matched);
+        //TODO colliding aliases
         doc.field(returnAlias, item.execute(mapDoc, ctx));
 
         i++;

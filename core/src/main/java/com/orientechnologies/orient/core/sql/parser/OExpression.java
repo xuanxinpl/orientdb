@@ -46,27 +46,27 @@ public class OExpression extends SimpleNode {
 
   }
 
-  public boolean isBaseIdentifier(){
-    if(value instanceof OMathExpression) {
-      return ((OMathExpression)value).isBaseIdentifier();
+  public boolean isBaseIdentifier() {
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression) value).isBaseIdentifier();
     }
 
     return false;
   }
 
-  public boolean isEarlyCalculated(){
-    if(value instanceof Number) {
+  public boolean isEarlyCalculated() {
+    if (value instanceof Number) {
       return true;
     }
-    if(value instanceof String) {
+    if (value instanceof String) {
       return true;
     }
-    if(value instanceof OInputParameter) {
+    if (value instanceof OInputParameter) {
       return true;
     }
 
-    if(value instanceof OMathExpression) {
-      return ((OMathExpression)value).isEarlyCalculated();
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression) value).isEarlyCalculated();
     }
 
     return false;
@@ -79,25 +79,13 @@ public class OExpression extends SimpleNode {
     }
     // TODO create an interface for this;
 
-    // if (value instanceof ORid) {
-    // return null;// TODO
-    // } else if (value instanceof OInputParameter) {
-    // return null;// TODO
-    // } else if (value instanceof OMathExpression) {
-    // return null;// TODO
-    // } else if (value instanceof OJson) {
-    // return null;// TODO
-    // }
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression) value).getDefaultAlias().split("\\.")[0].split("\\[")[0];
+    }
 
-    String result = ("" + value).replaceAll("\\.", "_").replaceAll(" ", "_").replaceAll("\n", "_").replaceAll("\b", "_")
+    String result = ("" + value).split("\\.")[0].replaceAll(" ", "_").replaceAll("\n", "_").replaceAll("\b", "_")
         .replaceAll("\\[", "_").replaceAll("\\]", "_").replaceAll("\\(", "_").replaceAll("\\)", "_");
 
-    //TODO REMOVE THIS!!!
-    if(result.toLowerCase().startsWith("expand_") && result.endsWith("_")){
-      result = result.substring("expand_".length(), result.length()-1);
-    }else if(result.toLowerCase().startsWith("flatten_") && result.endsWith("_")){
-      result = result.substring("flatten_".length(), result.length()-1);
-    }
     return result;
 
   }
@@ -120,16 +108,16 @@ public class OExpression extends SimpleNode {
 
   public static String encode(String s) {
     StringBuilder builder = new StringBuilder(s.length());
-    for(char c:s.toCharArray()){
-      if(c=='\n'){
+    for (char c : s.toCharArray()) {
+      if (c == '\n') {
         builder.append("\\n");
         continue;
       }
-      if(c=='\t'){
+      if (c == '\t') {
         builder.append("\\t");
         continue;
       }
-      if(c=='\\' || c == '"'){
+      if (c == '\\' || c == '"') {
         builder.append("\\");
       }
       builder.append(c);
@@ -154,16 +142,16 @@ public class OExpression extends SimpleNode {
   public static String encodeSingle(String s) {
 
     StringBuilder builder = new StringBuilder(s.length());
-    for(char c:s.toCharArray()){
-      if(c=='\n'){
+    for (char c : s.toCharArray()) {
+      if (c == '\n') {
         builder.append("\\n");
         continue;
       }
-      if(c=='\t'){
+      if (c == '\t') {
         builder.append("\\t");
         continue;
       }
-      if(c=='\\' || c == '\''){
+      if (c == '\\' || c == '\'') {
         builder.append("\\");
       }
       builder.append(c);
@@ -186,16 +174,16 @@ public class OExpression extends SimpleNode {
     return null;
   }
 
-  public boolean isAggregate(){
-  if (value instanceof OMathExpression) {
-    return ((OMathExpression)value).isAggregate();
-  }
+  public boolean isAggregate() {
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression) value).isAggregate();
+    }
     return false;
   }
 
   public Object getAggregateResult(OCommandContext ctx) {
     if (value instanceof OMathExpression) {
-      return ((OMathExpression)value).getAggregateResult(ctx);
+      return ((OMathExpression) value).getAggregateResult(ctx);
     }
     return null;
   }
@@ -203,7 +191,7 @@ public class OExpression extends SimpleNode {
   public boolean isFiltering() {
 
     if (value instanceof OMathExpression) {
-      return ((OMathExpression)value).isFiltering();
+      return ((OMathExpression) value).isFiltering();
     }
     return false;
   }

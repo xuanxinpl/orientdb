@@ -85,5 +85,15 @@ public class OLevelZeroIdentifier extends SimpleNode {
     return false;
   }
 
+  public String getDefaultAlias() {
+    if (functionCall != null) {
+      return functionCall.getDefaultAlias();
+    } else if (Boolean.TRUE.equals(self)) {
+      return "this";
+    } else if (collection != null) {
+      return collection.toString();
+    }
+    return "_col";
+  }
 }
 /* JavaCC - OriginalChecksum=0305fcf120ba9395b4c975f85cdade72 (do not edit this line) */

@@ -24,7 +24,7 @@ public class OSQLFunctionConcat extends OSQLFunctionConfigurableAbstract{
 			if(iParams.length>1) sb.append(iParams[1]);
 		}
 		sb.append(iParams[0]);
-		return null;
+		return getResult();
 	}
 	
 	@Override

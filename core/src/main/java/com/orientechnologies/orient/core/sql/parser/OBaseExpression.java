@@ -133,5 +133,19 @@ public class OBaseExpression extends OMathExpression {
     }
     return false;
   }
+
+  public String getDefaultAlias() {
+    if (number != null) {
+      return number.toString();
+    } else if (identifier != null) {
+      return identifier.getDefaultAlias();
+    } else if (string != null) {
+      return string;
+    } else if (inputParam != null) {
+      return inputParam.toString();
+    }
+    return "_col";
+  }
+
 }
 /* JavaCC - OriginalChecksum=71b3e2d1b65c923dc7cfe11f9f449d2b (do not edit this line) */

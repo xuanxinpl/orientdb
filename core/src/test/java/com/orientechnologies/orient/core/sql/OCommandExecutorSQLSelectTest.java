@@ -779,8 +779,8 @@ public class OCommandExecutorSQLSelectTest {
     assertEquals(5, doc.field("collection_size"));
     assertEquals(130, doc.field("collection_sum"));
     assertEquals(26, doc.field("collection_avg"));
-    assertEquals(0, doc.field("collection_min"));
     assertEquals(50, doc.field("collection_max"));
+    assertEquals(0, doc.field("collection_min"));
   }
 
   @Test

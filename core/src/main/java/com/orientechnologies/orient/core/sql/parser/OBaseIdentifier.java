@@ -86,5 +86,14 @@ public class OBaseIdentifier extends SimpleNode {
     }
     return false;
   }
+
+  public String getDefaultAlias() {
+    if(levelZero!=null)
+      return levelZero.getDefaultAlias();
+    if(suffix!=null){
+      return suffix.getDefaultAlias();
+    }
+    return "_col";
+  }
 }
 /* JavaCC - OriginalChecksum=ed89af10d8be41a83428c5608a4834f6 (do not edit this line) */

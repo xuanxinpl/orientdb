@@ -179,7 +179,8 @@ public class ORuntimeResult {
           // ONLY IF NOT ALREADY CONTAINS A VALUE, OTHERWISE HAS BEEN SET MANUALLY (INDEX?)
 //          final Object v = projection.getValue();
           if (projection.isFiltering(ctx, ctx.getDatabase())) {
-            canExcludeResult=true;
+            canExcludeResult = true;
+          }
             Object  fieldValue = projection.getAggregateResult(ctx);
             //TODO
 //            final OSQLFunctionRuntime f = (OSQLFunctionRuntime) v;
@@ -189,7 +190,7 @@ public class ORuntimeResult {
 //
             if (fieldValue != null)
               iValue.field(projection.getAlias(), fieldValue);
-          }
+
 
         }
       }

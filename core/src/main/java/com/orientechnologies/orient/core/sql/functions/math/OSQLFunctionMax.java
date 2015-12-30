@@ -78,7 +78,7 @@ public class OSQLFunctionMax extends OSQLFunctionMathAbstract {
           context = (Comparable) max;
       }
 
-      return null;
+      return getResult();
     }
 
     // for non aggregated results (a result per output record)

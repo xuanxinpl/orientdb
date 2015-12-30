@@ -390,6 +390,13 @@ public class OMathExpression extends SimpleNode {
     return false;
   }
 
+  public String getDefaultAlias() {
+    if(childExpressions!=null && childExpressions.size()>0){
+      return childExpressions.get(0).getDefaultAlias();
+    }
+    return null;
+  }
+
 
 }
 /* JavaCC - OriginalChecksum=c255bea24e12493e1005ba2a4d1dbb9d (do not edit this line) */

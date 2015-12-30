@@ -83,6 +83,7 @@ public class OFunctionCall extends SimpleNode {
       return expanded(targetObjects, ctx, paramValues);
     }
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name);
+    function.config(params.toArray());//TODO
     if (function != null && (function.aggregateResults() || function.filterResult())) {
       OSQLFunction statefulFunction = ctx.getAggregateFunction(this);
       if (statefulFunction != null) {
@@ -98,8 +99,8 @@ public class OFunctionCall extends SimpleNode {
   }
 
   private Object expanded(Object targetObjects, OCommandContext ctx, List<Object> paramValues) {
-    if(paramValues==null || paramValues.size()!=1){
-      throw new OCommandExecutionException("Invalid "+name+": wrong number of parameters");
+    if (paramValues == null || paramValues.size() != 1) {
+      throw new OCommandExecutionException("Invalid " + name + ": wrong number of parameters");
     }
     return paramValues.get(0);
   }
@@ -110,6 +111,7 @@ public class OFunctionCall extends SimpleNode {
 
   public boolean isIndexedFunctionCall() {
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    function.config(params.toArray());//TODO
     return (function instanceof OIndexableSQLFunction);
   }
 
@@ -125,6 +127,7 @@ public class OFunctionCall extends SimpleNode {
   public Iterable<OIdentifiable> executeIndexedFunction(OFromClause target, OCommandContext ctx, OBinaryCompareOperator operator,
       Object rightValue) {
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    function.config(params.toArray());//TODO
     if (function instanceof OIndexableSQLFunction) {
       return ((OIndexableSQLFunction) function).searchFromTarget(target, operator, rightValue, ctx,
           this.getParams().toArray(new OExpression[] {}));
@@ -158,6 +161,7 @@ public class OFunctionCall extends SimpleNode {
       return false;
     }
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    function.config(params.toArray());//TODO
     return function != null && function.aggregateResults();
   }
 
@@ -166,6 +170,7 @@ public class OFunctionCall extends SimpleNode {
       return false;
     }
     OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
+    function.config(params.toArray());//TODO
     return function != null && function.filterResult();
   }
 
@@ -184,6 +189,16 @@ public class OFunctionCall extends SimpleNode {
       return true;
     }
     return false;
+  }
+
+  public String getDefaultAlias() {
+    if (name.toString().equalsIgnoreCase("expand") && params.size() > 0) {
+      return params.get(0).toString();
+    }
+    if (name.toString().equalsIgnoreCase("flatten") && params.size() > 0) {
+      return params.get(0).toString();
+    }
+    return name.toString();
   }
 }
 /* JavaCC - OriginalChecksum=290d4e1a3f663299452e05f8db718419 (do not edit this line) */

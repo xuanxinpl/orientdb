@@ -51,5 +51,15 @@ public class OFirstLevelExpression extends OMathExpression {
     }
     return null;
   }
+
+  public String getDefaultAlias() {
+    if (value instanceof OIdentifier) {
+      return value.toString();
+    }
+    if(value instanceof OFunctionCall){
+      return ((OFunctionCall)value).getDefaultAlias();
+    }
+    return super.getDefaultAlias();
+  }
 }
 /* JavaCC - OriginalChecksum=30dc1016b686d4841bbd57d6e6c0bfbd (do not edit this line) */
