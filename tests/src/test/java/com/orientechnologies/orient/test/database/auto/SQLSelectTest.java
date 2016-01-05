@@ -15,7 +15,6 @@
  */
 package com.orientechnologies.orient.test.database.auto;
 
-import com.orientechnologies.common.concur.OTimeoutException;
 import com.orientechnologies.orient.core.command.OCommandResultListener;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.id.ORID;
@@ -40,7 +39,16 @@ import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -249,8 +257,10 @@ public class SQLSelectTest extends AbstractSelectTest {
 
     List<ODocument> resultset = executeQuery("select coll[name='Jay'] as value from Profile where coll is not null", database);
     Assert.assertEquals(resultset.size(), 1);
-    Assert.assertEquals(resultset.get(0).field("value").getClass(), ODocument.class);
-    Assert.assertEquals(((ODocument) resultset.get(0).field("value")).field("name"), "Jay");
+    Object value = resultset.get(0).field("value");
+    Assert.assertTrue(value instanceof Collection);
+    Object item = ((Collection)value).iterator().next();
+    Assert.assertEquals(((ODocument) item).field("name"), "Jay");
 
     doc.delete();
   }
@@ -268,8 +278,10 @@ public class SQLSelectTest extends AbstractSelectTest {
 
     List<ODocument> resultset = executeQuery("select coll[name='Jay'] as value from Profile where coll is not null", database);
     Assert.assertEquals(resultset.size(), 1);
-    Assert.assertEquals(resultset.get(0).field("value").getClass(), ODocument.class);
-    Assert.assertEquals(((ODocument) resultset.get(0).field("value")).field("name"), "Jay");
+    Object value = resultset.get(0).field("value");
+    Assert.assertTrue(value instanceof Collection);
+    Object element = ((Collection) value).iterator().next();
+    Assert.assertEquals(((ODocument) element).field("name"), "Jay");
 
     doc.delete();
   }

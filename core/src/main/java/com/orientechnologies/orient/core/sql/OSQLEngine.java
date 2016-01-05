@@ -393,7 +393,8 @@ public class OSQLEngine {
   public OSQLFunction getFunction(String iFunctionName) {
     iFunctionName = iFunctionName.toLowerCase(Locale.ENGLISH);
 
-    if (iFunctionName.equalsIgnoreCase("any") || iFunctionName.equalsIgnoreCase("all"))
+//    if (iFunctionName.equalsIgnoreCase("any") || iFunctionName.equalsIgnoreCase("all"))
+    if (iFunctionName.equalsIgnoreCase("all"))
       // SPECIAL FUNCTIONS
       return null;
 

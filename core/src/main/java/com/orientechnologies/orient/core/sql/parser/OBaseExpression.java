@@ -124,6 +124,15 @@ public class OBaseExpression extends OMathExpression {
     return false;
   }
 
+  public Object getAggregateResult(OCommandContext ctx) {
+    if(identifier!=null){
+      return identifier.getAggregateResult(ctx);
+    }
+
+    return null;
+  }
+
+
   public boolean isFiltering() {
     if(super.isFiltering()){
       return true;
@@ -140,7 +149,7 @@ public class OBaseExpression extends OMathExpression {
     } else if (identifier != null) {
       return identifier.getDefaultAlias();
     } else if (string != null) {
-      return string;
+      return string.substring(1, string.length() - 1);
     } else if (inputParam != null) {
       return inputParam.toString();
     }

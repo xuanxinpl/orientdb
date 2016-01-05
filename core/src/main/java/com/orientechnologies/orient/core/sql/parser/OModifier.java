@@ -71,7 +71,7 @@ public class OModifier extends SimpleNode {
       result = filterByCondition(iCurrentRecord, result, ctx);
     } else if (arraySingleValues != null) {
       result = arraySingleValues.execute(iCurrentRecord, result, ctx);
-    } 
+    }
     if (next != null) {
       result = next.execute(iCurrentRecord, result, ctx);
     }

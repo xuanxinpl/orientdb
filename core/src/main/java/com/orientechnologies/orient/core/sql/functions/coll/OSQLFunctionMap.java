@@ -84,6 +84,10 @@ public class OSQLFunctionMap extends OSQLFunctionMultiValueAbstract<Map<Object, 
     return "map(<map>|[<key>,<value>]*)";
   }
 
+  public boolean aggregateResults() {
+    return aggregateResults(configuredParameters);
+  }
+
   public boolean aggregateResults(final Object[] configuredParameters) {
     return configuredParameters.length <= 2;
   }

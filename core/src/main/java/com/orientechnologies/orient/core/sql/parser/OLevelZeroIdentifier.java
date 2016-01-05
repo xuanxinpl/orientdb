@@ -78,6 +78,14 @@ public class OLevelZeroIdentifier extends SimpleNode {
     return false;
   }
 
+  public Object getAggregateResult(OCommandContext ctx) {
+    if(functionCall!=null){
+      return functionCall.getAggregateResult(ctx);
+    }
+
+    return null;
+  }
+
   public boolean isFiltering() {
     if(this.functionCall!=null){
       return functionCall.isFiltering();

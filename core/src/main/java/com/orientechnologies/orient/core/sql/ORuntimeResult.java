@@ -35,6 +35,7 @@ import com.orientechnologies.orient.core.sql.parser.OProjectionItem;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -76,8 +77,16 @@ public class ORuntimeResult {
       inputDocument.copyTo(iValue);
     else {
 
+      Set<String> usedProjections = new HashSet<String>();
       for (OProjectionItem projection : iProjections.getItems()) {
-        final String prjName = projection.getAlias();
+        String prjName = projection.getAlias();
+        String completeProjectionName = prjName;
+        int prjSuffix = 1;
+        while(usedProjections.contains(completeProjectionName)){
+          completeProjectionName = prjName+(++prjSuffix);
+        }
+        usedProjections.add(completeProjectionName);
+        prjName = completeProjectionName;
 
         //        if (v == null && prjName != null) {
         //          iValue.field(prjName, (Object) null);

@@ -90,7 +90,9 @@ public class OProjectionItem extends SimpleNode {
   }
 
   public Object calculate(OIdentifiable targetRecord, OCommandContext ctx){
-    return expression.execute(targetRecord, ctx);
+    Object result = expression.execute(targetRecord, ctx);
+
+    return result;
   }
 
   public Object getAggregateResult(OCommandContext ctx) {

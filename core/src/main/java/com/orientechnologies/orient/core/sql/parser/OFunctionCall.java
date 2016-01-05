@@ -77,13 +77,16 @@ public class OFunctionCall extends SimpleNode {
   private Object execute(Object targetObjects, OCommandContext ctx, String name) {
     List<Object> paramValues = new ArrayList<Object>();
     for (OExpression expr : this.params) {
-      paramValues.add(expr.execute((OIdentifiable) ctx.getVariable("$current"), ctx));
+      OIdentifiable currentRecord = (OIdentifiable) ctx.getVariable("$current");
+      if(currentRecord == null && targetObjects instanceof OIdentifiable){
+        currentRecord = (OIdentifiable) targetObjects; //it happens in case of indexes, drop all this with new executor
+      }
+      paramValues.add(expr.execute(currentRecord, ctx));
     }
     if (isExpand()) {
       return expanded(targetObjects, ctx, paramValues);
     }
-    OSQLFunction function = OSQLEngine.getInstance().getFunction(name);
-    function.config(params.toArray());//TODO
+    OSQLFunction function = instantiateOsqlFunction();
     if (function != null && (function.aggregateResults() || function.filterResult())) {
       OSQLFunction statefulFunction = ctx.getAggregateFunction(this);
       if (statefulFunction != null) {
@@ -110,8 +113,7 @@ public class OFunctionCall extends SimpleNode {
   }
 
   public boolean isIndexedFunctionCall() {
-    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
-    function.config(params.toArray());//TODO
+    OSQLFunction function = instantiateOsqlFunction();
     return (function instanceof OIndexableSQLFunction);
   }
 
@@ -126,11 +128,10 @@ public class OFunctionCall extends SimpleNode {
    */
   public Iterable<OIdentifiable> executeIndexedFunction(OFromClause target, OCommandContext ctx, OBinaryCompareOperator operator,
       Object rightValue) {
-    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
-    function.config(params.toArray());//TODO
+    OSQLFunction function = instantiateOsqlFunction();
     if (function instanceof OIndexableSQLFunction) {
       return ((OIndexableSQLFunction) function).searchFromTarget(target, operator, rightValue, ctx,
-          this.getParams().toArray(new OExpression[] {}));
+          this.getParams().toArray(new OExpression[] { }));
     }
     return null;
   }
@@ -160,8 +161,7 @@ public class OFunctionCall extends SimpleNode {
     if (isExpand()) {
       return false;
     }
-    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
-    function.config(params.toArray());//TODO
+    OSQLFunction function = instantiateOsqlFunction();
     return function != null && function.aggregateResults();
   }
 
@@ -169,17 +169,23 @@ public class OFunctionCall extends SimpleNode {
     if (isExpand()) {
       return false;
     }
-    OSQLFunction function = OSQLEngine.getInstance().getFunction(name.getValue());
-    function.config(params.toArray());//TODO
+    OSQLFunction function = instantiateOsqlFunction();
     return function != null && function.filterResult();
   }
 
   public Object getAggregateResult(OCommandContext ctx) {
     OSQLFunction runtimeFunction = ctx.getAggregateFunction(this);
     if (runtimeFunction == null) {
-      return null;
+      runtimeFunction = instantiateOsqlFunction();
     }
     return runtimeFunction.getResult();
+  }
+
+  private OSQLFunction instantiateOsqlFunction() {
+    OSQLFunction runtimeFunction;
+    runtimeFunction = OSQLEngine.getInstance().getFunction(name.getValue());
+    runtimeFunction.config(params.toArray());//TODO
+    return runtimeFunction;
   }
 
   public boolean isExpand() {

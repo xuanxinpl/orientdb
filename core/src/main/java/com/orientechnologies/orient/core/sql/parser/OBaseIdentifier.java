@@ -80,6 +80,16 @@ public class OBaseIdentifier extends SimpleNode {
     return false;
   }
 
+
+  public Object getAggregateResult(OCommandContext ctx) {
+    if(levelZero!=null){
+      return levelZero.getAggregateResult(ctx);
+    }
+
+    return null;
+  }
+
+
   public boolean isFiltering() {
     if(levelZero!=null){
       return levelZero.isFiltering();//only functions

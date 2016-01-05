@@ -262,9 +262,9 @@ public class SQLFunctionsTest extends DocumentDBBaseTest {
     List myresult = document.field("myresult");
     Assert.assertNotNull(myresult);
 
-    Assert.assertTrue(myresult.remove(Integer.valueOf(1)));
-    Assert.assertTrue(myresult.remove(Integer.valueOf(4)));
-    Assert.assertTrue(myresult.remove(Float.valueOf(5)));
+    Assert.assertTrue(myresult.remove(Long.valueOf(1)));
+    Assert.assertTrue(myresult.remove(Long.valueOf(4)));
+    Assert.assertTrue(myresult.remove(Double.valueOf(5)));
     Assert.assertTrue(myresult.remove("john"));
 
     Assert.assertEquals(myresult.size(), 1);

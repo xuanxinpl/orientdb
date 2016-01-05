@@ -48,10 +48,10 @@ public class OSuffixIdentifier extends SimpleNode {
       if (ctx.getVariable(varName) != null) {
         return ctx.getVariable(varName);
       }
-      return ((ODocument) iCurrentRecord.getRecord()).field(varName);
+      return ((ODocument) iCurrentRecord.getRecord()).rawField(varName);
     }
     if (recordAttribute != null) {
-      return ((ODocument) iCurrentRecord.getRecord()).field(recordAttribute.name);
+      return ((ODocument) iCurrentRecord.getRecord()).rawField(recordAttribute.name);
     }
     return null;
   }
@@ -78,7 +78,9 @@ public class OSuffixIdentifier extends SimpleNode {
         List result = new ArrayList();
         for(Object item:(Iterable) currentValue){
           Object subResult = execute(item, ctx);
-          if(subResult instanceof Iterable){
+          if(subResult instanceof OIdentifiable){
+            result.add(subResult);
+          }else if(subResult instanceof Iterable){
             for(Object subItem:(Iterable) subResult){
               result.add(subItem);
             }
@@ -112,7 +114,11 @@ public class OSuffixIdentifier extends SimpleNode {
     if (identifier != null) {
       return identifier.toString();
     } else if (recordAttribute != null) {
-      return recordAttribute.toString();
+      String result = recordAttribute.toString();
+      if(result.startsWith("@")){
+        result  = result.substring(1);
+      }
+      return result;
     } else if (star) {
       return "*";
     }

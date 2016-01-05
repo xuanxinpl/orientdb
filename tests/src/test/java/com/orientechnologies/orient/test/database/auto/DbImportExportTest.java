@@ -97,5 +97,6 @@ public class DbImportExportTest extends DocumentDBBaseTest implements OCommandOu
   @Override
   @Test(enabled = false)
   public void onMessage(final String iText) {
+    System.out.println(iText);
   }
 }

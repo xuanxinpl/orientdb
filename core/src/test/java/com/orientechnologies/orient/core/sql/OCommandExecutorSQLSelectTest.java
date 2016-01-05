@@ -148,10 +148,10 @@ public class OCommandExecutorSQLSelectTest {
     }
 
     ORecordIteratorClass<ODocument> iter = db.browseClass("alphabet");
+
     while (iter.hasNext()) {
       iter.next().delete();
     }
-
     // add 26 entries: { "letter": "A", "number": 0 }, ... { "letter": "Z", "number": 25 }
 
     String rowModel = "{\"letter\": \"%s\", \"number\": %d}";
@@ -176,6 +176,22 @@ public class OCommandExecutorSQLSelectTest {
     initMatchesWithRegex(db);
     initDistinctLimit(db);
     initLinkListSequence(db);
+    initGroupByTest(db);
+  }
+
+  private void initGroupByTest(ODatabaseDocumentTx db) {
+    db.command(new OCommandSQL("CREATE class GroupByTest")).execute();
+
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'foo'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'foo'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'bar'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'bar'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'bar'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'zzz'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = 'aaa'")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set name = null")).execute();
+    db.command(new OCommandSQL("insert into GroupByTest set surname = 'blue'")).execute();
+
   }
 
   private void initLinkListSequence(ODatabaseDocumentTx db) {
@@ -1034,6 +1050,20 @@ public class OCommandExecutorSQLSelectTest {
       assertTrue(value.equals("1.1.1") ||value.equals("1.1.2"));
     }
   }
+
+  @Test
+  public void testGroupBy() {
+    OSQLSynchQuery sql = new OSQLSynchQuery("select name from GroupByTest group by name order by name");
+    List<ODocument> result = db.query(sql);
+    assertEquals(result.size(), 5);
+    String last = null;
+    for (ODocument d : result) {
+      if (last != null)
+        assertTrue(last.compareTo((String) d.field("name")) < 0);
+      last = d.field("name");
+    }
+  }
+
 
   private long indexUsages(ODatabaseDocumentTx db) {
     final long oldIndexUsage;

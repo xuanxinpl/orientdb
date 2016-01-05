@@ -4,6 +4,8 @@ package com.orientechnologies.orient.core.sql.parser;
 
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.record.impl.ODocument;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,7 +32,20 @@ public class OInstanceofCondition extends OBooleanExpression {
 
   @Override
   public boolean evaluate(OIdentifiable currentRecord, OCommandContext ctx) {
-    return false;
+    Object leftValue = left.execute(currentRecord, ctx);
+    if(leftValue==null || !(leftValue instanceof OIdentifiable)){
+      return false;
+    }
+    OClass leftClass = ((ODocument)((OIdentifiable) leftValue).getRecord()).getSchemaClass();
+
+    String rightValue;
+    if(right!=null){
+      rightValue = right.toString();
+    }else{
+      rightValue = rightString;
+    }
+    return leftClass.isSubClassOf(rightValue);
+
   }
 
   public void toString(Map<Object, Object> params, StringBuilder builder) {

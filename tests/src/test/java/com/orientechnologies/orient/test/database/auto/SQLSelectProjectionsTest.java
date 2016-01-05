@@ -198,7 +198,7 @@ public class SQLSelectProjectionsTest extends DocumentDBBaseTest {
 
     for (ODocument d : result) {
       Assert.assertTrue(d.fieldNames().length <= 2);
-      Assert.assertEquals(((Integer) d.field("10")).intValue(), 10l);
+      Assert.assertEquals(((Long) d.field("10")).intValue(), 10l);
       Assert.assertEquals(d.field("ciao"), "ciao");
 
       Assert.assertNull(d.getClassName());
