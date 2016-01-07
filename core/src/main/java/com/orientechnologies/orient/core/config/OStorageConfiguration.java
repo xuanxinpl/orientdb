@@ -772,7 +772,8 @@ public class OStorageConfiguration implements OSerializableStream {
   }
 
   public boolean isStrictSql() {
-    return strictSQL;
+    return true;
+//    return strictSQL;
   }
 
   public boolean isTxRequiredForSQLGraphOperations() {
