@@ -32,7 +32,6 @@ public class OLuceneFulltextExpIndexTest extends BaseLuceneTest {
     super();
   }
 
-  @Before
   public void init() throws IOException {
     OLogManager.instance().installCustomFormatter();
     OLogManager.instance().setConsoleLevel(Level.INFO.getName());
@@ -73,13 +72,11 @@ public class OLuceneFulltextExpIndexTest extends BaseLuceneTest {
 
   }
 
-  @After
   public void after() {
 
     deInitDB();
   }
 
-  @Test
   public void testName() throws Exception {
 
     final ODocument index = databaseDocumentTx.getMetadata().getIndexManager().getIndex("Song.all").getMetadata();
@@ -108,7 +105,6 @@ public class OLuceneFulltextExpIndexTest extends BaseLuceneTest {
 
   }
 
-  @Test
   public void testName2() throws Exception {
     List<ODocument> docs = databaseDocumentTx
         .query(new OSQLSynchQuery<ODocument>("select * from Song where [title,author] LUCENEEXP \"Song.author:Fabbio\""));

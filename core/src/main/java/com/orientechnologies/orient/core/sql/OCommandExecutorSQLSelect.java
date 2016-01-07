@@ -1220,7 +1220,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
 
         OProjectionItem entry = projections.getItems().get(0);
 
-        if (entry.toString().equals("count(*)")) {
+        if (entry.getExpression().toString().equals("count(*)")) {//TODO clean this!
 
           final boolean restrictedClasses = isUsingRestrictedClasses();
 
