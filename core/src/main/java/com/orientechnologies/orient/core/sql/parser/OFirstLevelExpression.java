@@ -4,6 +4,8 @@ package com.orientechnologies.orient.core.sql.parser;
 
 import com.orientechnologies.orient.core.command.OCommandContext;
 
+import java.util.List;
+
 public class OFirstLevelExpression extends OMathExpression {
   public OFirstLevelExpression(int id) {
     super(id);
@@ -61,5 +63,15 @@ public class OFirstLevelExpression extends OMathExpression {
     }
     return super.getDefaultAlias();
   }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+
+    if(value instanceof OFunctionCall){
+      return ((OFunctionCall)value).mergeDistributedResult(toMerge);
+    }
+
+    throw new IllegalStateException("Expression cannot be merged: "+toString());//TODO replace this with a proper exception!
+  }
+
 }
 /* JavaCC - OriginalChecksum=30dc1016b686d4841bbd57d6e6c0bfbd (do not edit this line) */

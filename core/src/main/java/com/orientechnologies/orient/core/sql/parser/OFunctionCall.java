@@ -206,5 +206,9 @@ public class OFunctionCall extends SimpleNode {
     }
     return name.toString();
   }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    return instantiateOsqlFunction().mergeDistributedResult(toMerge);
+  }
 }
 /* JavaCC - OriginalChecksum=290d4e1a3f663299452e05f8db718419 (do not edit this line) */

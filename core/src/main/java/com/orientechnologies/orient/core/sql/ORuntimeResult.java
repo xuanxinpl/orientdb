@@ -152,7 +152,7 @@ public class ORuntimeResult {
 
           } else
             iValue.field(prjName, projectionValue);
-        } else if(!projection.isFiltering(iContext, iContext.getDatabase()) && !projection.isAggregate(iContext, iContext.getDatabase())){
+        } else if(!projection.isFiltering(iContext, iContext.getDatabase()) && !projection.isAggregate()){
           iValue.field(prjName, (Object) null);
         }
       }

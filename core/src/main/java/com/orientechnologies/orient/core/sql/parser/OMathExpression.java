@@ -398,5 +398,15 @@ public class OMathExpression extends SimpleNode {
   }
 
 
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if (childExpressions == null) {
+      return toMerge;
+    }
+    if(childExpressions.size()>1){
+      throw new IllegalStateException("Expression cannot be merged: "+toString());//TODO replace this with a proper exception!
+    }
+    return childExpressions.get(0).mergeDistributedResult(toMerge);
+  }
+
 }
 /* JavaCC - OriginalChecksum=c255bea24e12493e1005ba2a4d1dbb9d (do not edit this line) */

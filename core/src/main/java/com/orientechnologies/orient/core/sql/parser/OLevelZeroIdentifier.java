@@ -5,6 +5,7 @@ package com.orientechnologies.orient.core.sql.parser;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 
+import java.util.List;
 import java.util.Map;
 
 public class OLevelZeroIdentifier extends SimpleNode {
@@ -102,6 +103,14 @@ public class OLevelZeroIdentifier extends SimpleNode {
       return collection.toString();
     }
     return "_col";
+  }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if(functionCall!=null){
+      return functionCall.mergeDistributedResult(toMerge);
+    }
+
+    throw new IllegalStateException("Expression cannot be merged: "+toString());//TODO replace this with a proper exception!
   }
 }
 /* JavaCC - OriginalChecksum=0305fcf120ba9395b4c975f85cdade72 (do not edit this line) */

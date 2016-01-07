@@ -445,7 +445,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
       if (projections != null && projections.getItems() != null) {
         for (OProjectionItem p : projections.getItems()) {
 
-          if (p.isAggregate(getContext(), getDatabase())) {
+          if (p.isAggregate()) {
             isAnyFunctionAggregates = true;
             break;
           }

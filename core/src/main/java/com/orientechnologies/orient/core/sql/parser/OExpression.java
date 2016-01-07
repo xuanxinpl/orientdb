@@ -6,6 +6,7 @@ import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.id.ORecordId;
 
+import java.util.List;
 import java.util.Map;
 
 public class OExpression extends SimpleNode {
@@ -194,6 +195,13 @@ public class OExpression extends SimpleNode {
       return ((OMathExpression) value).isFiltering();
     }
     return false;
+  }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if (value instanceof OMathExpression) {
+      return ((OMathExpression) value).mergeDistributedResult(toMerge);
+    }
+    return toMerge;
   }
 }
 /* JavaCC - OriginalChecksum=9c860224b121acdc89522ae97010be01 (do not edit this line) */

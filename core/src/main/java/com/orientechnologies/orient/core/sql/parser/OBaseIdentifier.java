@@ -5,6 +5,7 @@ package com.orientechnologies.orient.core.sql.parser;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 
+import java.util.List;
 import java.util.Map;
 
 public class OBaseIdentifier extends SimpleNode {
@@ -104,6 +105,14 @@ public class OBaseIdentifier extends SimpleNode {
       return suffix.getDefaultAlias();
     }
     return "_col";
+  }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if(levelZero!=null){
+      return levelZero.mergeDistributedResult(toMerge);
+    }
+    throw new IllegalStateException("Expression cannot be merged: "+toString());//TODO replace this with a proper exception!
+
   }
 }
 /* JavaCC - OriginalChecksum=ed89af10d8be41a83428c5608a4834f6 (do not edit this line) */

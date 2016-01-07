@@ -5,6 +5,7 @@ package com.orientechnologies.orient.core.sql.parser;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 
+import java.util.List;
 import java.util.Map;
 
 public class OBaseExpression extends OMathExpression {
@@ -155,6 +156,15 @@ public class OBaseExpression extends OMathExpression {
     }
     return "_col";
   }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if (identifier != null) {
+      return identifier.mergeDistributedResult(toMerge);
+    }
+
+      throw new IllegalStateException("Expression cannot be merged: "+toString());//TODO replace this with a proper exception!
+  }
+
 
 }
 /* JavaCC - OriginalChecksum=71b3e2d1b65c923dc7cfe11f9f449d2b (do not edit this line) */

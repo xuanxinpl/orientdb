@@ -62,6 +62,8 @@ import com.orientechnologies.orient.core.replication.OAsyncReplicationOk;
 import com.orientechnologies.orient.core.sql.OCommandExecutorSQLDelegate;
 import com.orientechnologies.orient.core.sql.OCommandExecutorSQLSelect;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
+import com.orientechnologies.orient.core.sql.parser.OProjection;
+import com.orientechnologies.orient.core.sql.parser.OProjectionItem;
 import com.orientechnologies.orient.core.storage.OAutoshardedStorage;
 import com.orientechnologies.orient.core.storage.OCluster;
 import com.orientechnologies.orient.core.storage.OPhysicalPosition;
@@ -399,63 +401,61 @@ public class ODistributedStorage implements OStorage, OFreezableStorage, OAutosh
     final ODocument doc = new ODocument();
     list.add(doc);
 
-    if(1==1){
-      throw new UnsupportedOperationException();
+    boolean hasNonAggregates = false;
+    OProjection proj = select.getProjections();
+    if(proj!=null  && proj.getItems()!=null) {
+
+      for (OProjectionItem p : proj.getItems()) {
+        if (!p.isAggregate()) {
+          hasNonAggregates = true;
+          break;
+        }
+      }
     }
-    //TODO
-//    boolean hasNonAggregates = false;
-//    final Map<String, Object> proj = select.getProjections();
-//    for (Map.Entry<String, Object> p : proj.entrySet()) {
-//      if (!(p.getValue() instanceof OSQLFunctionRuntime)) {
-//        hasNonAggregates = true;
-//        break;
-//      }
-//    }
-//
-//    if (hasNonAggregates) {
-//      // MERGE NON AGGREGATED FIELDS
-//      for (Map.Entry<String, Object> entry : iResults.entrySet()) {
-//        final List<Object> resultSet = (List<Object>) entry.getValue();
-//
-//        for (Object r : resultSet) {
-//          if (r instanceof ODocument) {
-//            final ODocument d = (ODocument) r;
-//
-//            for (Map.Entry<String, Object> p : proj.entrySet()) {
-//              // WRITE THE FIELD AS IS
-//              if (!(p.getValue() instanceof OSQLFunctionRuntime))
-//                doc.field(p.getKey(), ((ODocument) r).field(p.getKey()));
-//            }
-//          }
-//        }
-//      }
-//    }
-//
-//    final List<Object> toMerge = new ArrayList<Object>();
-//
-//    // MERGE AGGREGATED FIELDS
-//    for (Map.Entry<String, Object> p : proj.entrySet()) {
-//      if (p.getValue() instanceof OSQLFunctionRuntime) {
-//        // MERGE RESULTS
-//        final OSQLFunctionRuntime f = (OSQLFunctionRuntime) p.getValue();
-//
-//        toMerge.clear();
-//        for (Map.Entry<String, Object> entry : iResults.entrySet()) {
-//          final List<Object> resultSet = (List<Object>) entry.getValue();
-//
-//          for (Object r : resultSet) {
-//            if (r instanceof ODocument) {
-//              final ODocument d = (ODocument) r;
-//              toMerge.add(d.rawField(p.getKey()));
-//            }
-//          }
-//
-//        }
-//
-//        // WRITE THE FINAL MERGED RESULT
-//        doc.field(p.getKey(), f.getFunction().mergeDistributedResult(toMerge));
-//      }
-//    }
+
+    if (hasNonAggregates) {
+      // MERGE NON AGGREGATED FIELDS
+      for (Map.Entry<String, Object> entry : iResults.entrySet()) {
+        final List<Object> resultSet = (List<Object>) entry.getValue();
+
+        for (Object r : resultSet) {
+          if (r instanceof ODocument) {
+            final ODocument d = (ODocument) r;
+
+            for (OProjectionItem p : proj.getItems()) {
+              // WRITE THE FIELD AS IS
+              if (!p.isAggregate())
+                doc.field(p.getAlias(), ((ODocument) r).field(p.getAlias()));
+            }
+          }
+        }
+      }
+    }
+
+    final List<Object> toMerge = new ArrayList<Object>();
+
+    // MERGE AGGREGATED FIELDS
+    for (OProjectionItem p : proj.getItems()) {
+      if (p.isAggregate()) {
+        // MERGE RESULTS
+
+        toMerge.clear();
+        for (Map.Entry<String, Object> entry : iResults.entrySet()) {
+          final List<Object> resultSet = (List<Object>) entry.getValue();
+
+          for (Object r : resultSet) {
+            if (r instanceof ODocument) {
+              final ODocument d = (ODocument) r;
+              toMerge.add(d.rawField(p.getAlias()));
+            }
+          }
+
+        }
+
+        // WRITE THE FINAL MERGED RESULT
+        doc.field(p.getAlias(), p.mergeDistributedResult(toMerge));
+      }
+    }
 
     return list;
   }

@@ -3,10 +3,10 @@
 package com.orientechnologies.orient.core.sql.parser;
 
 import com.orientechnologies.orient.core.command.OCommandContext;
-import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 
+import java.util.List;
 import java.util.Map;
 
 public class OProjectionItem extends SimpleNode {
@@ -81,7 +81,7 @@ public class OProjectionItem extends SimpleNode {
     return expression.getDefaultAlias();
   }
 
-  public boolean isAggregate(OCommandContext ctx, ODatabaseDocumentInternal database){
+  public boolean isAggregate(){
     if(expression!=null){
       return expression.isAggregate();
     }
@@ -107,6 +107,13 @@ public class OProjectionItem extends SimpleNode {
       return expression.isFiltering();
     }
     return false;
+  }
+
+  public Object mergeDistributedResult(List<Object> toMerge) {
+    if(expression!=null){
+      return expression.mergeDistributedResult(toMerge);
+    }
+    return toMerge;
   }
 }
 /* JavaCC - OriginalChecksum=6d6010734c7434a6f516e2eac308e9ce (do not edit this line) */
