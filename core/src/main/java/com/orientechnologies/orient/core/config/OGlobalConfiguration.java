@@ -127,9 +127,19 @@ public enum OGlobalConfiguration {
   DISK_CACHE_FREE_SPACE_LIMIT("storage.diskCache.diskFreeSpaceLimit", "Minimum amount of space on disk, which, when exceeded, "
       + "will cause the database to switch to read-only mode (in megabytes).", Long.class, 100),
 
+  @Deprecated
+
   DISC_CACHE_FREE_SPACE_CHECK_INTERVAL("storage.diskCache.diskFreeSpaceCheckInterval",
       "The interval (in seconds), after which the storage periodically "
           + "checks whether the amount of free disk space is enough to work in write mode", Integer.class, 5),
+
+  /**
+   * The interval (how many new pages should be added before free space will be checked), after which the storage periodically
+   * checks whether the amount of free disk space is enough to work in write mode.
+   */
+  DISC_CACHE_FREE_SPACE_CHECK_INTERVAL_IN_PAGES("storage.diskCache.diskFreeSpaceCheckIntervalInPages",
+      "The interval (how many new pages should be added before free space will be checked), after which the storage periodically "
+          + "checks whether the amount of free disk space is enough to work in write mode", Integer.class, 4096),
 
   /**
    * Keep disk cache state between moment when storage is closed and moment when it is opened again.
@@ -387,8 +397,8 @@ public enum OGlobalConfiguration {
   NETWORK_BINARY_DNS_LOADBALANCING_TIMEOUT("network.binary.loadBalancing.timeout",
       "Maximum time (in ms) to wait for the answer from DNS about the TXT record for load balancing.", Integer.class, 2000, true),
 
-  NETWORK_BINARY_MAX_CONTENT_LENGTH("network.binary.maxLength", "TCP/IP max content length (in bytes) of BINARY requests.",
-      Integer.class, 32736, true),
+  NETWORK_BINARY_MAX_CONTENT_LENGTH("network.binary.maxLength", "TCP/IP max content length (in KB) of BINARY requests.",
+      Integer.class, 16384, true),
 
   NETWORK_BINARY_READ_RESPONSE_MAX_TIMES("network.binary.readResponse.maxTimes",
       "Maximum attempts, until a response can be read. Otherwise, the response will be dropped from the channel.", Integer.class,
