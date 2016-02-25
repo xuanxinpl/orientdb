@@ -1,40 +1,21 @@
 package com.orientechnologies.common.concur.dreadlock;
 
 import java.lang.ref.WeakReference;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
-public class OThreadWaitForVertex {
+public class OThreadWaitForVertex extends OWaitForVertex {
   private final    WeakReference<Thread> threadWeakReference;
   private volatile OLockWaitForVertex    waitingFor;
 
-  int index = -1;
-
-  /**
-   * Holds index of stack frame in depth first search of Tarjan algorithm.
-   *
-   * @see OTarjanWaitForGraph#findSCC()
-   */
-  int tarjanIndex = -1;
-
-  /**
-   * Holds index of lowest vertex accessible from stack in Tarjan algorithm.
-   *
-   * @see OTarjanWaitForGraph#findSCC()
-   */
-  int tarjanLowLink = -1;
-
-  /**
-   * Indicates whether this vertex is still inside of stack in Tarjan algorithm.
-   *
-   * @see OTarjanWaitForGraph#findSCC()
-   */
-  boolean tarjanOnStack = false;
-
   public OThreadWaitForVertex(int index) {
-    this.index = index;
+    super(index);
     this.threadWeakReference = null;
   }
 
   public OThreadWaitForVertex(Thread thread) {
+    super(-1);
     this.threadWeakReference = new WeakReference<Thread>(thread);
   }
 
@@ -44,5 +25,13 @@ public class OThreadWaitForVertex {
 
   public void setWaitingFor(OLockWaitForVertex waitingFor) {
     this.waitingFor = waitingFor;
+  }
+
+  @Override
+  public Set<OLockWaitForVertex> getAdjacentVertexes() {
+    if (waitingFor != null)
+      return Collections.singleton(this.waitingFor);
+
+    return Collections.emptySet();
   }
 }

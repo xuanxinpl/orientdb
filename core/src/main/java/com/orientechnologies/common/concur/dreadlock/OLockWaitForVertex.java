@@ -5,14 +5,20 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class OLockWaitForVertex {
+public class OLockWaitForVertex extends OWaitForVertex {
   private final WeakReference<OReentrantReadWriteLock> readWriteLockWeakReference;
 
   private final Set<OThreadWaitForVertex> acquiredBy = Collections
       .newSetFromMap(new ConcurrentHashMap<OThreadWaitForVertex, Boolean>());
 
   public OLockWaitForVertex(OReentrantReadWriteLock readWriteLock) {
+    super(-1);
     this.readWriteLockWeakReference = new WeakReference<OReentrantReadWriteLock>(readWriteLock);
+  }
+
+  public OLockWaitForVertex(int index) {
+    super(index);
+    this.readWriteLockWeakReference = null;
   }
 
   public Set<OThreadWaitForVertex> getAcquiredBy() {
@@ -25,5 +31,10 @@ public class OLockWaitForVertex {
 
   public void removeAcquiredBy(OThreadWaitForVertex waitForVertex) {
     acquiredBy.remove(waitForVertex);
+  }
+
+  @Override
+  public Set<OThreadWaitForVertex> getAdjacentVertexes() {
+    return getAcquiredBy();
   }
 }

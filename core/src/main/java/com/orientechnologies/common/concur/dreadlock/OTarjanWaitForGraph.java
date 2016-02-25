@@ -4,9 +4,11 @@ import java.util.*;
 
 /**
  * Tarjan algorithm which is used to find strong connected components in wait-for graph.
+ * Input of this component is set of thread wait-for vertices, and output is list of list of thread and lock wait-for vertices which
+ * forms strongly connected components.
  */
 public class OTarjanWaitForGraph {
-  private final Deque<OThreadWaitForVertex> stack = new ArrayDeque<OThreadWaitForVertex>();
+  private final Deque<OWaitForVertex> stack = new ArrayDeque<OWaitForVertex>();
 
   private final Set<OThreadWaitForVertex> waitForVertices;
   /**
@@ -24,8 +26,8 @@ public class OTarjanWaitForGraph {
    *
    * @return List of all found strongly connected components.
    */
-  public List<List<OThreadWaitForVertex>> findSCC() {
-    final List<List<OThreadWaitForVertex>> result = new ArrayList<List<OThreadWaitForVertex>>();
+  public List<Map<OWaitForVertex, List<OWaitForVertex>>> findSCC() {
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> result = new ArrayList<Map<OWaitForVertex, List<OWaitForVertex>>>();
 
     for (OThreadWaitForVertex waitForVertex : waitForVertices) {
       if (waitForVertex.tarjanIndex < 0) {
@@ -39,6 +41,7 @@ public class OTarjanWaitForGraph {
       waitForVertex.tarjanLowLink = -1;
       waitForVertex.tarjanOnStack = false;
     }
+
     return result;
   }
 
@@ -54,7 +57,7 @@ public class OTarjanWaitForGraph {
    * @param sccs          List of all found SCCs
    * @param waitForVertex Currently processed wait-for vertex.
    */
-  private void strongConnect(List<List<OThreadWaitForVertex>> sccs, OThreadWaitForVertex waitForVertex) {
+  private void strongConnect(List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs, OWaitForVertex waitForVertex) {
     waitForVertex.tarjanIndex = index;
     waitForVertex.tarjanLowLink = index;
 
@@ -63,34 +66,52 @@ public class OTarjanWaitForGraph {
 
     waitForVertex.tarjanOnStack = true;
 
-    final OLockWaitForVertex lockWaitForVertex = waitForVertex.getWaitingFor();
-
-    if (lockWaitForVertex != null) {
-      for (OThreadWaitForVertex w : lockWaitForVertex.getAcquiredBy()) {
-        //Successor w has not yet been visited; recurse on it
-        if (w.tarjanIndex < 0) {
-          strongConnect(sccs, w);
-          waitForVertex.tarjanLowLink = Math.min(w.tarjanLowLink, waitForVertex.tarjanLowLink);
-        } else if (w.tarjanOnStack) {
-          // Successor w is in stack and hence in the current SCC
-          waitForVertex.tarjanLowLink = Math.min(w.tarjanIndex, waitForVertex.tarjanLowLink);
-        }
+    for (OWaitForVertex w : waitForVertex.getAdjacentVertexes()) {
+      //Successor w has not yet been visited; recurse on it
+      if (w.tarjanIndex < 0) {
+        strongConnect(sccs, w);
+        waitForVertex.tarjanLowLink = Math.min(w.tarjanLowLink, waitForVertex.tarjanLowLink);
+      } else if (w.tarjanOnStack) {
+        // Successor w is in stack and hence in the current SCC
+        waitForVertex.tarjanLowLink = Math.min(w.tarjanIndex, waitForVertex.tarjanLowLink);
       }
     }
 
     if (waitForVertex.tarjanIndex == waitForVertex.tarjanLowLink) {
-      final List<OThreadWaitForVertex> scc = new ArrayList<OThreadWaitForVertex>();
-      OThreadWaitForVertex w;
+      Set<OWaitForVertex> scc = null;
+      OWaitForVertex w;
+
       do {
         w = stack.pop();
         w.tarjanOnStack = false;
-        scc.add(w);
+
+        if (w != waitForVertex) {
+          if (scc == null) {
+            scc = new HashSet<OWaitForVertex>();
+          }
+
+          scc.add(w);
+        } else if (scc != null) {
+          scc.add(w);
+        }
       } while (w != waitForVertex);
 
-      if (scc.size() > 1) {
-        sccs.add(scc);
-      }
+      if (scc != null) {
+        //create subgraph of strong connected component
+        final Map<OWaitForVertex, List<OWaitForVertex>> subGraph = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
+        for (OWaitForVertex v : scc) {
+          final List<OWaitForVertex> adjacentList = new ArrayList<OWaitForVertex>();
+          subGraph.put(v, adjacentList);
 
+          for (OWaitForVertex u : v.getAdjacentVertexes()) {
+            if (scc.contains(u)) {
+              adjacentList.add(u);
+            }
+          }
+        }
+
+        sccs.add(subGraph);
+      }
     }
   }
 }

@@ -3,9 +3,7 @@ package com.orientechnologies.common.concur.dreadlock;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Test
 public class OTarjanWaitForGraphTest {
@@ -13,7 +11,7 @@ public class OTarjanWaitForGraphTest {
     final Set<OThreadWaitForVertex> vertices = generateWaitForGraphWithoutCycles();
 
     final OTarjanWaitForGraph tarjanWaitForGraph = new OTarjanWaitForGraph(vertices);
-    final List<List<OThreadWaitForVertex>> sccs = tarjanWaitForGraph.findSCC();
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs = tarjanWaitForGraph.findSCC();
 
     Assert.assertTrue(sccs.isEmpty());
   }
@@ -22,106 +20,138 @@ public class OTarjanWaitForGraphTest {
     final Set<OThreadWaitForVertex> vertices = generateWaitForGraphWithOneCycle();
 
     final OTarjanWaitForGraph tarjanWaitForGraph = new OTarjanWaitForGraph(vertices);
-    final List<List<OThreadWaitForVertex>> sccs = tarjanWaitForGraph.findSCC();
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs = tarjanWaitForGraph.findSCC();
 
     Assert.assertTrue(sccs.size() == 1);
 
-    final Set<Integer> ccIndexes = new HashSet<Integer>();
-    ccIndexes.add(2);
-    ccIndexes.add(9);
+    final Map<OWaitForVertex, List<OWaitForVertex>> scc = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
 
-    final List<OThreadWaitForVertex> cycle = sccs.get(0);
-    for (OThreadWaitForVertex w : cycle) {
-      Assert.assertTrue(ccIndexes.remove(w.index));
-    }
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
+    final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
+    scc.put(L1, Collections.<OWaitForVertex>singletonList(T2));
 
-    Assert.assertTrue(ccIndexes.isEmpty());
+    final OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    scc.put(T2, Collections.<OWaitForVertex>singletonList(L2));
+
+    final OThreadWaitForVertex T9 = new OThreadWaitForVertex(9);
+    scc.put(T9, Collections.<OWaitForVertex>singletonList(L1));
+
+    Assert.assertTrue(graphsEqual(scc, sccs.get(0)));
   }
 
   public void testTwoCyclesOneSCC() {
     final Set<OThreadWaitForVertex> vertices = generateWaitForGraphWithTwoCyclesOneComponent();
 
     final OTarjanWaitForGraph tarjanWaitForGraph = new OTarjanWaitForGraph(vertices);
-    final List<List<OThreadWaitForVertex>> sccs = tarjanWaitForGraph.findSCC();
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs = tarjanWaitForGraph.findSCC();
 
     Assert.assertTrue(sccs.size() == 1);
 
-    final Set<Integer> ccIndexes = new HashSet<Integer>();
-    ccIndexes.add(2);
-    ccIndexes.add(9);
-    ccIndexes.add(4);
-    ccIndexes.add(5);
+    final Map<OWaitForVertex, List<OWaitForVertex>> scc = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
 
-    final List<OThreadWaitForVertex> cycle = sccs.get(0);
-    for (OThreadWaitForVertex w : cycle) {
-      Assert.assertTrue(ccIndexes.remove(w.index));
-    }
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
+    final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
+    final OThreadWaitForVertex T4 = new OThreadWaitForVertex(4);
+    scc.put(L1, Arrays.<OWaitForVertex>asList(T2, T4));
 
-    Assert.assertTrue(ccIndexes.isEmpty());
+
+    final OThreadWaitForVertex T9 = new OThreadWaitForVertex(9);
+    final OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    scc.put(L2, Collections.<OWaitForVertex>singletonList(T9));
+    scc.put(T2, Collections.<OWaitForVertex>singletonList(L2));
+
+    scc.put(T9, Collections.<OWaitForVertex>singletonList(L1));
+
+    final OLockWaitForVertex L4 = new OLockWaitForVertex(104);
+    scc.put(T4, Collections.<OWaitForVertex>singletonList(L4));
+
+    final OThreadWaitForVertex T5 = new OThreadWaitForVertex(5);
+    scc.put(L4, Collections.<OWaitForVertex>singletonList(T5));
+
+    scc.put(T5, Collections.<OWaitForVertex>singletonList(L1));
+
+    Assert.assertTrue(graphsEqual(scc, sccs.get(0)));
   }
 
   public void testThreeCyclesOneSCC() {
     final Set<OThreadWaitForVertex> vertices = generateWaitForGraphWithThreeCyclesOneComponent();
 
     final OTarjanWaitForGraph tarjanWaitForGraph = new OTarjanWaitForGraph(vertices);
-    final List<List<OThreadWaitForVertex>> sccs = tarjanWaitForGraph.findSCC();
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs = tarjanWaitForGraph.findSCC();
 
     Assert.assertTrue(sccs.size() == 1);
 
-    final Set<Integer> ccIndexes = new HashSet<Integer>();
-    ccIndexes.add(2);
-    ccIndexes.add(9);
-    ccIndexes.add(4);
-    ccIndexes.add(5);
-    ccIndexes.add(8);
+    final Map<OWaitForVertex, List<OWaitForVertex>> scc = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
 
-    final List<OThreadWaitForVertex> cycle = sccs.get(0);
-    for (OThreadWaitForVertex w : cycle) {
-      Assert.assertTrue(ccIndexes.remove(w.index));
-    }
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
+    final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
+    final OThreadWaitForVertex T4 = new OThreadWaitForVertex(4);
+    scc.put(L1, Arrays.<OWaitForVertex>asList(T2, T4));
 
-    Assert.assertTrue(ccIndexes.isEmpty());
+    final OThreadWaitForVertex T9 = new OThreadWaitForVertex(9);
+    final OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    final OThreadWaitForVertex T8 = new OThreadWaitForVertex(8);
+    scc.put(L2, Arrays.<OWaitForVertex>asList(T9, T8));
+    scc.put(T2, Collections.<OWaitForVertex>singletonList(L2));
+
+    scc.put(T9, Collections.<OWaitForVertex>singletonList(L1));
+
+    final OLockWaitForVertex L4 = new OLockWaitForVertex(104);
+    scc.put(T4, Collections.<OWaitForVertex>singletonList(L4));
+
+    final OThreadWaitForVertex T5 = new OThreadWaitForVertex(5);
+    scc.put(L4, Collections.<OWaitForVertex>singletonList(T5));
+
+    scc.put(T5, Collections.<OWaitForVertex>singletonList(L1));
+
+    scc.put(T8, Collections.<OWaitForVertex>singletonList(L1));
+
+    Assert.assertTrue(graphsEqual(scc, sccs.get(0)));
   }
 
   public void testThreeCyclesTwoSCC() {
     final Set<OThreadWaitForVertex> vertices = generateWaitForGraphWithThreeCyclesTwoComponents();
 
     final OTarjanWaitForGraph tarjanWaitForGraph = new OTarjanWaitForGraph(vertices);
-    final List<List<OThreadWaitForVertex>> sccs = tarjanWaitForGraph.findSCC();
+    final List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs = tarjanWaitForGraph.findSCC();
 
     Assert.assertTrue(sccs.size() == 2);
 
-    final Set<Integer> ccIndexesOne = new HashSet<Integer>();
-    ccIndexesOne.add(7);
-    ccIndexesOne.add(13);
+    final Map<OWaitForVertex, List<OWaitForVertex>> sccOne = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
 
-    final Set<Integer> ccIndexesTwo = new HashSet<Integer>();
-    ccIndexesTwo.add(2);
-    ccIndexesTwo.add(9);
-    ccIndexesTwo.add(4);
-    ccIndexesTwo.add(5);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
+    final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
+    final OThreadWaitForVertex T4 = new OThreadWaitForVertex(4);
+    sccOne.put(L1, Arrays.<OWaitForVertex>asList(T2, T4));
 
-    Set<Set<Integer>> ccIndexes = new HashSet<Set<Integer>>();
-    ccIndexes.add(ccIndexesOne);
-    ccIndexes.add(ccIndexesTwo);
+    final OThreadWaitForVertex T9 = new OThreadWaitForVertex(9);
+    final OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    sccOne.put(L2, Collections.<OWaitForVertex>singletonList(T9));
+    sccOne.put(T2, Collections.<OWaitForVertex>singletonList(L2));
 
-    for (List<OThreadWaitForVertex> cycle : sccs) {
-      final Set<Integer> cycleIndexes = new HashSet<Integer>();
-      for (OThreadWaitForVertex v : cycle) {
-        cycleIndexes.add(v.index);
-      }
+    sccOne.put(T9, Collections.<OWaitForVertex>singletonList(L1));
 
-      Set<Integer> ccIndexToRemove = null;
-      for (Set<Integer> ccIndex : ccIndexes) {
-        if (ccIndex.equals(cycleIndexes)) {
-          ccIndexToRemove = ccIndex;
-          break;
-        }
-      }
+    final OLockWaitForVertex L4 = new OLockWaitForVertex(104);
+    sccOne.put(T4, Collections.<OWaitForVertex>singletonList(L4));
 
-      Assert.assertNotNull(ccIndexToRemove);
-      Assert.assertTrue(ccIndexes.remove(ccIndexToRemove));
-    }
+    final OThreadWaitForVertex T5 = new OThreadWaitForVertex(5);
+    sccOne.put(L4, Collections.<OWaitForVertex>singletonList(T5));
+
+    sccOne.put(T5, Collections.<OWaitForVertex>singletonList(L1));
+
+    final Map<OWaitForVertex, List<OWaitForVertex>> sccTwo = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
+    final OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    final OThreadWaitForVertex T7 = new OThreadWaitForVertex(7);
+    sccTwo.put(L3, Collections.<OWaitForVertex>singletonList(T7));
+
+    final OLockWaitForVertex L12 = new OLockWaitForVertex(112);
+    sccTwo.put(T7, Collections.<OWaitForVertex>singletonList(L12));
+
+    final OThreadWaitForVertex T13 = new OThreadWaitForVertex(13);
+    sccTwo.put(T13, Collections.<OWaitForVertex>singletonList(L3));
+
+    Assert.assertTrue(graphsEqual(sccOne, sccs.get(0)) || graphsEqual(sccTwo, sccs.get(0)));
+    Assert.assertTrue(graphsEqual(sccOne, sccs.get(1)) || graphsEqual(sccTwo, sccs.get(1)));
   }
 
   private Set<OThreadWaitForVertex> generateWaitForGraphWithoutCycles() {
@@ -130,7 +160,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T1 = new OThreadWaitForVertex(1);
     vertices.add(T1);
 
-    final OLockWaitForVertex L1 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
     T1.setWaitingFor(L1);
 
     final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
@@ -144,9 +174,9 @@ public class OTarjanWaitForGraphTest {
     L1.addAcquiredBy(T3);
     L1.addAcquiredBy(T4);
 
-    OLockWaitForVertex L2 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L3 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L4 = new OLockWaitForVertex(null);
+    OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    OLockWaitForVertex L4 = new OLockWaitForVertex(104);
 
     T2.setWaitingFor(L2);
     T3.setWaitingFor(L3);
@@ -174,7 +204,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T10 = new OThreadWaitForVertex(10);
     vertices.add(T10);
 
-    final OLockWaitForVertex L10 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L10 = new OLockWaitForVertex(110);
     T10.setWaitingFor(L10);
 
     final OThreadWaitForVertex T11 = new OThreadWaitForVertex(11);
@@ -193,7 +223,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T1 = new OThreadWaitForVertex(1);
     vertices.add(T1);
 
-    final OLockWaitForVertex L1 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
     T1.setWaitingFor(L1);
 
     final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
@@ -207,9 +237,9 @@ public class OTarjanWaitForGraphTest {
     L1.addAcquiredBy(T3);
     L1.addAcquiredBy(T4);
 
-    OLockWaitForVertex L2 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L3 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L4 = new OLockWaitForVertex(null);
+    OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    OLockWaitForVertex L4 = new OLockWaitForVertex(104);
 
     T2.setWaitingFor(L2);
     T3.setWaitingFor(L3);
@@ -237,7 +267,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T10 = new OThreadWaitForVertex(10);
     vertices.add(T10);
 
-    final OLockWaitForVertex L10 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L10 = new OLockWaitForVertex(110);
     T10.setWaitingFor(L10);
 
     final OThreadWaitForVertex T11 = new OThreadWaitForVertex(11);
@@ -258,7 +288,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T1 = new OThreadWaitForVertex(1);
     vertices.add(T1);
 
-    final OLockWaitForVertex L1 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
     T1.setWaitingFor(L1);
 
     final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
@@ -272,9 +302,9 @@ public class OTarjanWaitForGraphTest {
     L1.addAcquiredBy(T3);
     L1.addAcquiredBy(T4);
 
-    OLockWaitForVertex L2 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L3 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L4 = new OLockWaitForVertex(null);
+    OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    OLockWaitForVertex L4 = new OLockWaitForVertex(104);
 
     T2.setWaitingFor(L2);
     T3.setWaitingFor(L3);
@@ -302,7 +332,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T10 = new OThreadWaitForVertex(10);
     vertices.add(T10);
 
-    final OLockWaitForVertex L10 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L10 = new OLockWaitForVertex(110);
     T10.setWaitingFor(L10);
 
     final OThreadWaitForVertex T11 = new OThreadWaitForVertex(11);
@@ -324,7 +354,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T1 = new OThreadWaitForVertex(1);
     vertices.add(T1);
 
-    final OLockWaitForVertex L1 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
     T1.setWaitingFor(L1);
 
     final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
@@ -338,9 +368,9 @@ public class OTarjanWaitForGraphTest {
     L1.addAcquiredBy(T3);
     L1.addAcquiredBy(T4);
 
-    OLockWaitForVertex L2 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L3 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L4 = new OLockWaitForVertex(null);
+    OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    OLockWaitForVertex L4 = new OLockWaitForVertex(104);
 
     T2.setWaitingFor(L2);
     T3.setWaitingFor(L3);
@@ -368,7 +398,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T10 = new OThreadWaitForVertex(10);
     vertices.add(T10);
 
-    final OLockWaitForVertex L10 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L10 = new OLockWaitForVertex(110);
     T10.setWaitingFor(L10);
 
     final OThreadWaitForVertex T11 = new OThreadWaitForVertex(11);
@@ -391,7 +421,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T1 = new OThreadWaitForVertex(1);
     vertices.add(T1);
 
-    final OLockWaitForVertex L1 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L1 = new OLockWaitForVertex(101);
     T1.setWaitingFor(L1);
 
     final OThreadWaitForVertex T2 = new OThreadWaitForVertex(2);
@@ -405,9 +435,9 @@ public class OTarjanWaitForGraphTest {
     L1.addAcquiredBy(T3);
     L1.addAcquiredBy(T4);
 
-    OLockWaitForVertex L2 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L3 = new OLockWaitForVertex(null);
-    OLockWaitForVertex L4 = new OLockWaitForVertex(null);
+    OLockWaitForVertex L2 = new OLockWaitForVertex(102);
+    OLockWaitForVertex L3 = new OLockWaitForVertex(103);
+    OLockWaitForVertex L4 = new OLockWaitForVertex(104);
 
     T2.setWaitingFor(L2);
     T3.setWaitingFor(L3);
@@ -435,7 +465,7 @@ public class OTarjanWaitForGraphTest {
     final OThreadWaitForVertex T10 = new OThreadWaitForVertex(10);
     vertices.add(T10);
 
-    final OLockWaitForVertex L10 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L10 = new OLockWaitForVertex(110);
     T10.setWaitingFor(L10);
 
     final OThreadWaitForVertex T11 = new OThreadWaitForVertex(11);
@@ -449,7 +479,7 @@ public class OTarjanWaitForGraphTest {
     T9.setWaitingFor(L1);
     T5.setWaitingFor(L1);
 
-    final OLockWaitForVertex L12 = new OLockWaitForVertex(null);
+    final OLockWaitForVertex L12 = new OLockWaitForVertex(112);
     T7.setWaitingFor(L12);
 
     final OThreadWaitForVertex T13 = new OThreadWaitForVertex(13);
@@ -458,6 +488,49 @@ public class OTarjanWaitForGraphTest {
     T13.setWaitingFor(L3);
 
     return vertices;
+  }
+
+  private boolean graphsEqual(Map<OWaitForVertex, List<OWaitForVertex>> expected,
+      Map<OWaitForVertex, List<OWaitForVertex>> actual) {
+
+    for (Map.Entry<OWaitForVertex, List<OWaitForVertex>> e : expected.entrySet()) {
+      final OWaitForVertex v = e.getKey();
+
+      final List<OWaitForVertex> adjacentList = findRelatedAdjacentList(v, actual);
+      if (adjacentList == null) {
+        return false;
+      }
+
+      if (!adjacentListAreEquals(e.getValue(), adjacentList))
+        return false;
+    }
+
+    return true;
+  }
+
+  private List<OWaitForVertex> findRelatedAdjacentList(OWaitForVertex v, Map<OWaitForVertex, List<OWaitForVertex>> graph) {
+    for (Map.Entry<OWaitForVertex, List<OWaitForVertex>> entry : graph.entrySet()) {
+      if (entry.getKey().index == v.index) {
+        return entry.getValue();
+      }
+    }
+
+    return null;
+  }
+
+  private boolean adjacentListAreEquals(List<OWaitForVertex> expected, List<OWaitForVertex> actual) {
+    final List<OWaitForVertex> actualCopy = new ArrayList<OWaitForVertex>(actual);
+
+    for (OWaitForVertex ve : expected) {
+      for (OWaitForVertex va : actual) {
+        if (ve.index == va.index) {
+          if(!actualCopy.remove(va))
+            return false;
+        }
+      }
+    }
+
+    return actualCopy.isEmpty();
   }
 
 }
