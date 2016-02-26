@@ -8,15 +8,15 @@ import java.util.*;
  * forms strongly connected components.
  */
 public class OTarjanWaitForGraph {
-  private final Deque<OWaitForVertex> stack = new ArrayDeque<OWaitForVertex>();
+  private final Deque<OAbstractWaitForVertex> stack = new ArrayDeque<OAbstractWaitForVertex>();
 
-  private final Set<OThreadWaitForVertex> waitForVertices;
+  private final Collection<? extends OAbstractWaitForVertex> waitForVertices;
   /**
    * Index of stack frame in depth first search
    */
   private       int                       index;
 
-  public OTarjanWaitForGraph(Set<OThreadWaitForVertex> waitForVertices) {
+  public OTarjanWaitForGraph(Collection<? extends OAbstractWaitForVertex> waitForVertices) {
     this.waitForVertices = waitForVertices;
   }
 
@@ -26,17 +26,16 @@ public class OTarjanWaitForGraph {
    *
    * @return List of all found strongly connected components.
    */
-  public List<Map<OWaitForVertex, List<OWaitForVertex>>> findSCC() {
-    final List<Map<OWaitForVertex, List<OWaitForVertex>>> result = new ArrayList<Map<OWaitForVertex, List<OWaitForVertex>>>();
+  public List<List<OJohnsonWaitForVertex>> findSCC() {
+    final List<List<OJohnsonWaitForVertex>> result = new ArrayList<List<OJohnsonWaitForVertex>>();
 
-    for (OThreadWaitForVertex waitForVertex : waitForVertices) {
+    for (OAbstractWaitForVertex waitForVertex : waitForVertices) {
       if (waitForVertex.tarjanIndex < 0) {
         strongConnect(result, waitForVertex);
       }
-
     }
 
-    for (OThreadWaitForVertex waitForVertex : waitForVertices) {
+    for (OAbstractWaitForVertex waitForVertex : waitForVertices) {
       waitForVertex.tarjanIndex = -1;
       waitForVertex.tarjanLowLink = -1;
       waitForVertex.tarjanOnStack = false;
@@ -57,7 +56,7 @@ public class OTarjanWaitForGraph {
    * @param sccs          List of all found SCCs
    * @param waitForVertex Currently processed wait-for vertex.
    */
-  private void strongConnect(List<Map<OWaitForVertex, List<OWaitForVertex>>> sccs, OWaitForVertex waitForVertex) {
+  private void strongConnect(List<List<OJohnsonWaitForVertex>> sccs, OAbstractWaitForVertex waitForVertex) {
     waitForVertex.tarjanIndex = index;
     waitForVertex.tarjanLowLink = index;
 
@@ -66,7 +65,7 @@ public class OTarjanWaitForGraph {
 
     waitForVertex.tarjanOnStack = true;
 
-    for (OWaitForVertex w : waitForVertex.getAdjacentVertexes()) {
+    for (OAbstractWaitForVertex w : waitForVertex.getAdjacentVertexes()) {
       //Successor w has not yet been visited; recurse on it
       if (w.tarjanIndex < 0) {
         strongConnect(sccs, w);
@@ -78,8 +77,8 @@ public class OTarjanWaitForGraph {
     }
 
     if (waitForVertex.tarjanIndex == waitForVertex.tarjanLowLink) {
-      Set<OWaitForVertex> scc = null;
-      OWaitForVertex w;
+      Set<OAbstractWaitForVertex> scc = null;
+      OAbstractWaitForVertex w;
 
       do {
         w = stack.pop();
@@ -87,7 +86,7 @@ public class OTarjanWaitForGraph {
 
         if (w != waitForVertex) {
           if (scc == null) {
-            scc = new HashSet<OWaitForVertex>();
+            scc = new HashSet<OAbstractWaitForVertex>();
           }
 
           scc.add(w);
@@ -98,14 +97,17 @@ public class OTarjanWaitForGraph {
 
       if (scc != null) {
         //create subgraph of strong connected component
-        final Map<OWaitForVertex, List<OWaitForVertex>> subGraph = new HashMap<OWaitForVertex, List<OWaitForVertex>>();
-        for (OWaitForVertex v : scc) {
-          final List<OWaitForVertex> adjacentList = new ArrayList<OWaitForVertex>();
-          subGraph.put(v, adjacentList);
+        final Map<OAbstractWaitForVertex, OJohnsonWaitForVertex> mapper = new HashMap<OAbstractWaitForVertex, OJohnsonWaitForVertex>();
+        final List<OJohnsonWaitForVertex> subGraph = new ArrayList<OJohnsonWaitForVertex>(scc.size());
 
-          for (OWaitForVertex u : v.getAdjacentVertexes()) {
+        for (OAbstractWaitForVertex v : scc) {
+          OJohnsonWaitForVertex wrapper = wrapVertex(mapper, v);
+          subGraph.add(wrapper);
+
+          for (OAbstractWaitForVertex u : v.getAdjacentVertexes()) {
             if (scc.contains(u)) {
-              adjacentList.add(u);
+              OJohnsonWaitForVertex uw = wrapVertex(mapper, u);
+              wrapper.addAdjacentVertex(uw);
             }
           }
         }
@@ -113,5 +115,22 @@ public class OTarjanWaitForGraph {
         sccs.add(subGraph);
       }
     }
+  }
+
+  private OJohnsonWaitForVertex wrapVertex(Map<OAbstractWaitForVertex, OJohnsonWaitForVertex> mapper, OAbstractWaitForVertex v) {
+    OJohnsonWaitForVertex wrapper = mapper.get(v);
+
+    if (wrapper == null) {
+      if(!(v instanceof OJohnsonWaitForVertex)) {
+        wrapper = new OJohnsonWaitForVertex(v);
+      } else {
+        OJohnsonWaitForVertex jv = (OJohnsonWaitForVertex)v;
+        wrapper = new OJohnsonWaitForVertex(jv.getWrappedVertex());
+      }
+
+      mapper.put(v, wrapper);
+    }
+
+    return wrapper;
   }
 }

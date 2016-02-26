@@ -1,13 +1,12 @@
 package com.orientechnologies.common.concur.dreadlock;
 
-import java.util.List;
 import java.util.Set;
 
 /**
  * Base class for both lock and thread vertices of wait-for graph is used to detect cycles in provided
  * graph instance.
  */
-public abstract class OWaitForVertex {
+public abstract class OAbstractWaitForVertex {
   /**
    * Index of vertex is used only for testing of graph algorithms.
    */
@@ -34,9 +33,9 @@ public abstract class OWaitForVertex {
    */
   boolean tarjanOnStack = false;
 
-  public OWaitForVertex(int index) {
+  public OAbstractWaitForVertex(int index) {
     this.index = index;
   }
 
-  public abstract Set<? extends OWaitForVertex> getAdjacentVertexes();
+  public abstract Set<? extends OAbstractWaitForVertex> getAdjacentVertexes();
 }

@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class OLockWaitForVertex extends OWaitForVertex {
+public class OLockWaitForVertex extends OAbstractWaitForVertex {
   private final WeakReference<OReentrantReadWriteLock> readWriteLockWeakReference;
 
   private final Set<OThreadWaitForVertex> acquiredBy = Collections

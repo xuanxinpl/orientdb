@@ -2,11 +2,11 @@ package com.orientechnologies.common.concur.dreadlock;
 
 import java.lang.ref.WeakReference;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
-public class OThreadWaitForVertex extends OWaitForVertex {
+public class OThreadWaitForVertex extends OAbstractWaitForVertex {
   private final    WeakReference<Thread> threadWeakReference;
+
   private volatile OLockWaitForVertex    waitingFor;
 
   public OThreadWaitForVertex(int index) {
