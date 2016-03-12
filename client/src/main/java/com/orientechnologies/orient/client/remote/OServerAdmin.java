@@ -27,6 +27,8 @@ import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.exception.OStorageException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.security.OCredentialInterceptor;
+import com.orientechnologies.orient.core.security.OSecurityManager;
 import com.orientechnologies.orient.core.storage.OStorage;
 import com.orientechnologies.orient.enterprise.channel.binary.OChannelBinaryAsynchClient;
 import com.orientechnologies.orient.enterprise.channel.binary.OChannelBinaryProtocol;
@@ -91,8 +93,20 @@ public class OServerAdmin {
 
           storage.sendClientInfo(network);
 
-          network.writeString(iUserName);
-          network.writeString(iUserPassword);
+          String username = iUserName;
+          String password = iUserPassword;
+
+          OCredentialInterceptor ci = OSecurityManager.instance().newCredentialInterceptor();
+			
+          if(ci != null)
+          {
+            ci.intercept(storage.getURL(), iUserName, iUserPassword);
+            username = ci.getUsername();
+            password = ci.getPassword();
+          }
+
+          network.writeString(username);
+          network.writeString(password);
         } finally {
           storage.endRequest(network);
         }

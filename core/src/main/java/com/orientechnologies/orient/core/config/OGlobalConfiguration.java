@@ -647,6 +647,49 @@ public enum OGlobalConfiguration {
       "Delay (in ms) between attempts on executing a distributed transaction, which had failed because of locked records. (0=no delay)",
       Integer.class, 100, true),
 
+
+  /**
+   * Kerberos Configuration
+   */
+
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  CLIENT_KRB5_CONFIG("client.krb5.config", "Location of the Kerberos configuration file", String.class, null),
+
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  CLIENT_KRB5_CCNAME("client.krb5.ccname", "Location of the Kerberos client ticketcache", String.class, null),
+
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  CLIENT_KRB5_KTNAME("client.krb5.ktname", "Location of the Kerberos client keytab", String.class, null),
+
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  CLIENT_CREDENTIAL_INTERCEPTOR("client.credentialinterceptor", "The name of the CredentialInterceptor class", String.class, null),
+  
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  CREATE_DEFAULT_USERS("security.createDefaultUsers", "Indicates where default database users should be created", Boolean.class, false),
+
+  /**
+   * @Since 2.2
+   */
+  @OApi(maturity = OApi.MATURITY.NEW)
+  SERVER_SECURITY_FILE("server.security.file", "Location of the OrientDB security.json configuration file", String.class, null),
+
+
+
   @Deprecated DB_MAKE_FULL_CHECKPOINT_ON_INDEX_CHANGE("db.makeFullCheckpointOnIndexChange",
       "When index metadata is changed, a full checkpoint is performed.", Boolean.class, true, true),
 
