@@ -91,6 +91,7 @@ import com.orientechnologies.orient.core.tx.OTransaction;
 import com.orientechnologies.orient.core.tx.OTransactionAbstract;
 import com.orientechnologies.orient.enterprise.channel.binary.OChannelBinaryAsynchClient;
 import com.orientechnologies.orient.enterprise.channel.binary.OChannelBinaryProtocol;
+import com.orientechnologies.orient.enterprise.channel.binary.OTokenSecurityException;
 
 /**
  * This object is bound to each remote ODatabase instances.
@@ -185,6 +186,10 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
     return false;
   }
 
+  public Set<OChannelBinaryAsynchClient> getSessionConnections() {
+    final OStorageRemoteThreadLocal instance = OStorageRemoteThreadLocal.INSTANCE;
+    return instance != null ? instance.get().connections : null;
+  }
   public int getSessionId() {
     final OStorageRemoteThreadLocal instance = OStorageRemoteThreadLocal.INSTANCE;
     return instance != null ? instance.get().sessionId : -1;
@@ -208,6 +213,19 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
       tl.serverURL = iServerURL;
       tl.sessionId = iSessionId;
       tl.clear();
+    }
+    if (token != null && iServerURL != null) {
+      this.tokens.put(iServerURL, token);
+    }
+  }
+
+  public void pushSessionId(final String iServerURL, final int iSessionId, byte[] token,Set<OChannelBinaryAsynchClient> connections) {
+    final OStorageRemoteThreadLocal instance = OStorageRemoteThreadLocal.INSTANCE;
+    if (instance != null) {
+      final OStorageRemoteSession tl = instance.get();
+      tl.serverURL = iServerURL;
+      tl.sessionId = iSessionId;
+      tl.connections = connections;
     }
     if (token != null && iServerURL != null) {
       this.tokens.put(iServerURL, token);
@@ -1644,11 +1662,11 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
 
     final Throwable firstCause = OException.getFirstCause(exception);
 
-    final boolean tokenException = firstCause instanceof OTokenException;
+    final boolean tokenException = firstCause instanceof OTokenException || firstCause instanceof OTokenSecurityException;
 
     // CHECK IF THE EXCEPTION SHOULD BE JUST PROPAGATED
     if (!(firstCause instanceof IOException) && !(firstCause instanceof OIOException)
-        && !(firstCause instanceof IllegalMonitorStateException) && !(firstCause instanceof OOfflineNodeException)) {
+        && !(firstCause instanceof IllegalMonitorStateException) && !(firstCause instanceof OOfflineNodeException) && !tokenException) {
       if (exception instanceof OException)
         // NOT AN IO CAUSE, JUST PROPAGATE IT
         throw (OException) exception;
@@ -1711,7 +1729,8 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
 
         // FORCE RESET OF THREAD DATA (SERVER URL + SESSION ID)
         setSessionId(null, -1, null);
-
+        if(tokenException)
+          tokens.remove(iNetwork.getServerURL());
         // REACQUIRE DB SESSION ID
         final String currentURL = reopenRemoteDatabase();
 

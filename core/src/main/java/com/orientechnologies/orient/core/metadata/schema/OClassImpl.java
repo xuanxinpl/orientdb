@@ -32,6 +32,7 @@ import com.orientechnologies.orient.core.db.OScenarioThreadLocal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.db.record.ORecordElement;
+import com.orientechnologies.orient.core.exception.ODatabaseException;
 import com.orientechnologies.orient.core.exception.OSchemaException;
 import com.orientechnologies.orient.core.exception.OSecurityAccessException;
 import com.orientechnologies.orient.core.exception.OSecurityException;
@@ -50,7 +51,6 @@ import com.orientechnologies.orient.core.metadata.security.OSecurityUser;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.serialization.OBinaryProtocol;
 import com.orientechnologies.orient.core.serialization.serializer.record.ORecordSerializerFactory;
 import com.orientechnologies.orient.core.serialization.serializer.record.string.ORecordSerializerSchemaAware2CSV;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
@@ -86,22 +86,22 @@ import java.util.Set;
  */
 @SuppressWarnings("unchecked")
 public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
-  private static final long                  serialVersionUID        = 1L;
-  private static final int                   NOT_EXISTENT_CLUSTER_ID = -1;
-  final OSchemaShared                        owner;
-  private final Map<String, OProperty>       properties              = new HashMap<String, OProperty>();
-  private int                                defaultClusterId        = NOT_EXISTENT_CLUSTER_ID;
-  private String                             name;
-  private String                             description;
-  private int[]                              clusterIds;
-  private List<OClassImpl>                   superClasses            = new ArrayList<OClassImpl>();
-  private int[]                              polymorphicClusterIds;
-  private List<OClass>                       subclasses;
-  private float                              overSize                = 0f;
-  private String                             shortName;
-  private boolean                            strictMode              = false;                           // @SINCE v1.0rc8
-  private boolean                            abstractClass           = false;                           // @SINCE v1.2.0
-  private Map<String, String>                customFields;
+  private static final long serialVersionUID        = 1L;
+  private static final int  NOT_EXISTENT_CLUSTER_ID = -1;
+  final OSchemaShared owner;
+  private final Map<String, OProperty> properties       = new HashMap<String, OProperty>();
+  private       int                    defaultClusterId = NOT_EXISTENT_CLUSTER_ID;
+  private String name;
+  private String description;
+  private int[]  clusterIds;
+  private List<OClassImpl> superClasses = new ArrayList<OClassImpl>();
+  private int[]        polymorphicClusterIds;
+  private List<OClass> subclasses;
+  private float overSize = 0f;
+  private String shortName;
+  private boolean strictMode    = false;                           // @SINCE v1.0rc8
+  private boolean abstractClass = false;                           // @SINCE v1.2.0
+  private          Map<String, String>       customFields;
   private volatile OClusterSelectionStrategy clusterSelection;                                          // @SINCE 1.7
   private volatile int                       hashCode;
 
@@ -833,8 +833,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     return addProperty(iPropertyName, iType, null, iLinkedClass, false);
   }
 
-  public OProperty createProperty(final String iPropertyName, final OType iType, final OClass iLinkedClass,
-      final boolean unsafe) {
+  public OProperty createProperty(final String iPropertyName, final OType iType, final OClass iLinkedClass, final boolean unsafe) {
     if (iLinkedClass == null)
       throw new OSchemaException("Missing linked class");
 
@@ -845,8 +844,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     return addProperty(iPropertyName, iType, iLinkedType, null, false);
   }
 
-  public OProperty createProperty(final String iPropertyName, final OType iType, final OType iLinkedType,
-      final boolean unsafe) {
+  public OProperty createProperty(final String iPropertyName, final OType iType, final OType iLinkedType, final boolean unsafe) {
     return addProperty(iPropertyName, iType, iLinkedType, null, unsafe);
   }
 
@@ -1134,7 +1132,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
         final String cmd = String.format("alter class `%s` addcluster `%s`", name, clusterNameOrId);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final int clusterId = createClusterIfNeeded(clusterNameOrId);
+        final int clusterId = owner.createClusterIfNeeded(clusterNameOrId);
         addClusterIdInternal(clusterId);
 
         final String cmd = String.format("alter class `%s` addcluster `%s`", name, clusterNameOrId);
@@ -1144,7 +1142,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
 
         database.command(commandSQL).execute();
       } else {
-        final int clusterId = createClusterIfNeeded(clusterNameOrId);
+        final int clusterId = owner.createClusterIfNeeded(clusterNameOrId);
         addClusterIdInternal(clusterId);
       }
     } finally {
@@ -1152,6 +1150,56 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     }
 
     return this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public OClass truncateCluster(String clusterName) {
+    getDatabase().checkSecurity(ORule.ResourceGeneric.CLASS, ORole.PERMISSION_DELETE, name);
+
+    acquireSchemaReadLock();
+    try {
+      final ODatabaseDocumentInternal database = getDatabase();
+      final OStorage storage = database.getStorage();
+      if (storage instanceof OStorageProxy) {
+        final String cmd = String.format("truncate cluster %s", clusterName);
+        database.command(new OCommandSQL(cmd)).execute();
+      } else if (isDistributedCommand()) {
+        final String cmd = String.format("truncate cluster %s", clusterName);
+
+        final OCommandSQL commandSQL = new OCommandSQL(cmd);
+        commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
+
+        database.command(commandSQL).execute();
+
+        truncateClusterInternal(clusterName, storage);
+      } else
+        truncateClusterInternal(clusterName, storage);
+    } finally {
+      releaseSchemaReadLock();
+    }
+
+    return this;
+  }
+
+  private void truncateClusterInternal(final String clusterName, final OStorage storage) {
+    final OCluster cluster = storage.getClusterByName(clusterName);
+
+    if (cluster == null) {
+      throw new ODatabaseException("Cluster with name " + clusterName + " does not exist");
+    }
+
+    try {
+      cluster.truncate();
+    } catch (IOException e) {
+      throw OException.wrapException(new ODatabaseException("Error during truncate of cluster " + clusterName), e);
+    }
+
+    for (OIndex index : getIndexes()) {
+      index.rebuild();
+    }
   }
 
   public OClass removeClusterId(final int clusterId) {
@@ -1502,8 +1550,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   /**
    * Check if the current instance extends specified schema class.
    *
-   * @param iClassName
-   *          of class that should be checked
+   * @param iClassName of class that should be checked
    * @return Returns true if the current instance extends the passed schema class (iClass)
    * @see #isSuperClassOf(OClass)
    */
@@ -1528,8 +1575,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   /**
    * Check if the current instance extends specified schema class.
    *
-   * @param clazz
-   *          to check
+   * @param clazz to check
    * @return true if the current instance extends the passed schema class (iClass)
    * @see #isSuperClassOf(OClass)
    */
@@ -1553,8 +1599,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   /**
    * Returns true if the passed schema class (iClass) extends the current instance.
    *
-   * @param clazz
-   *          to check
+   * @param clazz to check
    * @return Returns true if the passed schema class extends the current instance
    * @see #isSubClassOf(OClass)
    */
@@ -1635,7 +1680,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
       break;
     }
     case REMOVECLUSTER:
-      int clId = getClusterId(stringValue);
+      int clId = owner.getClusterId(stringValue);
       if (clId == NOT_EXISTENT_CLUSTER_ID)
         throw new IllegalArgumentException("Cluster id '" + stringValue + "' cannot be removed");
       removeClusterId(clId);
@@ -1792,15 +1837,16 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
         final String fieldName = OIndexDefinitionFactory.extractFieldName(fieldToIndex);
 
         if (!fieldName.equals("@rid") && !existsProperty(fieldName))
-          throw new OIndexException("Index with name : '" + name + "' cannot be created on class : '" + this.name
-              + "' because field: '" + fieldName + "' is absent in class definition.");
+          throw new OIndexException(
+              "Index with name : '" + name + "' cannot be created on class : '" + this.name + "' because field: '" + fieldName
+                  + "' is absent in class definition.");
       }
 
-      final OIndexDefinition indexDefinition = OIndexDefinitionFactory.createIndexDefinition(this, Arrays.asList(fields),
-          extractFieldTypes(fields), null, type, algorithm);
+      final OIndexDefinition indexDefinition = OIndexDefinitionFactory
+          .createIndexDefinition(this, Arrays.asList(fields), extractFieldTypes(fields), null, type, algorithm);
 
-      return getDatabase().getMetadata().getIndexManager().createIndex(name, type, indexDefinition, polymorphicClusterIds,
-          progressListener, metadata, algorithm);
+      return getDatabase().getMetadata().getIndexManager()
+          .createIndex(name, type, indexDefinition, polymorphicClusterIds, progressListener, metadata, algorithm);
     } finally {
       releaseSchemaReadLock();
     }
@@ -1978,26 +2024,27 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   public void fireDatabaseMigration(final ODatabaseDocument database, final String propertyName, final OType type) {
     final boolean strictSQL = ((ODatabaseInternal) database).getStorage().getConfiguration().isStrictSql();
 
-    database.query(new OSQLAsynchQuery<Object>("select from " + getEscapedName(name, strictSQL) + " where "
-        + getEscapedName(propertyName, strictSQL) + ".type() <> \"" + type.name() + "\"", new OCommandResultListener() {
+    database.query(new OSQLAsynchQuery<Object>(
+        "select from " + getEscapedName(name, strictSQL) + " where " + getEscapedName(propertyName, strictSQL) + ".type() <> \""
+            + type.name() + "\"", new OCommandResultListener() {
 
-          @Override
-          public boolean result(Object iRecord) {
-            final ODocument record = ((OIdentifiable) iRecord).getRecord();
-            record.field(propertyName, record.field(propertyName), type);
-            database.save(record);
-            return true;
-          }
+      @Override
+      public boolean result(Object iRecord) {
+        final ODocument record = ((OIdentifiable) iRecord).getRecord();
+        record.field(propertyName, record.field(propertyName), type);
+        database.save(record);
+        return true;
+      }
 
-          @Override
-          public void end() {
-          }
+      @Override
+      public void end() {
+      }
 
-          @Override
-          public Object getResult() {
-            return null;
-          }
-        }));
+      @Override
+      public Object getResult() {
+        return null;
+      }
+    }));
   }
 
   public void firePropertyNameMigration(final ODatabaseDocument database, final String propertyName, final String newPropertyName,
@@ -2138,7 +2185,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
               if (record.recordType == ODocument.RECORD_TYPE) {
                 final ORecordSerializerSchemaAware2CSV serializer = (ORecordSerializerSchemaAware2CSV) ORecordSerializerFactory
                     .instance().getFormat(ORecordSerializerSchemaAware2CSV.NAME);
-                String persName = new String(record.buffer,"UTF-8");
+                String persName = new String(record.buffer, "UTF-8");
                 if (serializer.getClassName(persName).equalsIgnoreCase(name)) {
                   final ODocument document = new ODocument();
                   document.setLazyLoad(false);
@@ -2232,22 +2279,6 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     } finally {
       releaseSchemaWriteLock();
     }
-  }
-
-  private int createClusterIfNeeded(String nameOrId) {
-    final String[] parts = nameOrId.split(" ");
-    int clId = getClusterId(parts[0]);
-
-    if (clId == NOT_EXISTENT_CLUSTER_ID) {
-      try {
-        clId = Integer.parseInt(parts[0]);
-        throw new IllegalArgumentException("Cluster id '" + clId + "' cannot be added");
-      } catch (NumberFormatException e) {
-        clId = getDatabase().addCluster(parts[0]);
-      }
-    }
-
-    return clId;
   }
 
   private OClass addClusterIdInternal(final int clusterId) {
@@ -2419,8 +2450,8 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     try {
       final StringBuilder cmd = new StringBuilder("create property ");
       // CLASS.PROPERTY NAME
-       if (getDatabase().getStorage().getConfiguration().isStrictSql())
-       cmd.append('`');
+      if (getDatabase().getStorage().getConfiguration().isStrictSql())
+        cmd.append('`');
       cmd.append(name);
       if (getDatabase().getStorage().getConfiguration().isStrictSql())
         cmd.append('`');
@@ -2428,8 +2459,8 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
       if (getDatabase().getStorage().getConfiguration().isStrictSql())
         cmd.append('`');
       cmd.append(propertyName);
-       if (getDatabase().getStorage().getConfiguration().isStrictSql())
-       cmd.append('`');
+      if (getDatabase().getStorage().getConfiguration().isStrictSql())
+        cmd.append('`');
 
       // TYPE
       cmd.append(' ');
@@ -2480,16 +2511,6 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   private void validatePropertyName(final String propertyName) {
   }
 
-  private int getClusterId(final String stringValue) {
-    int clId;
-    try {
-      clId = Integer.parseInt(stringValue);
-    } catch (NumberFormatException e) {
-      clId = getDatabase().getClusterIdByName(stringValue);
-    }
-    return clId;
-  }
-
   private void addClusterIdToIndexes(int iId) {
     if (getDatabase().getStorage().getUnderlying() instanceof OAbstractPaginatedStorage) {
       final String clusterName = getDatabase().getClusterNameById(iId);
@@ -2507,8 +2528,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
   /**
    * Adds a base class to the current one. It adds also the base class cluster ids to the polymorphic cluster ids array.
    *
-   * @param iBaseClass
-   *          The base class to add.
+   * @param iBaseClass The base class to add.
    */
   private OClass addBaseClass(final OClassImpl iBaseClass) {
     checkRecursion(iBaseClass);
@@ -2530,8 +2550,9 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
     for (OProperty property : baseClassProperties) {
       OProperty thisProperty = getProperty(property.getName());
       if (thisProperty != null && !thisProperty.getType().equals(property.getType())) {
-        throw new OSchemaException("Cannot add base class '" + baseClass.getName() + "', because of property conflict: '"
-            + thisProperty + "' vs '" + property + "'");
+        throw new OSchemaException(
+            "Cannot add base class '" + baseClass.getName() + "', because of property conflict: '" + thisProperty + "' vs '"
+                + property + "'");
       }
     }
   }
@@ -2570,7 +2591,7 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
 
   private void removePolymorphicClusterId(final int clusterId) {
     final int index = Arrays.binarySearch(polymorphicClusterIds, clusterId);
-    if (index == -1)
+    if (index < 0)
       return;
 
     if (index < polymorphicClusterIds.length - 1)
@@ -2625,11 +2646,18 @@ public class OClassImpl extends ODocumentWrapperNoClass implements OClass {
       }
 
       if (!found) {
+        int[] oldClusterId = polymorphicClusterIds;
         // ADD IT
         polymorphicClusterIds = OArrays.copyOf(polymorphicClusterIds, polymorphicClusterIds.length + 1);
         polymorphicClusterIds[polymorphicClusterIds.length - 1] = i;
         Arrays.sort(polymorphicClusterIds);
+        try {
+          addClusterIdToIndexes(i);
+        } catch (Exception e) {
+          polymorphicClusterIds = oldClusterId;
+        }
       }
+
     }
   }
 
