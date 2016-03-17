@@ -55,9 +55,9 @@ public class ODefaultPasswordAuthenticator extends OSecurityAuthenticatorAbstrac
 
 				for(ODocument userDoc : usersList)
 				{
-					if(userDoc.containsField("user") && userDoc.containsField("resources"))
+					if(userDoc.containsField("username") && userDoc.containsField("resources"))
 					{
-						final String user = userDoc.field("user");
+						final String user = userDoc.field("username");
 						final String resources = userDoc.field("resources");
 						String password = userDoc.field("password");
 						
