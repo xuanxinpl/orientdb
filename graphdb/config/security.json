@@ -19,7 +19,7 @@
 				"enabled"			: true,
 				"users" 			:
 				[
-					{ "user" : "guest", "resources" : "server.listDatabases,server.dblist" }
+					{ "username" : "guest", "resources" : "server.listDatabases,server.dblist" }
 				]
 			},
 	
