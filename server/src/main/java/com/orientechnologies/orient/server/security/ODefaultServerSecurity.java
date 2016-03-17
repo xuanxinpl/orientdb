@@ -82,7 +82,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 	// OServerSecurity (via OSecurityAuthenticator)
 	// Some external security implementations may permit falling back to a 
 	// default authentication mode if external authentication fails.
-	private boolean _AllowDefault = false;
+	private boolean _AllowDefault = true;
 
 	private Object _PasswordValidatorSynch = new Object();
 	private OPasswordValidator _PasswordValidator;
