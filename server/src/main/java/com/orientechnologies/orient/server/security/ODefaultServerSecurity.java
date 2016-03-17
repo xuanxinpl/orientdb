@@ -173,9 +173,12 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 				// Walk through the list of OSecurityAuthenticators.
 				for(OSecurityAuthenticator sa : _AuthenticatorsList)
 				{
-					String principal = sa.authenticate(username, password);
+					if(sa.isEnabled())
+					{
+						String principal = sa.authenticate(username, password);
 					
-					if(principal != null) return principal;
+						if(principal != null) return principal;
+					}
 				}
 			}
 		}
@@ -214,12 +217,15 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 				// Walk through the list of OSecurityAuthenticators.
 				for(OSecurityAuthenticator sa : _AuthenticatorsList)
 				{
-					String sah = sa.getAuthenticationHeader(databaseName);
-					
-					if(sah != null)
+					if(sa.isEnabled())
 					{
-						sb.append(sah);
-						sb.append("\n");
+						String sah = sa.getAuthenticationHeader(databaseName);
+						
+						if(sah != null)
+						{
+							sb.append(sah);
+							sb.append("\n");
+						}
 					}
 				}
 				
@@ -248,7 +254,10 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 				// Walk through the list of OSecurityAuthenticators.
 				for(OSecurityAuthenticator sa : _AuthenticatorsList)
 				{
-					if(sa.isAuthorized(username, resource)) return true;
+					if(sa.isEnabled())
+					{
+						if(sa.isAuthorized(username, resource)) return true;
+					}
 				}
 			}
 		}
@@ -346,8 +355,11 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 				// Walk through the list of OSecurityAuthenticators.
 				for(OSecurityAuthenticator sa : _AuthenticatorsList)
 				{
-					userCfg = sa.getUser(username);
-					if(userCfg != null) break;
+					if(sa.isEnabled())
+					{
+						userCfg = sa.getUser(username);
+						if(userCfg != null) break;
+					}
 				}
 			}
 		}
@@ -527,7 +539,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 				{
 					sa.active();
 				}
-			}			
+			}	
 
 			if(_AuditingService != null)
 			{
