@@ -103,7 +103,7 @@ public class ODefaultPasswordAuthenticator extends OSecurityAuthenticatorAbstrac
 		{
 			OServerUserConfiguration user = getUser(username);
 			
-			if(user != null && user.password != null)
+			if(user != null && user.password != null && !user.password.isEmpty())
 			{
 				if(OSecurityManager.instance().checkPassword(password, user.password))
 				{
