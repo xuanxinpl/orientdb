@@ -19,6 +19,10 @@
  */
 package com.orientechnologies.orient.server.security;
 
+import com.orientechnologies.orient.core.record.impl.ODocument;
+
+import java.io.IOException;
+
 /**
  * Provides an interface the auditing service.
  * 
@@ -27,6 +31,10 @@ package com.orientechnologies.orient.server.security;
  */
 public interface OAuditingService extends OSecurityComponent
 {
+	void changeConfig(final String databaseName, final ODocument cfg) throws IOException;
+	
+	ODocument getConfig(final String databaseName);
+	
 	void log(final String operation, final String message);
 	void log(final String operation, final String username, final String message);
 	void log(final String operation, final String dbName, final String username, final String message);

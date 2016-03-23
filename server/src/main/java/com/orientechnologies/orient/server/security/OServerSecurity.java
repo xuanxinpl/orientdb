@@ -23,7 +23,9 @@ import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.security.OSecuritySystem;
 
 import com.orientechnologies.orient.server.config.OServerUserConfiguration;
+import com.orientechnologies.orient.server.security.OAuditingService;
 import com.orientechnologies.orient.server.security.OSecurityAuthenticator;
+import com.orientechnologies.orient.server.security.OSyslog;
 
 /**
  * Provides an interface for the server-specific security features.
@@ -34,19 +36,18 @@ import com.orientechnologies.orient.server.security.OSecurityAuthenticator;
  */
 public interface OServerSecurity extends OSecuritySystem
 {
+	OAuditingService getAuditing();
+	
 	// Returns the authenticator based on name, if one exists.
 	OSecurityAuthenticator getAuthenticator(final String authName);
 	
 	// Returns the first authenticator in the list, which is the primary authenticator.
 	OSecurityAuthenticator getPrimaryAuthenticator();
+	
+	OSyslog getSyslog();
 
 	// Some authenticators support maintaining a list of users and associated resources (and sometimes passwords).
 	OServerUserConfiguration getUser(final String username);	
 
-	ODatabase<?> openDatabase(final String dbName);
-	
-	void registerAuditingService(final OAuditingService auditingService);
-	void registerSecurityClass(final String classPath, final Class<?> cls);
-
-	void reload(final String cfgPath);
+	ODatabase<?> openDatabase(final String dbName);	
 }

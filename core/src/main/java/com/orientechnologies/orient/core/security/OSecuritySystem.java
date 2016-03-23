@@ -40,8 +40,7 @@ public interface OSecuritySystem
 	// Indicates if the default users should be created for a new OServer instance and for new databases.
 	boolean areDefaultUsersCreated();
 	
-	// Used for generating the appropriate HTTP authentication mechanism.  The primary authenticator is typically
-	// if it implements the getAuthenticationHeader() method.  Otherwise, a basic default header is returned.
+	// Used for generating the appropriate HTTP authentication mechanism.  The chain of authenticators is used for this.
 	String getAuthenticationHeader(final String databaseName);
 
 	// Walks through the list of Authenticators.
@@ -54,6 +53,12 @@ public interface OSecuritySystem
 	
 	// Indicates if the primary security mechanism supports single sign-on.
 	boolean isSingleSignOnSupported();
+
+	void registerSecurityClass(final Class<?> cls);
+
+	void reload(final String cfgPath);
+
+	void unregisterSecurityClass(final Class<?> cls);
 
 	// If a password validator is registered with the security system, it will be called to validate
 	// the specified password.  An OInvalidPasswordException is thrown if the password does not meet

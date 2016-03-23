@@ -56,10 +56,11 @@ import com.orientechnologies.orient.server.config.OServerParameterConfiguration;
 import com.orientechnologies.orient.server.config.OServerUserConfiguration;
 import com.orientechnologies.orient.server.network.OServerNetworkListener;
 import com.orientechnologies.orient.server.network.protocol.http.ONetworkProtocolHttpAbstract;
-import com.orientechnologies.orient.server.network.protocol.http.command.post.OServerCommandPostSecurityReload;
+//import com.orientechnologies.orient.server.network.protocol.http.command.post.OServerCommandPostSecurityReload;
 import com.orientechnologies.orient.server.security.OAuditingService;
 import com.orientechnologies.orient.server.security.OSecurityAuthenticator;
 import com.orientechnologies.orient.server.security.OSecurityComponent;
+import com.orientechnologies.orient.server.security.OSyslog;
 
 
 /**
@@ -88,8 +89,8 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 	private OPasswordValidator _PasswordValidator;
 	
 	private OSecurityComponent _ImportLDAP;
-	
 	private OAuditingService _AuditingService;
+	private OSyslog _Syslog;
 	
 	private String _ConfigFile;
 	private OServer _Server;
@@ -302,10 +303,13 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 		}
 	}
 
-
 	/***
 	 * OServerSecurity Interface
 	 ***/
+
+	// OServerSecurity
+	public OAuditingService getAuditing() { return _AuditingService; }
+
 	// OServerSecurity
 	public OSecurityAuthenticator getAuthenticator(final String authMethod)
 	{
@@ -341,6 +345,12 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 		return null;
 	}
 
+	// OServerSecurity
+	public OSyslog getSyslog()
+	{
+		return _Syslog;
+	}
+	
 	// OServerSecurity
 	public OServerUserConfiguration getUser(final String username)
 	{
@@ -385,20 +395,46 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 		return db;
 	}
 
-	// OServerSecurity
-	public void registerAuditingService(final OAuditingService auditingService)
+	// OSecuritySystem
+	public void registerSecurityClass(final Class<?> cls)
 	{
-		_AuditingService = auditingService;
+		String fullTypeName = getFullTypeName(cls);
+		
+		if(fullTypeName != null)
+		{
+			_SecurityClassMap.put(fullTypeName, cls);
+		}
 	}
 
-	// OServerSecurity
-	public void registerSecurityClass(final String classPath, final Class<?> cls)
+	// OSecuritySystem
+	public void unregisterSecurityClass(final Class<?> cls)
 	{
-		_SecurityClassMap.put(classPath, cls);
+		String fullTypeName = getFullTypeName(cls);
+		
+		if(fullTypeName != null)
+		{
+			_SecurityClassMap.remove(fullTypeName);
+		}
 	}
 
+	// Returns the package plus type name of Class.
+	private static String getFullTypeName(Class<?> type)
+	{
+		String typeName = null;
+		
+		typeName = type.getSimpleName();
+		
+		Package pack = type.getPackage();
+		
+		if(pack != null)
+		{
+			typeName = pack.getName() + "." + typeName;
+		}		
+		
+		return typeName;
+	}	
 
-	// OServerSecurity
+	// OSecuritySystem
 	public void reload(final String cfgPath)
 	{
 		onBeforeDeactivate();
@@ -550,6 +586,11 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 			{
 				_ImportLDAP.active();
 			}
+
+			if(_Syslog != null)
+			{
+				_Syslog.active();
+			}
 	
 			registerRESTCommands();
 		}
@@ -571,8 +612,13 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 			if(_AuditingService != null)
 			{
 				_AuditingService.dispose();
+				_AuditingService = null;
+			}
 
-				// Don't set _AuditingService to null here.  If this is a reload, _AuditingService.active() will be called again.
+			if(_Syslog != null)
+			{
+				_Syslog.dispose();
+				_Syslog = null;
 			}
 
 			synchronized(_AuthenticatorsList)
@@ -641,10 +687,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 		
 		loadAuditingService(jsonConfig);
 
-		if(jsonConfig.containsField("allowDefault"))
-		{
-			_AllowDefault = jsonConfig.field("allowDefault");
-		}
+		loadSyslog(jsonConfig);
 	}
 
 	// "${ORIENTDB_HOME}/config/security.json"
@@ -841,13 +884,23 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 					if(enabled == false) return;
 				}
 
-				if(_AuditingService != null)
+				Class<?> cls = getClass(auditingDoc);
+				
+				if(cls != null)
 				{
-     				_AuditingService.config(_Server, _ServerConfig, auditingDoc);
+	      		if(OAuditingService.class.isAssignableFrom(cls))
+	      		{
+      				_AuditingService = (OAuditingService)cls.newInstance();
+      				_AuditingService.config(_Server, _ServerConfig, auditingDoc);
+	      		}
+	      		else
+	      		{
+	      			OLogManager.instance().error(this, "ODefaultServerSecurity.loadAuditingService() class is not an OAuditingService");
+	      		}
 				}
 				else
 				{
-					OLogManager.instance().warn(this, "ODefaultServerSecurity.loadAuditingService() Auditing Service is null");
+					OLogManager.instance().error(this, "ODefaultServerSecurity.loadAuditingService() Auditing class property is missing");
 				}
 			}
 		}
@@ -857,6 +910,46 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 		}
 	}
 
+	private void loadSyslog(final ODocument jsonConfig)
+	{
+		try
+		{
+			if(jsonConfig.containsField("syslog"))
+			{
+				ODocument syslogDoc = jsonConfig.field("syslog");
+
+				if(syslogDoc.containsField("enabled"))
+				{
+					boolean enabled = syslogDoc.field("enabled");
+					
+					if(enabled == false) return;
+				}
+
+				Class<?> cls = getClass(syslogDoc);
+				
+				if(cls != null)
+				{
+	      		if(OSyslog.class.isAssignableFrom(cls))
+	      		{
+      				_Syslog = (OSyslog)cls.newInstance();
+      				_Syslog.config(_Server, _ServerConfig, syslogDoc);
+	      		}
+	      		else
+	      		{
+	      			OLogManager.instance().error(this, "ODefaultServerSecurity.loadSyslog() class is not an OSyslog");
+	      		}
+				}
+				else
+				{
+					OLogManager.instance().error(this, "ODefaultServerSecurity.loadSyslog() Syslog class property is missing");
+				}
+			}
+		}
+		catch(Exception ex)
+		{
+			OLogManager.instance().error(this, "ODefaultServerSecurity.loadSyslog() Exception: %s", ex.getMessage());
+		}
+	}
 
 	/***
 	 * OSecurityFactory Interface
@@ -876,7 +969,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 			if(listener != null)
 			{
 				// Register the REST API Command.
-				listener.registerStatelessCommand(new OServerCommandPostSecurityReload(this));
+//				listener.registerStatelessCommand(new OServerCommandPostSecurityReload(this));
 			}
 			else
 			{
@@ -897,7 +990,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
 
 			if(listener != null)
 			{
-				listener.unregisterStatelessCommand(OServerCommandPostSecurityReload.class);
+//				listener.unregisterStatelessCommand(OServerCommandPostSecurityReload.class);
 			}
 			else
 			{

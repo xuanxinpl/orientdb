@@ -15,7 +15,7 @@
 		[
 			{
 				"name"				: "Password",
-				"class"				: "com.orientechnologies.orient.server.security.ODefaultPasswordAuthenticator",
+				"class"				: "com.orientechnologies.security.authenticator.ODefaultPasswordAuthenticator",
 				"enabled"			: true,
 				"users" 			:
 				[
@@ -25,7 +25,7 @@
 	
 			{
 				"name"				: "ServerConfig",
-				"class"				: "com.orientechnologies.orient.server.security.OServerConfigAuthenticator",
+				"class"				: "com.orientechnologies.security.authenticator.OServerConfigAuthenticator",
 				"enabled"			: true
 			}
 		]
@@ -33,13 +33,16 @@
 
 	"auditing" :
 	{
-		"syslog"	:
-		{
-			"class"		: "com.orientechnologies.agent.security.ODefaultSyslog",
-			"enabled"	: true,
-			"hostname"	: "localhost",
-			"port"		: 514,
-			"appName"	: "OrientDB"
-		}
-	}	
+		"class"		: "com.orientechnologies.security.auditing.ODefaultAuditing",
+		"enabled"	: true
+	},
+
+	"syslog"	:
+	{
+		"class"		: "com.orientechnologies.security.syslog.ODefaultSyslog",
+		"enabled"	: true,
+		"hostname"	: "localhost",
+		"port"		: 514,
+		"appName"	: "OrientDB"
+	}
 }
