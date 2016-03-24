@@ -19,6 +19,7 @@
  */
 package com.orientechnologies.orient.core.security;
 
+import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.security.OInvalidPasswordException;
 
 /**
@@ -43,6 +44,10 @@ public interface OSecuritySystem
 	// Used for generating the appropriate HTTP authentication mechanism.  The chain of authenticators is used for this.
 	String getAuthenticationHeader(final String databaseName);
 
+	ODocument getConfig();
+
+	ODocument getComponentConfig(final String name);
+
 	// Walks through the list of Authenticators.
 	boolean isAuthorized(final String username, final String resource);
 	
@@ -57,6 +62,10 @@ public interface OSecuritySystem
 	void registerSecurityClass(final Class<?> cls);
 
 	void reload(final String cfgPath);
+
+	void reload(final ODocument jsonConfig);
+	
+	void reloadComponent(final String name, final ODocument jsonConfig);
 
 	void unregisterSecurityClass(final Class<?> cls);
 

@@ -52,7 +52,7 @@ public class OSecurityManager {
 
   private static final OSecurityManager instance = new OSecurityManager();
 
-  private OSecurityFactory securityFactory = new OSecuritySharedFactory();
+  private volatile OSecurityFactory securityFactory = new OSecuritySharedFactory();
 
   private MessageDigest md;
 
@@ -289,7 +289,11 @@ public class OSecurityManager {
   }
 
   public OSecurityFactory getSecurityFactory() { return securityFactory; }
-  public void setSecurityFactory(OSecurityFactory factory) { securityFactory = factory; }
+  public void setSecurityFactory(OSecurityFactory factory)
+  {
+  	 if(factory != null) securityFactory = factory;
+  	 else securityFactory = new OSecuritySharedFactory();
+  }
   
   public OSecurity newSecurity()
   {

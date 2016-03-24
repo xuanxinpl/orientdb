@@ -17,10 +17,9 @@
  *  * For more information: http://www.orientechnologies.com
  *
  */
-package com.orientechnologies.orient.core.security;
+package com.orientechnologies.orient.server.security;
 
-import com.orientechnologies.orient.core.record.impl.ODocument;
-
+import com.orientechnologies.orient.core.security.OInvalidPasswordException;
 
 /**
  * Provides a simple interface for validating passwords.
@@ -28,7 +27,7 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
  * @author S. Colin Leister
  * 
  */
-public interface OPasswordValidator
+public interface OPasswordValidator extends OSecurityComponent
 {
 	void validatePassword(final String password) throws OInvalidPasswordException;
 }
