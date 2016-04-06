@@ -44,6 +44,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.exception.ODatabaseException;
+import com.orientechnologies.orient.core.exception.OSecurityException;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OClassImpl;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
@@ -106,7 +107,7 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
   private String                                                 keyAlgorithm;
   private String                                                 transformation;
   private int                                                    keySize;
-  
+
   protected volatile NODE_STATUS                                 status                            = NODE_STATUS.OFFLINE;
 
   protected String                                               membershipListenerRegistration;
@@ -138,17 +139,13 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
     for (OServerParameterConfiguration param : iParams) {
       if (param.name.equalsIgnoreCase("configuration.hazelcast"))
         hazelcastConfigFile = OSystemVariableResolver.resolveSystemVariables(param.value);
-      else
-      if (param.name.equalsIgnoreCase("configuration.keyPath"))
+      else if (param.name.equalsIgnoreCase("configuration.keyPath"))
         keyPath = OSystemVariableResolver.resolveSystemVariables(param.value);
-      else
-      if (param.name.equalsIgnoreCase("configuration.keyAlgorithm"))
+      else if (param.name.equalsIgnoreCase("configuration.keyAlgorithm"))
         keyAlgorithm = param.value;
-      else
-      if (param.name.equalsIgnoreCase("configuration.keySize"))
+      else if (param.name.equalsIgnoreCase("configuration.keySize"))
         keySize = Integer.parseInt(param.value);
-      else
-      if (param.name.equalsIgnoreCase("configuration.transformation"))
+      else if (param.name.equalsIgnoreCase("configuration.transformation"))
         transformation = param.value;
     }
   }
@@ -164,9 +161,9 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
 
     // REGISTER TEMPORARY USER FOR REPLICATION PURPOSE
     serverInstance.addTemporaryUser(REPLICATOR_USER, "" + new SecureRandom().nextLong(), "*");
-    
+
     loadPasswordKey();
-    
+
     super.startup();
 
     status = NODE_STATUS.STARTING;
@@ -430,22 +427,20 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
       listenerCfg.put("listen", listener.getListeningAddress(true));
     }
 
-    if(passwordKey != null) {
+    if (passwordKey != null) {
       final String pw = serverInstance.getUser(REPLICATOR_USER).password;
-      
+
       // Returns null if not successful.
-		final String encrypted = passwordKey.encryptToBase64(pw);
-		
-      if(encrypted != null) {      	
+      final String encrypted = passwordKey.encryptToBase64(pw);
+
+      if (encrypted != null) {
         // STORE THE TEMP USER/PASSWD USED FOR REPLICATION
         nodeCfg.field("user_replicator", encrypted);
-      }
-      else OLogManager.instance().debug(this, "getLocalNodeConfiguration() encrypted password is null");
+      } else
+        OLogManager.instance().debug(this, "getLocalNodeConfiguration() encrypted password is null");
+    } else {
+      OLogManager.instance().error(this, "getLocalNodeConfiguration() Distributed Password Key is null");
     }
-    else {
-    	OLogManager.instance().error(this, "getLocalNodeConfiguration() Distributed Password Key is null");
-    }
-
 
     nodeCfg.field("databases", getManagedDatabases());
 
@@ -604,21 +599,25 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
 
       if (url == null)
         throw new ODatabaseException("Cannot connect to a remote node because the url was not found");
-        
+
       String userPassword = null;
 
-      if(passwordKey != null) {      	
+      if (passwordKey != null) {
         final String encrypted = cfg.field("user_replicator");
-        
+
         // Returns null if not successful.
-	  	  userPassword = passwordKey.decryptFromBase64(encrypted);
-	  	  
-	  	  if(userPassword == null) OLogManager.instance().debug(this, "getRemoteServer() decrypted password is null");	  	  
-      }
-      else {
+        userPassword = passwordKey.decryptFromBase64(encrypted);
+
+        if (userPassword == null) {
+          OLogManager.instance().debug(this, "getRemoteServer() decrypted password is null");
+          throw new OSecurityException(
+              "Cannot connect to a remote node because the password is null. Check your distributed server security configuration");
+        }
+      } else {
         OLogManager.instance().error(this, "getRemoteServer() Password Key is null");
+        throw new OSecurityException(
+            "Cannot connect to a remote node because the password has not been configured. Check your distributed server security configuration");
       }
-        
 
       remoteServer = new ORemoteServerController(this, rNodeName, url, REPLICATOR_USER, userPassword);
       final ORemoteServerController old = remoteServers.putIfAbsent(rNodeName, remoteServer);
@@ -2105,29 +2104,27 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
 
   private void loadPasswordKey() {
     try {
-      if(keyPath != null) {
-      	File keyFile = new File(keyPath);
-      	
-      	// If the password key file already exists, load and use it.
-      	if(keyFile.exists()) {
-           OSymmetricKey passwordKey = new OSymmetricKey();
-           passwordKey.loadFromFile(keyPath);
-      
-           this.passwordKey = passwordKey;
-         } // If it doesn't exist, create a new key and save it.
-         else {
-           OSymmetricKey passwordKey = new OSymmetricKey(keyAlgorithm, transformation, keySize);
-           passwordKey.saveToFile(keyPath);
-         
-           this.passwordKey = passwordKey;
+      if (keyPath != null) {
+        File keyFile = new File(keyPath);
 
-           OLogManager.instance().info(this, "loadPasswordKey() Created a new password key at: %s", keyPath);
-         }
-      }
-      else
+        // If the password key file already exists, load and use it.
+        if (keyFile.exists()) {
+          OSymmetricKey passwordKey = new OSymmetricKey();
+          passwordKey.loadFromFile(keyPath);
+
+          this.passwordKey = passwordKey;
+        } // If it doesn't exist, create a new key and save it.
+        else {
+          OSymmetricKey passwordKey = new OSymmetricKey(keyAlgorithm, transformation, keySize);
+          passwordKey.saveToFile(keyPath);
+
+          this.passwordKey = passwordKey;
+
+          OLogManager.instance().info(this, "loadPasswordKey() Created a new password key at: %s", keyPath);
+        }
+      } else
         OLogManager.instance().error(this, "loadPasswordKey() keyPath is null");
-    }
-    catch(OKeyException ke) {
+    } catch (OKeyException ke) {
       OLogManager.instance().error(this, "loadPasswordKey() OKeyException: %s", ke.getMessage());
     }
   }

@@ -95,6 +95,9 @@ public class OSecurityManager {
    * @return
    */
   public boolean checkPassword(final String iPassword, final String iHash) {
+    if (iPassword == null)
+      throw new IllegalArgumentException("Password is null");
+
     if (iHash.startsWith(HASH_ALGORITHM_PREFIX)) {
       final String s = iHash.substring(HASH_ALGORITHM_PREFIX.length());
       return createSHA256(iPassword).equals(s);
