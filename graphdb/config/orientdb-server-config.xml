@@ -35,6 +35,10 @@
                 <parameter name="configuration.db.default"
                            value="${ORIENTDB_HOME}/config/default-distributed-db-config.json"/>
                 <parameter name="configuration.hazelcast" value="${ORIENTDB_HOME}/config/hazelcast.xml"/>
+                <parameter name="configuration.keyPath" value="${ORIENTDB_HOME}/config/distrib.key"/>
+                <parameter name="configuration.keyAlgorithm" value="AES"/>
+                <parameter name="configuration.keySize" value="128"/>
+                <parameter name="configuration.transformation" value="AES/CBC/PKCS5Padding"/>
             </parameters>
         </handler>
         <!-- JMX SERVER, TO TURN ON SET THE 'ENABLED' PARAMETER TO 'true' -->
