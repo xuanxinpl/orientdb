@@ -101,7 +101,7 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin
   protected ODistributedMessageServiceImpl                       messageService;
   protected Date                                                 startedOn                         = new Date();
 
-  private OSymmetricKey                                          passwordKey                       = null;
+  private OSymmetricKey                                          passwordKey;
   private String                                                 keyPath;
   private String                                                 keyAlgorithm;
   private String                                                 transformation;
