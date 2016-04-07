@@ -20,32 +20,13 @@
 
 package com.orientechnologies.orient.core.serialization.serializer.record.binary;
 
-import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
 import com.orientechnologies.common.collection.OMultiValue;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.serialization.types.ODecimalSerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
-import com.orientechnologies.orient.core.db.record.OIdentifiable;
-import com.orientechnologies.orient.core.db.record.ORecordLazyList;
-import com.orientechnologies.orient.core.db.record.ORecordLazyMap;
-import com.orientechnologies.orient.core.db.record.ORecordLazyMultiValue;
-import com.orientechnologies.orient.core.db.record.ORecordLazySet;
-import com.orientechnologies.orient.core.db.record.OTrackedList;
-import com.orientechnologies.orient.core.db.record.OTrackedMap;
-import com.orientechnologies.orient.core.db.record.OTrackedSet;
+import com.orientechnologies.orient.core.db.record.*;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 import com.orientechnologies.orient.core.exception.OStorageException;
@@ -53,11 +34,7 @@ import com.orientechnologies.orient.core.exception.OValidationException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.metadata.OMetadataInternal;
-import com.orientechnologies.orient.core.metadata.schema.OClass;
-import com.orientechnologies.orient.core.metadata.schema.OGlobalProperty;
-import com.orientechnologies.orient.core.metadata.schema.OImmutableSchema;
-import com.orientechnologies.orient.core.metadata.schema.OProperty;
-import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.metadata.schema.*;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -66,6 +43,12 @@ import com.orientechnologies.orient.core.record.impl.ODocumentInternal;
 import com.orientechnologies.orient.core.serialization.ODocumentSerializable;
 import com.orientechnologies.orient.core.serialization.OSerializableStream;
 import com.orientechnologies.orient.core.util.ODateHelper;
+
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.Map.Entry;
 
 public class ORecordSerializerNetworkV0 implements ODocumentSerializer {
 
@@ -333,7 +316,7 @@ public class ORecordSerializerNetworkV0 implements ODocumentSerializer {
       value = new ODocument();
       deserialize((ODocument) value, bytes);
       if (((ODocument) value).containsField(ODocumentSerializable.CLASS_NAME)) {
-        String className = ((ODocument) value).field(ODocumentSerializable.CLASS_NAME);
+        String className = ((ODocument) value).get(ODocumentSerializable.CLASS_NAME);
         try {
           Class<?> clazz = Class.forName(className);
           ODocumentSerializable newValue = (ODocumentSerializable) clazz.newInstance();
@@ -548,7 +531,7 @@ public class ORecordSerializerNetworkV0 implements ODocumentSerializer {
       pointer = bytes.offset;
       if (value instanceof ODocumentSerializable) {
         ODocument cur = ((ODocumentSerializable) value).toDocument();
-        cur.field(ODocumentSerializable.CLASS_NAME, value.getClass().getName());
+        cur.set(ODocumentSerializable.CLASS_NAME, value.getClass().getName());
         serialize(cur, bytes, false);
       } else {
         serialize((ODocument) value, bytes, false);

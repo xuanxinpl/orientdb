@@ -153,7 +153,7 @@ public class OSimpleKeyIndexDefinition extends OAbstractIndexDefinition {
   protected void serializeFromStream() {
     super.serializeFromStream();
 
-    final List<String> keyTypeNames = document.field("keyTypes");
+    final List<String> keyTypeNames = document.get("keyTypes");
     keyTypes = new OType[keyTypeNames.size()];
 
     int i = 0;
@@ -161,11 +161,11 @@ public class OSimpleKeyIndexDefinition extends OAbstractIndexDefinition {
       keyTypes[i] = OType.valueOf(keyTypeName);
       i++;
     }
-    String collate = document.field("collate");
+    String collate = document.get("collate");
     if (collate != null) {
       setCollate(collate);
     } else {
-      final List<String> collatesNames = document.field("collates");
+      final List<String> collatesNames = document.get("collates");
       if( collatesNames != null ) {
         OCompositeCollate collates = new OCompositeCollate(this);
         for (String collateName : collatesNames)
@@ -174,7 +174,7 @@ public class OSimpleKeyIndexDefinition extends OAbstractIndexDefinition {
       }
     }
 
-    setNullValuesIgnored(!Boolean.FALSE.equals(document.<Boolean>field("nullValuesIgnored")));
+    setNullValuesIgnored(!Boolean.FALSE.equals(document.<Boolean>get("nullValuesIgnored")));
   }
 
   public Object getDocumentValueToIndex(final ODocument iDocument) {

@@ -20,14 +20,6 @@
 
 package com.tinkerpop.blueprints.impls.orient;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
@@ -38,6 +30,14 @@ import com.tinkerpop.blueprints.Element;
 import com.tinkerpop.blueprints.Index;
 import com.tinkerpop.blueprints.util.ExceptionFactory;
 import com.tinkerpop.blueprints.util.StringFactory;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * OrientDB Edge implementation of TinkerPop Blueprints standard. Edges can be classic or lightweight. Lightweight edges have no
@@ -130,7 +130,7 @@ public class OrientEdge extends OrientElement implements Edge {
     if (edge == null)
       return null;
 
-    return edge.field(OrientElement.LABEL_FIELD_NAME);
+    return edge.get(OrientElement.LABEL_FIELD_NAME);
   }
 
   /**
@@ -148,7 +148,7 @@ public class OrientEdge extends OrientElement implements Edge {
     if (iVertex == null || iVertexToRemove == null)
       return;
 
-    final Object fieldValue = iVertex.field(iFieldName);
+    final Object fieldValue = iVertex.get(iFieldName);
     if (fieldValue instanceof OIdentifiable) {
       if (fieldValue.equals(iVertexToRemove)) {
         iVertex.removeField(iFieldName);
@@ -199,7 +199,7 @@ public class OrientEdge extends OrientElement implements Edge {
       // AVOID LAZY RESOLVING+SETTING OF RECORD
       return doc.rawField(OrientBaseGraph.CONNECTION_OUT);
     else
-      return doc.field(OrientBaseGraph.CONNECTION_OUT);
+      return doc.get(OrientBaseGraph.CONNECTION_OUT);
   }
 
   /**
@@ -220,7 +220,7 @@ public class OrientEdge extends OrientElement implements Edge {
       // AVOID LAZY RESOLVING+SETTING OF RECORD
       return doc.rawField(OrientBaseGraph.CONNECTION_IN);
     else
-      return doc.field(OrientBaseGraph.CONNECTION_IN);
+      return doc.get(OrientBaseGraph.CONNECTION_IN);
   }
 
   /**
@@ -420,10 +420,10 @@ public class OrientEdge extends OrientElement implements Edge {
     if (rawElement == null) {
       // CREATE AT THE FLY
       final ODocument tmp = new ODocument(getClassName(label)).setTrackingChanges(false);
-      tmp.field(OrientBaseGraph.CONNECTION_IN, vIn.getIdentity());
-      tmp.field(OrientBaseGraph.CONNECTION_OUT, vOut.getIdentity());
+      tmp.set(OrientBaseGraph.CONNECTION_IN, vIn.getIdentity());
+      tmp.set(OrientBaseGraph.CONNECTION_OUT, vOut.getIdentity());
       if (label != null && settings != null && !settings.isUseClassForEdgeLabel())
-        tmp.field(OrientEdge.LABEL_FIELD_NAME, label);
+        tmp.set(OrientEdge.LABEL_FIELD_NAME, label);
       return tmp;
     }
 
@@ -448,8 +448,8 @@ public class OrientEdge extends OrientElement implements Edge {
 
     final ODocument doc = createDocument(label);
 
-    doc.field(OrientBaseGraph.CONNECTION_OUT, settings.isKeepInMemoryReferences() ? vOutRecord.getIdentity() : vOutRecord);
-    doc.field(OrientBaseGraph.CONNECTION_IN, settings.isKeepInMemoryReferences() ? vInRecord.getIdentity() : vInRecord);
+    doc.set(OrientBaseGraph.CONNECTION_OUT, settings.isKeepInMemoryReferences() ? vOutRecord.getIdentity() : vOutRecord);
+    doc.set(OrientBaseGraph.CONNECTION_IN, settings.isKeepInMemoryReferences() ? vInRecord.getIdentity() : vInRecord);
     rawElement = doc;
 
     final boolean useVertexFieldsForEdgeLabels = settings.isUseVertexFieldsForEdgeLabels();
@@ -522,7 +522,7 @@ public class OrientEdge extends OrientElement implements Edge {
 
     if (iLabel != null && !settings.isUseClassForEdgeLabel())
       // SET THE LABEL AS FIELD
-      doc.field(OrientElement.LABEL_FIELD_NAME, iLabel);
+      doc.set(OrientElement.LABEL_FIELD_NAME, iLabel);
 
     return doc;
   }
@@ -562,7 +562,7 @@ public class OrientEdge extends OrientElement implements Edge {
       }
 
       if (coll.size() == 1)
-        iVertex.field(iFieldName, coll.iterator().next());
+        iVertex.set(iFieldName, coll.iterator().next());
       else if (coll.size() == 0)
         iVertex.removeField(iFieldName);
     } else

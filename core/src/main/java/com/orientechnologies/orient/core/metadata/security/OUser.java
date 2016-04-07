@@ -90,7 +90,7 @@ public class OUser extends OIdentity implements OSecurityUser {
     document = iSource;
 
     roles = new HashSet<ORole>();
-    final Collection<ODocument> loadedRoles = iSource.field("roles");
+    final Collection<ODocument> loadedRoles = iSource.get("roles");
     if (loadedRoles != null)
       for (final ODocument d : loadedRoles) {
         if (d != null) {
@@ -112,19 +112,19 @@ public class OUser extends OIdentity implements OSecurityUser {
    */
   public ORole allow(final ORule.ResourceGeneric resourceGeneric, String resourceSpecific, final int iOperation) {
     if (roles == null || roles.isEmpty()) {
-      if (document.field("roles") != null && !((Collection<OIdentifiable>) document.field("roles")).isEmpty()) {
+      if (document.get("roles") != null && !((Collection<OIdentifiable>) document.get("roles")).isEmpty()) {
         final ODocument doc = document;
         document = null;
         fromStream(doc);
       } else
-        throw new OSecurityAccessException(document.getDatabase().getName(), "User '" + document.field("name")
+        throw new OSecurityAccessException(document.getDatabase().getName(), "User '" + document.get("name")
             + "' has no role defined");
     }
 
     final ORole role = checkIfAllowed(resourceGeneric, resourceSpecific, iOperation);
 
     if (role == null)
-      throw new OSecurityAccessException(document.getDatabase().getName(), "User '" + document.field("name")
+      throw new OSecurityAccessException(document.getDatabase().getName(), "User '" + document.get("name")
           + "' has no the permission to execute the operation '" + ORole.permissionToString(iOperation)
           + "' against the resource: " + resourceGeneric + "." + resourceSpecific);
 
@@ -203,11 +203,11 @@ public class OUser extends OIdentity implements OSecurityUser {
   }
 
   public boolean checkPassword(final String iPassword) {
-    return OSecurityManager.instance().checkPassword(iPassword, (String) document.field(PASSWORD_FIELD));
+    return OSecurityManager.instance().checkPassword(iPassword, (String) document.get(PASSWORD_FIELD));
   }
 
   public String getName() {
-    return document.field("name");
+    return document.get("name");
   }
 
   public OUser setName(final String iName) {
@@ -216,7 +216,7 @@ public class OUser extends OIdentity implements OSecurityUser {
   }
 
   public String getPassword() {
-    return document.field(PASSWORD_FIELD);
+    return document.get(PASSWORD_FIELD);
   }
 
   public OUser setPassword(final String iPassword) {
@@ -225,7 +225,7 @@ public class OUser extends OIdentity implements OSecurityUser {
   }
 
   public STATUSES getAccountStatus() {
-    final String status = (String) document.field("status");
+    final String status = (String) document.get("status");
     if (status == null)
       throw new OSecurityException("User '" + getName() + "' has no status");
     return STATUSES.valueOf(status);

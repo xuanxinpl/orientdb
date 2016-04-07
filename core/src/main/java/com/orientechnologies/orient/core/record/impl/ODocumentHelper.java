@@ -1468,7 +1468,7 @@ public class ODocumentHelper {
 
   public static void deleteCrossRefs(final ORID iRid, final ODocument iContent) {
     for (String fieldName : iContent.fieldNames()) {
-      final Object fieldValue = iContent.field(fieldName);
+      final Object fieldValue = iContent.get(fieldName);
       if (fieldValue != null) {
         if (fieldValue.equals(iRid)) {
           // REMOVE THE LINK

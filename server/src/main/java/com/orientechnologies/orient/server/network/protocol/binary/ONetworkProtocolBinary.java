@@ -459,7 +459,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
     if (!isConnectionAlive())
       return;
     final String indexName = channel.readString();
-    Object key = new ODocument().fromStream(channel.readBytes()).field("key");
+    Object key = new ODocument().fromStream(channel.readBytes()).get("key");
     final ORecordId value = channel.readRID();
     final OIndex<?> index = connection.getDatabase().getMetadata().getIndexManager().getIndex(indexName);
 
@@ -491,7 +491,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
     if (!isConnectionAlive())
       return;
     final String indexName = channel.readString();
-    Object key = new ODocument().fromStream(channel.readBytes()).field("key");
+    Object key = new ODocument().fromStream(channel.readBytes()).get("key");
     final OIndex<?> index = connection.getDatabase().getMetadata().getIndexManager().getIndex(indexName);
     if (index == null)
       throw new OSystemException("index with name '" + indexName + "' not found");
@@ -522,7 +522,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
 
     ODocument document = new ODocument();
     fillRecord(new ORecordId(), channel.readBytes(), 0, document, connection.getDatabase());
-    Object key = document.field("key");
+    Object key = document.get("key");
     final String fetchPlan = channel.readString();
     final OIndex<?> index = connection.getDatabase().getMetadata().getIndexManager().getIndex(indexName);
     if (index == null)
@@ -1027,7 +1027,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
       checkServerAccess("server.replication.config");
 
       response = new ODocument()
-          .fromJSON(dManager.getDatabaseConfiguration((String) request.field("db")).serialize().toJSON("prettyPrint"));
+          .fromJSON(dManager.getDatabaseConfiguration((String) request.get("db")).serialize().toJSON("prettyPrint"));
 
     }
 
@@ -1042,7 +1042,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
 
     ODocument response = null;
 
-    final String operation = req.field("operation");
+    final String operation = req.get("operation");
     if (operation == null)
       throw new IllegalArgumentException("Cluster operation is null");
 
@@ -2449,7 +2449,7 @@ public class ONetworkProtocolBinary extends OBinaryNetworkProtocolAbstract {
   private void listDatabases() throws IOException {
     checkServerAccess("server.dblist");
     final ODocument result = new ODocument();
-    result.field("databases", server.getAvailableStorageNames());
+    result.set("databases", server.getAvailableStorageNames());
 
     setDataCommandInfo("List databases");
 

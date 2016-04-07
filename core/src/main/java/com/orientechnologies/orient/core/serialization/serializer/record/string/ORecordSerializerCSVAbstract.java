@@ -568,7 +568,7 @@ public abstract class ORecordSerializerCSVAbstract extends ORecordSerializerStri
               record = (ODocument) o.getValue();
             else if (o.getValue() instanceof ODocumentSerializable) {
               record = ((ODocumentSerializable) o.getValue()).toDocument();
-              record.field(ODocumentSerializable.CLASS_NAME, o.getValue().getClass().getName());
+              record.set(ODocumentSerializable.CLASS_NAME, o.getValue().getClass().getName());
             } else {
               if (iDatabase == null && ODatabaseRecordThreadLocal.INSTANCE.isDefined())
                 iDatabase = ODatabaseRecordThreadLocal.INSTANCE.get();

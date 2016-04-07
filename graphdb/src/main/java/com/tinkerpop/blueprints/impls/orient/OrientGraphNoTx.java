@@ -318,7 +318,7 @@ public class OrientGraphNoTx extends OrientBaseGraph {
             final String outFieldName = OrientVertex.getConnectionFieldName(Direction.OUT, edgeClassName,
                 useVertexFieldsForEdgeLabels);
             outVertexChanged = edge.dropEdgeFromVertex(inVertexEdge, outVertexRecord, outFieldName,
-                outVertexRecord.field(outFieldName));
+                outVertexRecord.get(outFieldName));
           } else
             OLogManager.instance().debug(graph,
                 "Found broken link to outgoing vertex " + outVertex.getIdentity() + " while removing edge " + edge.getId());
@@ -338,7 +338,7 @@ public class OrientGraphNoTx extends OrientBaseGraph {
             final String inFieldName = OrientVertex.getConnectionFieldName(Direction.IN, edgeClassName,
                 useVertexFieldsForEdgeLabels);
             inVertexChanged = edge.dropEdgeFromVertex(outVertexEdge, inVertexRecord, inFieldName,
-                inVertexRecord.field(inFieldName));
+                inVertexRecord.get(inFieldName));
           } else
             OLogManager.instance().debug(graph,
                 "Found broken link to incoming vertex " + inVertex.getIdentity() + " while removing edge " + edge.getId());

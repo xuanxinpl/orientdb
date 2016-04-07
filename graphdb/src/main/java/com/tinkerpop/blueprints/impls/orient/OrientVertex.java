@@ -120,7 +120,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
       final String iFieldName) {
     final Object out;
     OType outType = iFromVertex.fieldType(iFieldName);
-    Object found = iFromVertex.field(iFieldName);
+    Object found = iFromVertex.get(iFieldName);
 
     final OClass linkClass = ODocumentInternal.getImmutableSchemaClass(iFromVertex);
     if (linkClass == null)
@@ -247,7 +247,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
     if (iVertex == null)
       return;
 
-    final Object fieldValue = iVertexToRemove != null ? iVertex.field(iFieldName) : iVertex.removeField(iFieldName);
+    final Object fieldValue = iVertexToRemove != null ? iVertex.get(iFieldName) : iVertex.removeField(iFieldName);
     if (fieldValue == null)
       return;
 
@@ -737,7 +737,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
           // SKIP THIS FIELD
           continue;
 
-        final Object fieldValue = doc.field(fieldName);
+        final Object fieldValue = doc.get(fieldName);
         if (fieldValue != null)
           if (fieldValue instanceof Collection<?>)
             counter += ((Collection<?>) fieldValue).size();
@@ -866,7 +866,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
         // RETURN THE CLASS NAME
         return clsName;
     }
-    return getRecord().field(OrientElement.LABEL_FIELD_NAME);
+    return getRecord().get(OrientElement.LABEL_FIELD_NAME);
   }
 
   /**
@@ -1101,7 +1101,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
 
     if (settings.isUseLightweightEdges() && (fields == null || fields.length == 0 || fields[0] == null
         || (fields[0] instanceof Map && ((Map) fields[0]).isEmpty()))) {
-      Object field = iFromVertex.field(iOutFieldName);
+      Object field = iFromVertex.get(iOutFieldName);
       if (field != null)
         if (field instanceof Collection<?>)
           if (((Collection<Object>) field).contains(iToVertex)) {
@@ -1111,7 +1111,7 @@ public class OrientVertex extends OrientElement implements OrientExtendedVertex 
             return false;
           }
 
-      field = iToVertex.field(iInFieldName);
+      field = iToVertex.get(iInFieldName);
       if (field != null)
         if (field instanceof Collection<?>)
           if (((Collection<Object>) field).contains(iFromVertex)) {

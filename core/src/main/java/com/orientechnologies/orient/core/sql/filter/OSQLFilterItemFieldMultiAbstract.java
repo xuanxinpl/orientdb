@@ -63,7 +63,7 @@ public abstract class OSQLFilterItemFieldMultiAbstract extends OSQLFilterItemAbs
 
     collates.clear();
     for (int i = 0; i < values.length; ++i) {
-      values[i] = doc.field(fieldNames[i]);
+      values[i] = doc.get(fieldNames[i]);
       collates.add(getCollateForField(clazz, fieldNames[i]));
     }
 

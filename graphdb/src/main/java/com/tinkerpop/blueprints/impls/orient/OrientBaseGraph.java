@@ -471,7 +471,7 @@ public abstract class OrientBaseGraph extends OrientConfigurableGraph implements
         try {
           final OIndexManager indexManager = getRawGraph().getMetadata().getIndexManager();
           final OIndex index = indexManager.getIndex(indexName);
-          final String recordMapIndexName = index.getConfiguration().field(OrientIndex.CONFIG_RECORD_MAP_NAME);
+          final String recordMapIndexName = index.getConfiguration().get(OrientIndex.CONFIG_RECORD_MAP_NAME);
 
           indexManager.dropIndex(indexName);
           if (recordMapIndexName != null)
@@ -1986,9 +1986,9 @@ public abstract class OrientBaseGraph extends OrientConfigurableGraph implements
   private boolean hasIndexClass(OIndex<?> idx) {
     final ODocument metadata = idx.getMetadata();
 
-    return (metadata != null && metadata.field(OrientIndex.CONFIG_CLASSNAME) != null)
+    return (metadata != null && metadata.get(OrientIndex.CONFIG_CLASSNAME) != null)
         // compatibility with versions earlier 1.6.3
-        || idx.getConfiguration().field(OrientIndex.CONFIG_CLASSNAME) != null;
+        || idx.getConfiguration().get(OrientIndex.CONFIG_CLASSNAME) != null;
   }
 
   private static class InitializationStackThreadLocal extends ThreadLocal<Deque<OrientBaseGraph>> {
@@ -2007,7 +2007,7 @@ public abstract class OrientBaseGraph extends OrientConfigurableGraph implements
     if (iVertex == null)
       return;
 
-    final Object fieldValue = iVertexToRemove != null ? iVertex.field(iFieldName) : iVertex.removeField(iFieldName);
+    final Object fieldValue = iVertexToRemove != null ? iVertex.get(iFieldName) : iVertex.removeField(iFieldName);
     if (fieldValue == null)
       return;
 

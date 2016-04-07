@@ -378,7 +378,7 @@ public class OSQLHelper {
                   final ODocument doc = (ODocument) rec;
                   if (doc.fields() == 1) {
                     singleFieldName = doc.fieldNames()[0];
-                    tempColl.add(doc.field(singleFieldName));
+                    tempColl.add(doc.get(singleFieldName));
                   } else {
                     // TRANSFORM IT IN EMBEDDED
                     doc.getIdentity().reset();

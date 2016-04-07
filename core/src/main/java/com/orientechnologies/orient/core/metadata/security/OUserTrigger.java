@@ -73,13 +73,13 @@ public class OUserTrigger extends ODocumentHookAbstract {
   }
 
   private RESULT encodePassword(final ODocument iDocument) {
-    if (iDocument.field("name") == null)
+    if (iDocument.get("name") == null)
       throw new OSecurityException("User name not found");
 
-    final String password = (String) iDocument.field("password");
+    final String password = (String) iDocument.get("password");
 
     if (password == null)
-      throw new OSecurityException("User '" + iDocument.field("name") + "' has no password");
+      throw new OSecurityException("User '" + iDocument.get("name") + "' has no password");
 
     if(Orient.instance().getSecurity() != null)
     {

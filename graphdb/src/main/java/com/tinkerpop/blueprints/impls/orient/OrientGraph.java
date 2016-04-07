@@ -398,7 +398,7 @@ public class OrientGraph extends OrientTransactionalGraph {
       if (outVertexRecord != null) {
         final String outFieldName = OrientVertex.getConnectionFieldName(Direction.OUT, edgeClassName, useVertexFieldsForEdgeLabels);
         outVertexChanged = edge.dropEdgeFromVertex(inVertexEdge, outVertexRecord, outFieldName,
-            outVertexRecord.field(outFieldName));
+            outVertexRecord.get(outFieldName));
       }
     }
 
@@ -413,7 +413,7 @@ public class OrientGraph extends OrientTransactionalGraph {
       inVertexRecord = inVertex.getRecord();
       if (inVertexRecord != null) {
         final String inFieldName = OrientVertex.getConnectionFieldName(Direction.IN, edgeClassName, useVertexFieldsForEdgeLabels);
-        inVertexChanged = edge.dropEdgeFromVertex(outVertexEdge, inVertexRecord, inFieldName, inVertexRecord.field(inFieldName));
+        inVertexChanged = edge.dropEdgeFromVertex(outVertexEdge, inVertexRecord, inFieldName, inVertexRecord.get(inFieldName));
       }
     }
 

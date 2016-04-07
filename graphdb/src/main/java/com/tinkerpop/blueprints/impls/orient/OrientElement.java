@@ -198,7 +198,7 @@ public abstract class OrientElement implements Element, OSerializableStream, Ext
 
     if (graph != null)
       graph.autoStartTransaction();
-    getRecord().field(key, value);
+    getRecord().set(key, value);
     if (graph != null)
       save();
   }
@@ -271,7 +271,7 @@ public abstract class OrientElement implements Element, OSerializableStream, Ext
     else if (key.equals("_rid"))
       return (T) rawElement.getIdentity().toString();
 
-    final Object fieldValue = getRecord().field(key);
+    final Object fieldValue = getRecord().get(key);
     if (graph != null && fieldValue instanceof OIdentifiable && !(((OIdentifiable) fieldValue).getRecord() instanceof OBlob))
       // CONVERT IT TO VERTEX/EDGE
       return (T) graph.getElement(fieldValue);
@@ -657,7 +657,7 @@ public abstract class OrientElement implements Element, OSerializableStream, Ext
 
   protected void setPropertyInternal(final Element element, final ODocument doc, final String key, final Object value) {
     validateProperty(element, key, value);
-    doc.field(key, value);
+    doc.set(key, value);
   }
 
   protected OrientBaseGraph setCurrentGraphInThreadLocal() {

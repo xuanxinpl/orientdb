@@ -19,9 +19,6 @@
  */
 package com.orientechnologies.orient.core.metadata.schema;
 
-import java.util.*;
-import java.util.concurrent.Callable;
-
 import com.orientechnologies.common.concur.lock.OReadersWriterSpinLock;
 import com.orientechnologies.common.concur.resource.OCloseable;
 import com.orientechnologies.common.exception.OException;
@@ -58,6 +55,9 @@ import com.orientechnologies.orient.core.storage.OStorageProxy;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
 import com.orientechnologies.orient.core.type.ODocumentWrapper;
 import com.orientechnologies.orient.core.type.ODocumentWrapperNoClass;
+
+import java.util.*;
+import java.util.concurrent.Callable;
 
 /**
  * Shared schema class. It's shared by all the database instances that point to the same storage.
@@ -660,7 +660,7 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
     modificationCounter.get().increment();
     try {
       // READ CURRENT SCHEMA VERSION
-      final Integer schemaVersion = (Integer) document.field("schemaVersion");
+      final Integer schemaVersion = (Integer) document.get("schemaVersion");
       if (schemaVersion == null) {
         OLogManager.instance().error(this, "Database's schema is empty! Recreating the system classes and allow the opening of the database but double check the integrity of the database");
         return;
@@ -672,7 +672,7 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
 
       properties.clear();
       propertiesByNameType.clear();
-      List<ODocument> globalProperties = document.field("globalProperties");
+      List<ODocument> globalProperties = document.get("globalProperties");
       boolean hasGlobalProperties = false;
       if (globalProperties != null) {
         hasGlobalProperties = true;
@@ -690,10 +690,10 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
       final Map<String, OClass> newClasses = new HashMap<String, OClass>();
 
       OClassImpl cls;
-      Collection<ODocument> storedClasses = document.field("classes");
+      Collection<ODocument> storedClasses = document.get("classes");
       for (ODocument c : storedClasses) {
 
-        cls = new OClassImpl(this, c, (String) c.field("name"));
+        cls = new OClassImpl(this, c, (String) c.get("name"));
         cls.fromStream();
 
         if (classes.containsKey(cls.getName().toLowerCase())) {
@@ -720,8 +720,8 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
 
       for (ODocument c : storedClasses) {
 
-        superClassNames = c.field("superClasses");
-        legacySuperClassName = c.field("superClass");
+        superClassNames = c.get("superClasses");
+        legacySuperClassName = c.get("superClass");
         if (superClassNames == null)
           superClassNames = new ArrayList<String>();
         else
@@ -732,7 +732,7 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
 
         if (!superClassNames.isEmpty()) {
           // HAS A SUPER CLASS or CLASSES
-          cls = (OClassImpl) classes.get(((String) c.field("name")).toLowerCase());
+          cls = (OClassImpl) classes.get(((String) c.get("name")).toLowerCase());
           superClasses = new ArrayList<OClass>(superClassNames.size());
           for (String superClassName : superClassNames) {
 
@@ -747,7 +747,7 @@ public class OSchemaShared extends ODocumentWrapperNoClass implements OSchema, O
       }
 
       if (document.containsField("blobClusters"))
-        blobClusters = document.field("blobClusters");
+        blobClusters = document.get("blobClusters");
 
       if (!hasGlobalProperties) {
         if (getDatabase().getStorage().getUnderlying() instanceof OAbstractPaginatedStorage)

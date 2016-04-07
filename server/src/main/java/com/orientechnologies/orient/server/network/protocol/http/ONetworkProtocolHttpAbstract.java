@@ -19,17 +19,6 @@
  */
 package com.orientechnologies.orient.server.network.protocol.http;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.URLDecoder;
-import java.nio.charset.Charset;
-import java.util.*;
-import java.util.zip.GZIPInputStream;
-
 import com.orientechnologies.common.concur.lock.OLockException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.Orient;
@@ -60,6 +49,17 @@ import com.orientechnologies.orient.server.network.protocol.http.command.put.OSe
 import com.orientechnologies.orient.server.network.protocol.http.command.put.OServerCommandPutDocument;
 import com.orientechnologies.orient.server.network.protocol.http.command.put.OServerCommandPutIndex;
 import com.orientechnologies.orient.server.network.protocol.http.multipart.OHttpMultipartBaseInputStream;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
+import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 public abstract class ONetworkProtocolHttpAbstract extends ONetworkProtocol {
   private static final String          COMMAND_SEPARATOR = "|";
@@ -371,14 +371,14 @@ public abstract class ONetworkProtocolHttpAbstract extends ONetworkProtocol {
     ODocument response = new ODocument();
     ODocument error = new ODocument();
 
-    error.field("code", iCode);
-    error.field("reason", iCode);
-    error.field("content", iContent);
+    error.set("code", iCode);
+    error.set("reason", iCode);
+    error.set("content", iContent);
 
     List<ODocument> errors = new ArrayList<ODocument>();
     errors.add(error);
 
-    response.field("errors", errors);
+    response.set("errors", errors);
 
     binaryContent = response.toJSON("prettyPrint").getBytes(utf8);
 

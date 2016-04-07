@@ -1,9 +1,5 @@
 package com.orientechnologies.orient.core.record.impl;
 
-import org.testng.annotations.Test;
-
-import java.util.*;
-
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
 import com.orientechnologies.orient.core.id.ORecordId;
@@ -12,6 +8,12 @@ import com.orientechnologies.orient.core.metadata.schema.OProperty;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.serialization.serializer.record.ORecordSerializer;
+import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.testng.Assert.*;
 
@@ -25,7 +27,7 @@ public class ODocumentTest {
 
     ODocument doc2 = new ODocument().field("integer2", 123).field("string", "OrientDB").field("a", 123.3)
 
-    .setFieldType("integer", OType.INTEGER).setFieldType("string", OType.STRING).setFieldType("binary", OType.BINARY);
+        .setFieldType("integer", OType.INTEGER).setFieldType("string", OType.STRING).setFieldType("binary", OType.BINARY);
     ODocumentInternal.addOwner(doc2, new ODocument());
 
     assertEquals(doc2.field("integer2"), 123);
@@ -221,98 +223,96 @@ public class ODocumentTest {
       db.drop();
     }
   }
-  
+
   @Test
   public void testSetFieldAtListIndex() {
-      ODocument doc = new ODocument();
-      
-      Map<String, Object> data = new HashMap<String, Object>();
-      
-      List<Object> parentArray = new ArrayList<Object>();
-      parentArray.add(1);
-      parentArray.add(2);
-      parentArray.add(3);
-      
-      Map<String, Object> object4 = new HashMap<String, Object>();
-      object4.put("prop", "A");
-      parentArray.add(object4);
-      
-      data.put("array", parentArray);
-      
-      doc.field("data", data);
-      
-      assertEquals(doc.field("data.array[3].prop"), "A");
-      doc.field("data.array[3].prop", "B");
-      
-      assertEquals(doc.field("data.array[3].prop"), "B");
-      
-      assertEquals(doc.field("data.array[0]"), 1);
-      doc.field("data.array[0]", 5);
-      
-      assertEquals(doc.field("data.array[0]"), 5);
+    ODocument doc = new ODocument();
+
+    Map<String, Object> data = new HashMap<String, Object>();
+
+    List<Object> parentArray = new ArrayList<Object>();
+    parentArray.add(1);
+    parentArray.add(2);
+    parentArray.add(3);
+
+    Map<String, Object> object4 = new HashMap<String, Object>();
+    object4.put("prop", "A");
+    parentArray.add(object4);
+
+    data.put("array", parentArray);
+
+    doc.field("data", data);
+
+    assertEquals(doc.field("data.array[3].prop"), "A");
+    doc.field("data.array[3].prop", "B");
+
+    assertEquals(doc.field("data.array[3].prop"), "B");
+
+    assertEquals(doc.field("data.array[0]"), 1);
+    doc.field("data.array[0]", 5);
+
+    assertEquals(doc.field("data.array[0]"), 5);
   }
-  
+
   @Test
   public void testUndo() {
-	  ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:" + ODocumentTest.class.getSimpleName());
-	    db.create();
-	    try {
+    ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:" + ODocumentTest.class.getSimpleName());
+    db.create();
+    try {
 
-	      OSchema schema = db.getMetadata().getSchema();
-	      OClass classA = schema.createClass("TestUndo");
-	      classA.createProperty("name", OType.STRING);
-	      classA.createProperty("property", OType.STRING);
+      OSchema schema = db.getMetadata().getSchema();
+      OClass classA = schema.createClass("TestUndo");
+      classA.createProperty("name", OType.STRING);
+      classA.createProperty("property", OType.STRING);
 
-	      ODocument doc = new ODocument(classA);
-	      doc.field("name", "My Name");
-	      doc.field("property", "value1");
-	      doc.save();
-	      assertEquals(doc.field("name"), "My Name");
-	      assertEquals(doc.field("property"), "value1");
-	      doc.undo();
-	      assertEquals(doc.field("name"), "My Name");
-	      assertEquals(doc.field("property"), "value1");
-	      doc.field("name", "My Name 2");
-	      doc.field("property", "value2");
-	      doc.undo();
-	      doc.field("name", "My Name 3");
-	      assertEquals(doc.field("name"), "My Name 3");
-	      assertEquals(doc.field("property"), "value1");
-	      doc.save();
-	      doc.field("name", "My Name 4");
-	      doc.field("property", "value4");
-	      doc.undo("property");
-	      assertEquals(doc.field("name"), "My Name 4");
-	      assertEquals(doc.field("property"), "value1");
-	      doc.save();
-	      doc.undo("property");
-	      assertEquals(doc.field("name"), "My Name 4");
-	      assertEquals(doc.field("property"), "value1");
-	      doc.undo();
-	      assertEquals(doc.field("name"), "My Name 4");
-	      assertEquals(doc.field("property"), "value1");
-	    } finally {
-	      db.drop();
-	    }
+      ODocument doc = new ODocument(classA);
+      doc.field("name", "My Name");
+      doc.field("property", "value1");
+      doc.save();
+      assertEquals(doc.field("name"), "My Name");
+      assertEquals(doc.field("property"), "value1");
+      doc.undo();
+      assertEquals(doc.field("name"), "My Name");
+      assertEquals(doc.field("property"), "value1");
+      doc.field("name", "My Name 2");
+      doc.field("property", "value2");
+      doc.undo();
+      doc.field("name", "My Name 3");
+      assertEquals(doc.field("name"), "My Name 3");
+      assertEquals(doc.field("property"), "value1");
+      doc.save();
+      doc.field("name", "My Name 4");
+      doc.field("property", "value4");
+      doc.undo("property");
+      assertEquals(doc.field("name"), "My Name 4");
+      assertEquals(doc.field("property"), "value1");
+      doc.save();
+      doc.undo("property");
+      assertEquals(doc.field("name"), "My Name 4");
+      assertEquals(doc.field("property"), "value1");
+      doc.undo();
+      assertEquals(doc.field("name"), "My Name 4");
+      assertEquals(doc.field("property"), "value1");
+    } finally {
+      db.drop();
+    }
   }
 
-
   @Test
-  public void testMergeNull(){
+  public void testMergeNull() {
     ODocument dest = new ODocument();
 
     ODocument source = new ODocument();
-    source.field("key","value");
-    source.field("somenull",(Object)null);
+    source.field("key", "value");
+    source.field("somenull", (Object) null);
 
-    dest.merge(source,true,false);
+    dest.merge(source, true, false);
 
-    assertEquals(dest.field("key"),"value");
+    assertEquals(dest.field("key"), "value");
 
     assertTrue(dest.containsField("somenull"));
 
   }
-
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testFailNestedSetNull() {
@@ -320,7 +320,89 @@ public class ODocumentTest {
     doc.field("test.nested", "value");
   }
 
+  @Test
+  public void testCompareGetPerformance() {
 
+    ODocument doc = new ODocument();
+    doc.field("name", "value");
 
+    String s1 = doc.field("name");
+    String s2 = doc.get("name");
+    long t0 = 0;
 
+    doc.field("name", "value2");
+    t0 = System.nanoTime();
+    String s3 = doc.field("name");
+    System.out.println("field: " + (System.nanoTime() - t0));
+
+    doc.field("name", "value3");
+    t0 = System.nanoTime();
+    String s4 = doc.get("name");
+    System.out.println("get: " + (System.nanoTime() - t0));
+
+    doc.field("name", "value4");
+    t0 = System.nanoTime();
+    String s6 = doc.get("name");
+    System.out.println("get: " + (System.nanoTime() - t0));
+
+    doc.field("name", "value5");
+    t0 = System.nanoTime();
+    String s5 = doc.field("name");
+    System.out.println("field: " + (System.nanoTime() - t0));
+
+    System.out.println(s1 + s2 + s3 + s4 + s5 + s6);
+    long totGetSet = 0;
+    long totField = 0;
+    totGetSet+=runGetSet(doc, "count1");
+    totField+=runField(doc, "count2");
+    totGetSet+=runGetSet(doc, "count3");
+    totField+=runField(doc, "count4");
+    totGetSet+=runGetSet(doc, "count5");
+    totField+=runField(doc, "count6");
+    totGetSet+=runGetSet(doc, "count7");
+    totField+=runField(doc, "count8");
+
+    System.out.println("totGetSet = "+totGetSet);
+    System.out.println("totField  = "+totField);
+
+    totGetSet = 0;
+    totField = 0;
+    totField+=runField(doc, "count12");
+    totGetSet+=runGetSet(doc, "count11");
+    totField+=runField(doc, "count14");
+    totGetSet+=runGetSet(doc, "count13");
+    totField+=runField(doc, "count16");
+    totGetSet+=runGetSet(doc, "count15");
+    totField+=runField(doc, "count18");
+    totGetSet+=runGetSet(doc, "count17");
+
+    System.out.println("totGetSet = "+totGetSet);
+    System.out.println("totField  = "+totField);
+  }
+
+  private long runGetSet(ODocument doc, String fieldName) {
+    long t0 = System.nanoTime();
+    long count = 0;
+    for (int i = 0; i < 1000000; i++) {
+      doc.set(fieldName, i);
+      int result = doc.get(fieldName);
+      count += result;
+    }
+    long elapsed = System.nanoTime() - t0;
+    System.out.println("getSet: " + count + "   -> " + elapsed);
+    return elapsed;
+  }
+
+  private long runField(ODocument doc, String fieldName) {
+    long t0 = System.nanoTime();
+    long count = 0;
+    for (int i = 0; i < 1000000; i++) {
+      doc.field(fieldName, i);
+      int result = doc.field(fieldName);
+      count += result;
+    }
+    long elapsed = System.nanoTime() - t0;
+    System.out.println("field:  " + count + "   -> " + elapsed);
+    return elapsed;
+  }
 }

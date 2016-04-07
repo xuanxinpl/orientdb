@@ -126,8 +126,8 @@ public class ORestrictedAccessHook extends ODocumentHookAbstract {
       return database
           .getMetadata()
           .getSecurity()
-          .isAllowed((Set<OIdentifiable>) doc.field(ORestrictedOperation.ALLOW_ALL.getFieldName()),
-              (Set<OIdentifiable>) doc.field(iAllowOperation.getFieldName()));
+          .isAllowed((Set<OIdentifiable>) doc.get(ORestrictedOperation.ALLOW_ALL.getFieldName()),
+              (Set<OIdentifiable>) doc.get(iAllowOperation.getFieldName()));
     }
 
     return true;

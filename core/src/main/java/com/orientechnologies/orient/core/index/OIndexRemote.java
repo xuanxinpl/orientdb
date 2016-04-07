@@ -110,13 +110,13 @@ public abstract class OIndexRemote<T> implements OIndex<T> {
   public boolean contains(final Object iKey) {
     final OCommandRequest cmd = formatCommand(QUERY_CONTAINS, name);
     final List<ODocument> result = getDatabase().command(cmd).execute(iKey);
-    return (Long) result.get(0).field("size") > 0;
+    return (Long) result.get(0).get("size") > 0;
   }
 
   public long count(final Object iKey) {
     final OCommandRequest cmd = formatCommand(QUERY_COUNT, name);
     final List<ODocument> result = getDatabase().command(cmd).execute(iKey);
-    return (Long) result.get(0).field("size");
+    return (Long) result.get(0).get("size");
   }
 
   public long count(final Object iRangeFrom, final boolean iFromInclusive, final Object iRangeTo, final boolean iToInclusive,
@@ -201,13 +201,13 @@ public abstract class OIndexRemote<T> implements OIndex<T> {
   public long getSize() {
     final OCommandRequest cmd = formatCommand(QUERY_SIZE, name);
     final List<ODocument> result = getDatabase().command(cmd).execute();
-    return (Long) result.get(0).field("size");
+    return (Long) result.get(0).get("size");
   }
 
   public long getKeySize() {
     final OCommandRequest cmd = formatCommand(QUERY_KEY_SIZE, name);
     final List<ODocument> result = getDatabase().command(cmd).execute();
-    return (Long) result.get(0).field("size");
+    return (Long) result.get(0).get("size");
   }
 
   public boolean isAutomatic() {
@@ -383,12 +383,12 @@ public abstract class OIndexRemote<T> implements OIndex<T> {
         return new Map.Entry<Object, OIdentifiable>() {
           @Override
           public Object getKey() {
-            return value.field("key");
+            return value.get("key");
           }
 
           @Override
           public OIdentifiable getValue() {
-            return value.field("rid");
+            return value.get("rid");
           }
 
           @Override
@@ -419,12 +419,12 @@ public abstract class OIndexRemote<T> implements OIndex<T> {
         return new Map.Entry<Object, OIdentifiable>() {
           @Override
           public Object getKey() {
-            return value.field("key");
+            return value.get("key");
           }
 
           @Override
           public OIdentifiable getValue() {
-            return value.field("rid");
+            return value.get("rid");
           }
 
           @Override
@@ -451,7 +451,7 @@ public abstract class OIndexRemote<T> implements OIndex<T> {
 
         final ODocument value = documentIterator.next();
 
-        return value.field("key");
+        return value.get("key");
       }
     };
   }

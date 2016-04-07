@@ -97,7 +97,7 @@ public abstract class OIndexOneValue extends OIndexAbstract<OIdentifiable> {
       // CHECK IF ALREADY EXIST
       final OIdentifiable indexedRID = get(key);
       if (indexedRID != null && !indexedRID.getIdentity().equals(record.getIdentity())) {
-        final Boolean mergeSameKey = metadata != null && (Boolean) metadata.field(OIndex.MERGE_KEYS);
+        final Boolean mergeSameKey = metadata != null && (Boolean) metadata.get(OIndex.MERGE_KEYS);
         if (mergeSameKey != null && mergeSameKey)
           return (ODocument) indexedRID.getRecord();
         else

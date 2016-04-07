@@ -20,30 +20,20 @@
 
 package com.tinkerpop.blueprints.impls.orient;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
-import com.orientechnologies.orient.core.index.OCompositeKey;
-import com.orientechnologies.orient.core.index.OIndex;
-import com.orientechnologies.orient.core.index.OIndexFactory;
-import com.orientechnologies.orient.core.index.OIndexTxAwareMultiValue;
-import com.orientechnologies.orient.core.index.OIndexTxAwareOneValue;
-import com.orientechnologies.orient.core.index.OIndexes;
-import com.orientechnologies.orient.core.index.OSimpleKeyIndexDefinition;
+import com.orientechnologies.orient.core.index.*;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
-import com.tinkerpop.blueprints.CloseableIterable;
-import com.tinkerpop.blueprints.Edge;
-import com.tinkerpop.blueprints.Element;
-import com.tinkerpop.blueprints.Index;
-import com.tinkerpop.blueprints.Vertex;
+import com.tinkerpop.blueprints.*;
 import com.tinkerpop.blueprints.util.StringFactory;
 import com.tinkerpop.blueprints.util.WrappingCloseableIterable;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author Luca Garulli (http://www.orientechnologies.com)
@@ -210,8 +200,8 @@ public class OrientIndex<T extends OrientElement> implements Index<T> {
 
   private void load(final ODocument metadata) {
     // LOAD TREEMAP
-    final String indexClassName = metadata.field(CONFIG_CLASSNAME);
-    final String recordKeyValueMap = metadata.field(CONFIG_RECORD_MAP_NAME);
+    final String indexClassName = metadata.get(CONFIG_CLASSNAME);
+    final String recordKeyValueMap = metadata.get(CONFIG_RECORD_MAP_NAME);
 
     if (VERTEX.equals(indexClassName))
       this.indexClass = Vertex.class;
@@ -246,9 +236,9 @@ public class OrientIndex<T extends OrientElement> implements Index<T> {
         new OSQLSynchQuery<Object>("select  from index:" + underlying.getName()));
 
     for (ODocument entry : entries) {
-      final OIdentifiable rid = entry.field("rid");
+      final OIdentifiable rid = entry.get("rid");
       if (rid != null)
-        recordKeyValueIndex.put(new OCompositeKey(rid, entry.field("key")), rid);
+        recordKeyValueIndex.put(new OCompositeKey(rid, entry.get("key")), rid);
     }
 
     metadata.field(CONFIG_RECORD_MAP_NAME, recordKeyValueIndex.getName());

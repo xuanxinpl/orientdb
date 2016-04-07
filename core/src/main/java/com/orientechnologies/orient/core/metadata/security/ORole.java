@@ -138,7 +138,7 @@ public class ORole extends OIdentity implements OSecurityRole {
     document = iSource;
 
     try {
-      final Number modeField = document.field("mode");
+      final Number modeField = document.get("mode");
       mode = modeField == null ? ALLOW_MODES.DENY_ALL_BUT : modeField.byteValue() == STREAM_ALLOW ? ALLOW_MODES.ALLOW_ALL_BUT
           : ALLOW_MODES.DENY_ALL_BUT;
     } catch (Exception ex) {
@@ -146,21 +146,21 @@ public class ORole extends OIdentity implements OSecurityRole {
       mode = ALLOW_MODES.DENY_ALL_BUT;
     }
 
-    final OIdentifiable role = document.field("inheritedRole");
+    final OIdentifiable role = document.get("inheritedRole");
     parentRole = role != null ? document.getDatabase().getMetadata().getSecurity().getRole(role) : null;
 
     boolean rolesNeedToBeUpdated = false;
-    Object loadedRules = document.field("rules");
+    Object loadedRules = document.get("rules");
     if (loadedRules instanceof Map) {
       loadOldVersionOfRules((Map<String, Number>) loadedRules);
     } else {
       final Set<ODocument> storedRules = (Set<ODocument>) loadedRules;
       if (storedRules != null) {
         for (ODocument ruleDoc : storedRules) {
-          final ORule.ResourceGeneric resourceGeneric = ORule.ResourceGeneric.valueOf(ruleDoc.<String> field("resourceGeneric"));
+          final ORule.ResourceGeneric resourceGeneric = ORule.ResourceGeneric.valueOf(ruleDoc.<String> get("resourceGeneric"));
           if(resourceGeneric==null) continue;
-          final Map<String, Byte> specificResources = ruleDoc.field("specificResources");
-          final Byte access = ruleDoc.field("access");
+          final Map<String, Byte> specificResources = ruleDoc.get("specificResources");
+          final Byte access = ruleDoc.get("access");
 
           final ORule rule = new ORule(resourceGeneric, specificResources, access);
           rules.put(resourceGeneric, rule);
@@ -328,7 +328,7 @@ public class ORole extends OIdentity implements OSecurityRole {
   }
 
   public String getName() {
-    return document.field("name");
+    return document.get("name");
   }
 
   public ALLOW_MODES getMode() {

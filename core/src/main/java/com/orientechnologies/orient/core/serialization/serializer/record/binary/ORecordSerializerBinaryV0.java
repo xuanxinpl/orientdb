@@ -435,7 +435,7 @@ public class ORecordSerializerBinaryV0 implements ODocumentSerializer {
       value = new ODocument();
       deserialize((ODocument) value, bytes);
       if (((ODocument) value).containsField(ODocumentSerializable.CLASS_NAME)) {
-        String className = ((ODocument) value).field(ODocumentSerializable.CLASS_NAME);
+        String className = ((ODocument) value).get(ODocumentSerializable.CLASS_NAME);
         try {
           Class<?> clazz = Class.forName(className);
           ODocumentSerializable newValue = (ODocumentSerializable) clazz.newInstance();
@@ -725,7 +725,7 @@ public class ORecordSerializerBinaryV0 implements ODocumentSerializer {
       pointer = bytes.offset;
       if (value instanceof ODocumentSerializable) {
         ODocument cur = ((ODocumentSerializable) value).toDocument();
-        cur.field(ODocumentSerializable.CLASS_NAME, value.getClass().getName());
+        cur.set(ODocumentSerializable.CLASS_NAME, value.getClass().getName());
         serialize(cur, bytes, false);
       } else {
         serialize((ODocument) value, bytes, false);

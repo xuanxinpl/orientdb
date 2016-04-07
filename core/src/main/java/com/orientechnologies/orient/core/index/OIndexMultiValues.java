@@ -131,7 +131,7 @@ public abstract class OIndexMultiValues extends OIndexAbstract<Set<OIdentifiable
 
         final boolean durable;
 
-        if (metadata != null && Boolean.TRUE.equals(metadata.field("durableInNonTxMode")))
+        if (metadata != null && Boolean.TRUE.equals(metadata.get("durableInNonTxMode")))
           durable = true;
         else
           durable = false;

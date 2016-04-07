@@ -1183,8 +1183,8 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
               result = readSynchResult(network, database);
               if (live) {
                 final ODocument doc = ((List<ODocument>) result).get(0);
-                final Integer token = doc.field("token");
-                final Boolean unsubscribe = doc.field("unsubscribe");
+                final Integer token = doc.get("token");
+                final Boolean unsubscribe = doc.get("unsubscribe");
                 if (token != null) {
                   if (Boolean.TRUE.equals(unsubscribe)) {
                     if (OStorageRemote.this.asynchEventListener != null)
@@ -1591,7 +1591,7 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
     synchronized (clusterConfiguration) {
       clusterConfiguration.fromStream(obj);
       clusterConfiguration.toString();
-      members = clusterConfiguration.field("members");
+      members = clusterConfiguration.get("members");
     }
 
     // UPDATE IT
@@ -1604,10 +1604,10 @@ public class OStorageRemote extends OStorageAbstract implements OStorageProxy {
         addHost(iConnectedURL);
 
         for (ODocument m : members) {
-          final String nodeStatus = m.field("status");
+          final String nodeStatus = m.get("status");
 
           if (m != null && !"OFFLINE".equals(nodeStatus)) {
-            final Collection<Map<String, Object>> listeners = ((Collection<Map<String, Object>>) m.field("listeners"));
+            final Collection<Map<String, Object>> listeners = ((Collection<Map<String, Object>>) m.get("listeners"));
             if (listeners == null)
               throw new ODatabaseException("Received bad distributed configuration: missing 'listeners' array field");
 

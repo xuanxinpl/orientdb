@@ -234,8 +234,8 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
 
   private static ODocument createIndexEntryAsDocument(final Object iKey, final OIdentifiable iValue) {
     final ODocument doc = new ODocument().setOrdered(true);
-    doc.field("key", iKey);
-    doc.field("rid", iValue);
+    doc.set("key", iKey);
+    doc.set("rid", iValue);
     ORecordInternal.unsetDirty(doc);
     return doc;
   }
@@ -2462,8 +2462,8 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
 
     while (entryRecord != null) {
       final ODocument doc = new ODocument().setOrdered(true);
-      doc.field("key", entryRecord.getKey());
-      doc.field("rid", entryRecord.getValue().getIdentity());
+      doc.set("key", entryRecord.getKey());
+      doc.set("rid", entryRecord.getValue().getIdentity());
       ORecordInternal.unsetDirty(doc);
 
       applyGroupBy(doc, context);

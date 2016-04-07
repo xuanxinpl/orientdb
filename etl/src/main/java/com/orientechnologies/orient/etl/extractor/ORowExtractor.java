@@ -44,10 +44,10 @@ public class ORowExtractor extends OAbstractSourceExtractor {
     super.configure(iProcessor, iConfiguration, iContext);
 
     if (iConfiguration.containsField("multiLine"))
-      multiLine = (Boolean) iConfiguration.field("multiLine");
+      multiLine = (Boolean) iConfiguration.get("multiLine");
 
     if (iConfiguration.containsField("lineFeed"))
-      lineFeed = (String) iConfiguration.field("lineFeed");
+      lineFeed = (String) iConfiguration.get("lineFeed");
   }
 
   @Override
