@@ -19,16 +19,12 @@
  */
 package com.orientechnologies.orient.core.record.impl;
 
-import java.io.*;
-import java.lang.ref.WeakReference;
-import java.util.*;
-import java.util.Map.Entry;
-
 import com.orientechnologies.common.collection.OMultiValue;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OCommonConst;
+import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
@@ -53,6 +49,11 @@ import com.orientechnologies.orient.core.sql.filter.OSQLPredicate;
 import com.orientechnologies.orient.core.storage.OStorage;
 import com.orientechnologies.orient.core.tx.OTransaction;
 import com.orientechnologies.orient.core.tx.OTransactionOptimistic;
+
+import java.io.*;
+import java.lang.ref.WeakReference;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Document representation to handle values dynamically. Can be used in schema-less, schema-mixed and schema-full modes. Fields can
@@ -210,6 +211,249 @@ public class ODocument extends ORecordAbstract
   public ODocument(final String iFieldName, final Object iFieldValue, final Object... iFields) {
     this(iFields);
     field(iFieldName, iFieldValue);
+  }
+
+  public <RET> RET get(String iFieldName) {
+    if (iFieldName == null || iFieldName.length() == 0)
+      return null;
+
+    checkForLoading();
+    if (!checkForFields(iFieldName))
+      // NO FIELDS
+      return null;
+
+    RET value = null;
+    ODocumentEntry entry = _fields.get(iFieldName);
+    if (entry != null && entry.exist())
+      value = (RET) entry.value;
+    if(value == null){
+      value = (RET)getRecordAttributeValue(iFieldName);
+    }
+
+    if (!iFieldName.startsWith("@") && _lazyLoad && value instanceof ORID && (((ORID) value).isPersistent() || ((ORID) value)
+        .isNew()) && ODatabaseRecordThreadLocal.INSTANCE.isDefined()) {
+      // CREATE THE DOCUMENT OBJECT IN LAZY WAY
+      RET newValue = (RET) getDatabase().load((ORID) value);
+      if (newValue != null) {
+        unTrack((ORID) value);
+        track((OIdentifiable) newValue);
+        value = newValue;
+        ORecordInternal.setDirtyManager((ORecord) value, this.getDirtyManager());
+        removeCollectionChangeListener(entry, entry.value);
+        entry.value = value;
+        addCollectionChangeListener(entry);
+      }
+    }
+
+    return value;
+  }
+
+  private Object getRecordAttributeValue(String iFieldName){
+    if (iFieldName == null || iFieldName.length() == 0)
+      return null;
+
+    final char begin = iFieldName.charAt(0);
+    if (begin == '@') {
+      // RETURN AN ATTRIBUTE
+      if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_THIS))
+        return this.getRecord();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_RID))
+        return this.getIdentity();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_RID_ID))
+        return this.getIdentity().getClusterId();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_RID_POS))
+        return this.getIdentity().getClusterPosition();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_VERSION))
+        return this.getRecord().getVersion();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_CLASS))
+        return ((ODocument) this.getRecord()).getClassName();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_TYPE))
+        return Orient.instance().getRecordFactoryManager().getRecordTypeName(ORecordInternal.getRecordType(this.getRecord()));
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_SIZE)) {
+        final byte[] stream = this.getRecord().toStream();
+        return stream != null ? stream.length : 0;
+      } else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_FIELDS))
+        return ((ODocument) this.getRecord()).fieldNames();
+      else if (iFieldName.equalsIgnoreCase(ODocumentHelper.ATTRIBUTE_RAW))
+        return new String(this.getRecord().toStream());
+    }
+    return null;
+  }
+
+  public <RET> RET get(String iFieldName, Class<?> iFieldType){
+    RET value = get(iFieldName);
+    if (value != null)
+      value = ODocumentHelper.convertField(this, iFieldName, OType.getTypeByClass(iFieldType), iFieldType, value);
+
+    return value;
+  }
+
+  public <RET> RET get(final String iFieldName, final OType iFieldType) {
+    RET value = (RET) get(iFieldName);
+    OType original;
+    if (iFieldType != null && iFieldType != (original = fieldType(iFieldName))) {
+      // this is needed for the csv serializer that don't give back values
+      if (original == null) {
+        original = OType.getTypeByValue(value);
+        if (iFieldType == original)
+          return value;
+      }
+
+      final Object newValue;
+
+      if (iFieldType == OType.BINARY && value instanceof String)
+        newValue = OStringSerializerHelper.getBinaryContent(value);
+      else if (iFieldType == OType.DATE && value instanceof Long)
+        newValue = new Date((Long) value);
+      else if ((iFieldType == OType.EMBEDDEDSET || iFieldType == OType.LINKSET) && value instanceof List)
+        newValue = Collections.unmodifiableSet((Set<?>) ODocumentHelper.convertField(this, iFieldName, iFieldType, null, value));
+      else if ((iFieldType == OType.EMBEDDEDLIST || iFieldType == OType.LINKLIST) && value instanceof Set)
+        newValue = Collections.unmodifiableList((List<?>) ODocumentHelper.convertField(this, iFieldName, iFieldType, null, value));
+      else if ((iFieldType == OType.EMBEDDEDMAP || iFieldType == OType.LINKMAP) && value instanceof Map)
+        newValue = Collections.unmodifiableMap((Map<?, ?>) ODocumentHelper.convertField(this, iFieldName, iFieldType, null, value));
+      else
+        newValue = OType.convert(value, iFieldType.getDefaultJavaType());
+
+      if (newValue != null)
+        value = (RET) newValue;
+
+    }
+    return value;
+  }
+
+  public void set(String iFieldName, Object iPropertyValue){
+    set(iFieldName, iPropertyValue, OCommonConst.EMPTY_TYPES_ARRAY);
+  }
+
+  public void set(String iFieldName, Object iPropertyValue, OType... iFieldType){
+    if (iFieldName == null)
+      throw new IllegalArgumentException("Field is null");
+
+    if (iFieldName.isEmpty())
+      throw new IllegalArgumentException("Field name is empty");
+
+    if (ODocumentHelper.ATTRIBUTE_CLASS.equals(iFieldName)) {
+      setClassName(iPropertyValue.toString());
+      return;
+    } else if (ODocumentHelper.ATTRIBUTE_RID.equals(iFieldName)) {
+      _recordId.fromString(iPropertyValue.toString());
+      return;
+    } else if (ODocumentHelper.ATTRIBUTE_VERSION.equals(iFieldName)) {
+      if (iPropertyValue != null) {
+        int v = _recordVersion;
+
+        if (iPropertyValue instanceof Number)
+          v = ((Number) iPropertyValue).intValue();
+        else
+          v = Integer.parseInt(iPropertyValue.toString());
+
+        _recordVersion = v;
+      }
+      return;
+    }
+
+    iFieldName = checkFieldName(iFieldName);
+
+    checkForLoading();
+    checkForFields();
+
+    ODocumentEntry entry = _fields.get(iFieldName);
+    final boolean knownProperty;
+    final Object oldValue;
+    final OType oldType;
+    if (entry == null) {
+      entry = new ODocumentEntry();
+      _fieldSize++;
+      _fields.put(iFieldName, entry);
+      entry.setCreated(true);
+      knownProperty = false;
+      oldValue = null;
+      oldType = null;
+    } else {
+      knownProperty = entry.exist();
+      oldValue = entry.value;
+      oldType = entry.type;
+    }
+    OType fieldType = deriveFieldType(iFieldName, entry, iFieldType);
+    if (iPropertyValue != null && fieldType != null) {
+      iPropertyValue = ODocumentHelper.convertField(this, iFieldName, fieldType, null, iPropertyValue);
+    } else if (iPropertyValue instanceof Enum)
+      iPropertyValue = iPropertyValue.toString();
+
+    if (knownProperty)
+      // CHECK IF IS REALLY CHANGED
+      if (iPropertyValue == null) {
+        if (oldValue == null)
+          // BOTH NULL: UNCHANGED
+          return;
+      } else {
+
+        try {
+          if (iPropertyValue.equals(oldValue)) {
+            if (fieldType == oldType) {
+              if (!(iPropertyValue instanceof ORecordElement))
+                // SAME BUT NOT TRACKABLE: SET THE RECORD AS DIRTY TO BE SURE IT'S SAVED
+                setDirty();
+
+              // SAVE VALUE: UNCHANGED
+              return;
+            }
+          }
+        } catch (Exception e) {
+          OLogManager.instance().warn(this, "Error on checking the value of property %s against the record %s", e, iFieldName,
+              getIdentity());
+        }
+      }
+
+    if (oldValue instanceof ORidBag) {
+      final ORidBag ridBag = (ORidBag) oldValue;
+      ridBag.setOwner(null);
+    } else if (oldValue instanceof ODocument) {
+      ((ODocument) oldValue).removeOwner(this);
+    }
+
+    if (oldValue instanceof OIdentifiable) {
+      unTrack((OIdentifiable) oldValue);
+    }
+
+    if (iPropertyValue != null) {
+      if (iPropertyValue instanceof ODocument) {
+        if (OType.EMBEDDED.equals(fieldType)) {
+          final ODocument embeddedDocument = (ODocument) iPropertyValue;
+          ODocumentInternal.addOwner(embeddedDocument, this);
+        }
+      }
+      if (iPropertyValue instanceof OIdentifiable) {
+        track((OIdentifiable) iPropertyValue);
+      }
+
+      if (iPropertyValue instanceof ORidBag) {
+        final ORidBag ridBag = (ORidBag) iPropertyValue;
+        ridBag.setOwner(null); // in order to avoid IllegalStateException when ridBag changes the owner (ODocument.merge)
+        ridBag.setOwner(this);
+      }
+    }
+
+    if (oldType != fieldType && oldType != null) {
+      // can be made in a better way, but "keeping type" issue should be solved before
+      if (iPropertyValue == null || fieldType != null || oldType != OType.getTypeByValue(iPropertyValue))
+        entry.type = fieldType;
+    }
+    removeCollectionChangeListener(entry, oldValue);
+    entry.value = iPropertyValue;
+    if (!entry.exist()) {
+      entry.setExist(true);
+      _fieldSize++;
+    }
+    addCollectionChangeListener(entry);
+
+    if (_status != STATUS.UNMARSHALLING) {
+      setDirty();
+      if (!entry.isChanged()) {
+        entry.original = oldValue;
+        entry.setChanged(true);
+      }
+    }
   }
 
   protected static void validateField(ODocument iRecord, OImmutableProperty p) throws OValidationException {
@@ -2274,7 +2518,7 @@ public class ODocument extends ORecordAbstract
         OType linkedType = prop.getLinkedType();
         if (linkedType == null)
           continue;
-        Object value = field(prop.getName());
+        Object value = get(prop.getName());
         if (value == null)
           continue;
         try {
@@ -2284,21 +2528,21 @@ public class ODocument extends ORecordAbstract
             for (Object object : values) {
               list.add(OType.convert(object, linkedType.getDefaultJavaType()));
             }
-            field(prop.getName(), list);
+            set(prop.getName(), list);
           } else if (type == OType.EMBEDDEDMAP && !(value instanceof OTrackedMap)) {
             Map<Object, Object> map = new OTrackedMap<Object>(this);
             Map<Object, Object> values = (Map<Object, Object>) value;
             for (Entry<Object, Object> object : values.entrySet()) {
               map.put(object.getKey(), OType.convert(object.getValue(), linkedType.getDefaultJavaType()));
             }
-            field(prop.getName(), map);
+            set(prop.getName(), map);
           } else if (type == OType.EMBEDDEDSET && !(value instanceof OTrackedSet)) {
             Set<Object> list = new OTrackedSet<Object>(this);
             Collection<Object> values = (Collection<Object>) value;
             for (Object object : values) {
               list.add(OType.convert(object, linkedType.getDefaultJavaType()));
             }
-            field(prop.getName(), list);
+            set(prop.getName(), list);
           }
         } catch (Exception e) {
           throw OException
