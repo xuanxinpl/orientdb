@@ -58,8 +58,7 @@ import java.util.Map.Entry;
  * Document representation to handle values dynamically. Can be used in schema-less, schema-mixed and schema-full modes. Fields can
  * be added at run-time. Instances can be reused across calls by using the reset() before to re-use.
  */
-@SuppressWarnings({ "unchecked" })
-public class ODocument extends ORecordAbstract
+@SuppressWarnings({ "unchecked" }) public class ODocument extends ORecordAbstract
     implements Iterable<Entry<String, Object>>, ORecordSchemaAware, ODetachable, Externalizable {
 
   public static final    byte     RECORD_TYPE      = 'd';
@@ -502,8 +501,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Copies all the fields into iDestination document.
    */
-  @Override
-  public ORecordAbstract copyTo(final ORecordAbstract iDestination) {
+  @Override public ORecordAbstract copyTo(final ORecordAbstract iDestination) {
     // TODO: REMOVE THIS
     checkForFields();
 
@@ -623,8 +621,7 @@ public class ODocument extends ORecordAbstract
     return (ODocument) result;
   }
 
-  @Deprecated
-  public ODocument load(final String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone) {
+  @Deprecated public ODocument load(final String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone) {
     Object result;
     try {
       result = getDatabase().load(this, iFetchPlan, iIgnoreCache, loadTombstone, OStorage.LOCKING_STRATEGY.DEFAULT);
@@ -638,8 +635,7 @@ public class ODocument extends ORecordAbstract
     return (ODocument) result;
   }
 
-  @Override
-  public ODocument reload(final String fetchPlan, final boolean ignoreCache) {
+  @Override public ODocument reload(final String fetchPlan, final boolean ignoreCache) {
     super.reload(fetchPlan, ignoreCache);
     if (!_lazyLoad) {
       checkForLoading();
@@ -653,8 +649,7 @@ public class ODocument extends ORecordAbstract
     return ODocumentHelper.hasSameContentOf(this, currentDb, iOther, currentDb, null);
   }
 
-  @Override
-  public byte[] toStream() {
+  @Override public byte[] toStream() {
     if (_recordFormat == null)
       setup();
     return toStream(false);
@@ -685,8 +680,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Dumps the instance as string.
    */
-  @Override
-  public String toString() {
+  @Override public String toString() {
     return toString(new HashSet<ORecord>());
   }
 
@@ -705,8 +699,7 @@ public class ODocument extends ORecordAbstract
    *
    * @param iValue String representation of the record.
    */
-  @Deprecated
-  public void fromString(final String iValue) {
+  @Deprecated public void fromString(final String iValue) {
     _dirty = true;
     _contentChanged = true;
     try {
@@ -762,25 +755,12 @@ public class ODocument extends ORecordAbstract
   }
 
   public <RET> RET rawField(final String iFieldName) {
-    if (iFieldName == null || iFieldName.length() == 0)
+    if (iFieldName == null)
       return null;
 
     checkForLoading();
-    if (!checkForFields(iFieldName))
-      // NO FIELDS
-      return null;
 
-    // OPTIMIZATION
-    if (!_allowChainedAccess || (iFieldName.charAt(0) != '@' && OStringSerializerHelper.indexOf(iFieldName, 0, '.', '[') == -1)) {
-      ODocumentEntry entry = _fields.get(iFieldName);
-      if (entry != null && entry.exist())
-        return (RET) entry.value;
-      else
-        return null;
-    }
-
-    // NOT FOUND, PARSE THE FIELD NAME
-    return (RET) ODocumentHelper.getFieldValue(this, iFieldName);
+    return (RET) ODocumentHelper.getIdentifiableValue(this, iFieldName);
   }
 
   /**
@@ -790,7 +770,7 @@ public class ODocument extends ORecordAbstract
    * @return The result of expression
    * @throws OQueryParsingException in case the expression is not valid
    */
-  public Object eval(final String iExpression) {
+  public <RET> RET eval(final String iExpression) {
     return eval(iExpression, null);
   }
 
@@ -805,8 +785,8 @@ public class ODocument extends ORecordAbstract
    * @return The result of expression
    * @throws OQueryParsingException in case the expression is not valid
    */
-  public Object eval(final String iExpression, final OCommandContext iContext) {
-    return new OSQLPredicate(iExpression).evaluate(this, null, iContext);
+  public <RET> RET eval(final String iExpression, final OCommandContext iContext) {
+    return (RET) new OSQLPredicate(iExpression).evaluate(this, null, iContext);
   }
 
   /**
@@ -931,8 +911,7 @@ public class ODocument extends ORecordAbstract
    *
    * @see #fromMap(Map)
    */
-  @Deprecated
-  public ODocument fields(final Map<String, Object> iMap) {
+  @Deprecated public ODocument fields(final Map<String, Object> iMap) {
     return fromMap(iMap);
   }
 
@@ -952,7 +931,7 @@ public class ODocument extends ORecordAbstract
 
   /**
    * Writes the field value forcing the type. This method sets the current document as dirty.
-   * <p/>
+   * <p>
    * if there's a schema definition for the specified field, the value will be converted to respect the schema definition if needed.
    * if the type defined in the schema support less precision than the iPropertyValue provided, the iPropertyValue will be converted
    * following the java casting rules with possible precision loss.
@@ -990,66 +969,6 @@ public class ODocument extends ORecordAbstract
         _recordVersion = v;
       }
       return this;
-    }
-
-    final int lastDotSep = _allowChainedAccess ? iFieldName.lastIndexOf('.') : -1;
-    final int lastArraySep = _allowChainedAccess ? iFieldName.lastIndexOf('[') : -1;
-
-    final int lastSep = Math.max(lastArraySep, lastDotSep);
-    final boolean lastIsArray = lastArraySep > lastDotSep;
-
-    if (lastSep > -1) {
-      // SUB PROPERTY GET 1 LEVEL BEFORE LAST
-      final Object subObject = field(iFieldName.substring(0, lastSep));
-      if (subObject != null) {
-        final String subFieldName = lastIsArray ? iFieldName.substring(lastSep) : iFieldName.substring(lastSep + 1);
-        if (subObject instanceof ODocument) {
-          // SUB-DOCUMENT
-          ((ODocument) subObject).field(subFieldName, iPropertyValue);
-          return (ODocument) (((ODocument) subObject).isEmbedded() ? this : subObject);
-        } else if (subObject instanceof Map<?, ?>) {
-          // KEY/VALUE
-          ((Map<String, Object>) subObject).put(subFieldName, iPropertyValue);
-        } else if (OMultiValue.isMultiValue(subObject)) {
-          if ((subObject instanceof List<?> || subObject.getClass().isArray()) && lastIsArray) {
-            // List // Array Type with a index subscript.
-            final int subFieldNameLen = subFieldName.length();
-
-            if (subFieldName.charAt(subFieldNameLen - 1) != ']') {
-              throw new IllegalArgumentException("Missed closing ']'");
-            }
-
-            final String indexPart = subFieldName.substring(1, subFieldNameLen - 1);
-            final Object indexPartObject = ODocumentHelper.getIndexPart(null, indexPart);
-            final String indexAsString = indexPartObject == null ? null : indexPartObject.toString();
-
-            try {
-              final int index = Integer.parseInt(indexAsString);
-              OMultiValue.setValue(subObject, iPropertyValue, index);
-            } catch (NumberFormatException e) {
-              throw new IllegalArgumentException("List / array subscripts must resolve to integer values.");
-            }
-          } else {
-            // APPLY CHANGE TO ALL THE ITEM IN SUB-COLLECTION
-            for (Object subObjectItem : OMultiValue.getMultiValueIterable(subObject)) {
-              if (subObjectItem instanceof ODocument) {
-                // SUB-DOCUMENT, CHECK IF IT'S NOT LINKED
-                if (!((ODocument) subObjectItem).isEmbedded())
-                  throw new IllegalArgumentException("Property '" + iFieldName
-                      + "' points to linked collection of items. You can only change embedded documents in this way");
-                ((ODocument) subObjectItem).field(subFieldName, iPropertyValue);
-              } else if (subObjectItem instanceof Map<?, ?>) {
-                // KEY/VALUE
-                ((Map<String, Object>) subObjectItem).put(subFieldName, iPropertyValue);
-              }
-            }
-          }
-          return this;
-        }
-      } else
-        throw new IllegalArgumentException("Property '" + iFieldName.substring(0, lastSep)
-            + "' is null, is possible to set a value with dotted notation only on not null property");
-      return null;
     }
 
     iFieldName = checkFieldName(iFieldName);
@@ -1306,18 +1225,15 @@ public class ODocument extends ORecordAbstract
         final Entry<String, Object> toRet = new Entry<String, Object>() {
           private Entry<String, ODocumentEntry> intern = current;
 
-          @Override
-          public Object setValue(Object value) {
+          @Override public Object setValue(Object value) {
             throw new UnsupportedOperationException();
           }
 
-          @Override
-          public Object getValue() {
+          @Override public Object getValue() {
             return intern.getValue().value;
           }
 
-          @Override
-          public String getKey() {
+          @Override public String getKey() {
             return intern.getKey();
           }
         };
@@ -1363,8 +1279,7 @@ public class ODocument extends ORecordAbstract
     return _owners != null && !_owners.isEmpty();
   }
 
-  @Override
-  public ORecordElement getOwner() {
+  @Override public ORecordElement getOwner() {
     if (_owners == null)
       return null;
 
@@ -1393,8 +1308,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Propagates the dirty status to the owner, if any. This happens when the object is embedded in another one.
    */
-  @Override
-  public ORecordAbstract setDirty() {
+  @Override public ORecordAbstract setDirty() {
     if (_owners != null) {
       // PROPAGATES TO THE OWNER
       ORecordElement e;
@@ -1442,8 +1356,7 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public void setDirtyNoChanged() {
+  @Override public void setDirtyNoChanged() {
     if (_owners != null) {
       // PROPAGATES TO THE OWNER
       ORecordElement e;
@@ -1462,8 +1375,7 @@ public class ODocument extends ORecordAbstract
     super.setDirtyNoChanged();
   }
 
-  @Override
-  public ODocument fromStream(final byte[] iRecordBuffer) {
+  @Override public ODocument fromStream(final byte[] iRecordBuffer) {
     removeAllCollectionChangeListeners();
 
     _fields = null;
@@ -1497,8 +1409,7 @@ public class ODocument extends ORecordAbstract
     return null;
   }
 
-  @Override
-  public ODocument unload() {
+  @Override public ODocument unload() {
     super.unload();
     internalReset();
     return this;
@@ -1520,8 +1431,7 @@ public class ODocument extends ORecordAbstract
    * @return this
    * @see #reset()
    */
-  @Override
-  public ODocument clear() {
+  @Override public ODocument clear() {
     super.clear();
     internalReset();
     _owners = null;
@@ -1550,8 +1460,7 @@ public class ODocument extends ORecordAbstract
    * @throws IllegalStateException if transaction is begun.
    * @see #clear()
    */
-  @Override
-  public ODocument reset() {
+  @Override public ODocument reset() {
     ODatabaseDocument db = ODatabaseRecordThreadLocal.INSTANCE.getIfDefined();
     if (db != null && db.getTransaction().isActive())
       throw new IllegalStateException("Cannot reset documents during a transaction. Create a new one each time");
@@ -1699,16 +1608,14 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public boolean equals(Object obj) {
+  @Override public boolean equals(Object obj) {
     if (!super.equals(obj))
       return false;
 
     return this == obj || _recordId.isValid();
   }
 
-  @Override
-  public int hashCode() {
+  @Override public int hashCode() {
     if (_recordId.isValid())
       return super.hashCode();
 
@@ -1730,23 +1637,19 @@ public class ODocument extends ORecordAbstract
     return _fields == null || _fields.isEmpty();
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource, final String iOptions) {
+  @Override public ODocument fromJSON(final String iSource, final String iOptions) {
     return (ODocument) super.fromJSON(iSource, iOptions);
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource) {
+  @Override public ODocument fromJSON(final String iSource) {
     return (ODocument) super.fromJSON(iSource);
   }
 
-  @Override
-  public ODocument fromJSON(final InputStream iContentResult) throws IOException {
+  @Override public ODocument fromJSON(final InputStream iContentResult) throws IOException {
     return (ODocument) super.fromJSON(iContentResult);
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource, final boolean needReload) {
+  @Override public ODocument fromJSON(final String iSource, final boolean needReload) {
     return (ODocument) super.fromJSON(iSource, needReload);
   }
 
@@ -1780,13 +1683,11 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public ODocument save() {
+  @Override public ODocument save() {
     return (ODocument) save(null, false);
   }
 
-  @Override
-  public ODocument save(final String iClusterName) {
+  @Override public ODocument save(final String iClusterName) {
     return (ODocument) save(iClusterName, false);
   }
 
@@ -1803,23 +1704,6 @@ public class ODocument extends ORecordAbstract
       return true;
 
     if (iFields != null && iFields.length > 0) {
-      // EXTRACT REAL FIELD NAMES
-      for (int i = 0; i < iFields.length; ++i) {
-        final String f = iFields[i];
-        if (f != null && !f.startsWith("@")) {
-          int pos1 = f.indexOf('[');
-          int pos2 = f.indexOf('.');
-          if (pos1 > -1 || pos2 > -1) {
-            int pos = pos1 > -1 ? pos1 : pos2;
-            if (pos2 > -1 && pos2 < pos)
-              pos = pos2;
-
-            // REPLACE THE FIELD NAME
-            iFields[i] = f.substring(0, pos);
-          }
-        }
-      }
-
       // CHECK IF HAS BEEN ALREADY UNMARSHALLED
       if (_fields != null && !_fields.isEmpty()) {
         boolean allFound = true;
@@ -1867,8 +1751,7 @@ public class ODocument extends ORecordAbstract
     return true;
   }
 
-  @Override
-  public void writeExternal(ObjectOutput stream) throws IOException {
+  @Override public void writeExternal(ObjectOutput stream) throws IOException {
     final byte[] idBuffer = _recordId.toStream();
     stream.writeInt(-1);
     stream.writeInt(idBuffer.length);
@@ -1883,8 +1766,7 @@ public class ODocument extends ORecordAbstract
     stream.writeObject(this._recordFormat.toString());
   }
 
-  @Override
-  public void readExternal(ObjectInput stream) throws IOException, ClassNotFoundException {
+  @Override public void readExternal(ObjectInput stream) throws IOException, ClassNotFoundException {
     int i = stream.readInt();
     int size;
     if (i < 0)
@@ -2162,15 +2044,13 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  protected ORecordAbstract fill(final ORID iRid, final int iVersion, final byte[] iBuffer, final boolean iDirty) {
+  @Override protected ORecordAbstract fill(final ORID iRid, final int iVersion, final byte[] iBuffer, final boolean iDirty) {
     _schema = null;
     fetchSchemaIfCan();
     return super.fill(iRid, iVersion, iBuffer, iDirty);
   }
 
-  @Override
-  protected void clearSource() {
+  @Override protected void clearSource() {
     super.clearSource();
     _schema = null;
   }
@@ -2408,7 +2288,7 @@ public class ODocument extends ORecordAbstract
         break;
       case LINKLIST:
         if (fieldValue instanceof List<?>)
-          newValue = new ORecordLazyList(this,(Collection<OIdentifiable>) fieldValue);
+          newValue = new ORecordLazyList(this, (Collection<OIdentifiable>) fieldValue);
         break;
       case LINKSET:
         if (fieldValue instanceof Set<?>)
@@ -2434,21 +2314,21 @@ public class ODocument extends ORecordAbstract
         addCollectionChangeListener(fieldEntry.getValue());
         fieldEntry.getValue().value = newValue;
         if (fieldType == OType.LINKSET || fieldType == OType.LINKLIST) {
-          boolean pre = ((OAutoConvertToRecord)newValue).isAutoConvertToRecord();
-          ((OAutoConvertToRecord)newValue).setAutoConvertToRecord(false);
+          boolean pre = ((OAutoConvertToRecord) newValue).isAutoConvertToRecord();
+          ((OAutoConvertToRecord) newValue).setAutoConvertToRecord(false);
           for (OIdentifiable rec : (Collection<OIdentifiable>) newValue) {
             if (rec instanceof ODocument)
               ((ODocument) rec).convertAllMultiValuesToTrackedVersions();
           }
-          ((OAutoConvertToRecord)newValue).setAutoConvertToRecord(pre);
-        } else if (fieldType == OType.LINKMAP){
-          boolean pre = ((OAutoConvertToRecord)newValue).isAutoConvertToRecord();
-          ((OAutoConvertToRecord)newValue).setAutoConvertToRecord(false);
+          ((OAutoConvertToRecord) newValue).setAutoConvertToRecord(pre);
+        } else if (fieldType == OType.LINKMAP) {
+          boolean pre = ((OAutoConvertToRecord) newValue).isAutoConvertToRecord();
+          ((OAutoConvertToRecord) newValue).setAutoConvertToRecord(false);
           for (OIdentifiable rec : (Collection<OIdentifiable>) ((Map<?, ?>) newValue).values()) {
             if (rec instanceof ODocument)
               ((ODocument) rec).convertAllMultiValuesToTrackedVersions();
           }
-          ((OAutoConvertToRecord)newValue).setAutoConvertToRecord(pre);
+          ((OAutoConvertToRecord) newValue).setAutoConvertToRecord(pre);
         }
       }
     }
@@ -2543,8 +2423,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Internal.
    */
-  @Override
-  protected void setup() {
+  @Override protected void setup() {
     super.setup();
 
     final ODatabaseDocumentInternal db = ODatabaseRecordThreadLocal.INSTANCE.getIfDefined();
@@ -2557,10 +2436,6 @@ public class ODocument extends ORecordAbstract
   }
 
   protected String checkFieldName(final String iFieldName) {
-    final Character c = OSchemaShared.checkFieldNameIfValid(iFieldName);
-    if (c != null)
-      throw new IllegalArgumentException("Invalid field name '" + iFieldName + "'. Character '" + c + "' is invalid");
-
     return iFieldName;
   }
 

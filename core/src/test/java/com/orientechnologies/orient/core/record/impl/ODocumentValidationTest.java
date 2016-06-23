@@ -154,7 +154,7 @@ public class ODocumentValidationTest {
         d.validate();
         Assert.fail("Validation doesn't throw exception");
       } catch (OValidationException e) {
-        Assert.assertTrue(e.toString().contains("EmbeddedValidation.int"));
+        Assert.assertTrue(e.toString().contains("`EmbeddedValidation`.`int`"));
       }
 
     } finally {
@@ -195,7 +195,7 @@ public class ODocumentValidationTest {
         d.validate();
         Assert.fail("Validation doesn't throw exception");
       } catch (OValidationException e) {
-        Assert.assertTrue(e.toString().contains("EmbeddedValidation.long"));
+        Assert.assertTrue(e.toString().contains("`EmbeddedValidation`.`long`"));
       }
 
     } finally {
@@ -236,7 +236,7 @@ public class ODocumentValidationTest {
         d.validate();
         Assert.fail("Validation doesn't throw exception");
       } catch (OValidationException e) {
-        Assert.assertTrue(e.toString().contains("EmbeddedValidation.long"));
+        Assert.assertTrue(e.toString().contains("`EmbeddedValidation`.`long`"));
       }
 
     } finally {
@@ -278,7 +278,7 @@ public class ODocumentValidationTest {
         d.validate();
         Assert.fail("Validation doesn't throw exception");
       } catch (OValidationException e) {
-        Assert.assertTrue(e.toString().contains("EmbeddedValidation.long"));
+        Assert.assertTrue(e.toString().contains("`EmbeddedValidation`.`long`"));
       }
 
     } finally {

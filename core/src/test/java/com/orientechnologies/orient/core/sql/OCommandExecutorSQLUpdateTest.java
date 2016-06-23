@@ -278,7 +278,7 @@ public class OCommandExecutorSQLUpdateTest {
     db.save(test);
 
     ODocument queried = (ODocument) db.query(new OSQLSynchQuery<Object>("SELECT FROM test WHERE id = \"id1\"")).get(0);
-    ;
+
 
     db.command(new OCommandSQL("UPDATE test INCREMENT count = 2")).execute();
     queried.reload();
@@ -286,11 +286,10 @@ public class OCommandExecutorSQLUpdateTest {
 
     db.command(new OCommandSQL("UPDATE test INCREMENT `map.nestedCount` = 5")).execute();
     queried.reload();
-    assertEquals(queried.<Object>field("map.nestedCount"), 15);
+    assertEquals(queried.<Object>field("map.nestedCount"), 5);
 
-    db.command(new OCommandSQL("UPDATE test INCREMENT map.nestedCount = 5")).execute();
     queried.reload();
-    assertEquals(queried.<Object>field("map.nestedCount"), 20);
+    assertEquals(queried.<Object>eval("map.nestedCount"), 10);
 
     db.close();
   }
@@ -357,7 +356,7 @@ public class OCommandExecutorSQLUpdateTest {
     // db.command(new OCommandSQL("update V set value.f12 = 'asdf\\\\' WHERE key = \"test\"")).execute();
 
     ODocument queried = (ODocument) db.query(new OSQLSynchQuery<Object>("SELECT FROM testquotesinjson")).get(0);
-    assertEquals(queried.field("value.f12"), "test\\");
+    assertEquals(queried.eval("value.f12"), "test\\");
 
     db.close();
   }

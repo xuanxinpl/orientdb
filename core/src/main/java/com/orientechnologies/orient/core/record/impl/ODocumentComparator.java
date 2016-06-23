@@ -19,22 +19,19 @@
  */
 package com.orientechnologies.orient.core.record.impl;
 
-import java.text.Collator;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-
 import com.orientechnologies.common.util.OPair;
-import com.orientechnologies.orient.core.collate.OCollate;
 import com.orientechnologies.orient.core.command.OBasicCommandContext;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.ODatabase.ATTRIBUTES;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
-import com.orientechnologies.orient.core.metadata.schema.OClass;
-import com.orientechnologies.orient.core.metadata.schema.OProperty;
 import com.orientechnologies.orient.core.sql.OCommandExecutorSQLSelect;
+
+import java.text.Collator;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Comparator implementation class used by ODocumentSorter class to sort documents following dynamic criteria.
@@ -69,8 +66,8 @@ public class ODocumentComparator implements Comparator<OIdentifiable> {
       final String fieldName = field.getKey();
       final String ordering = field.getValue();
 
-      fieldValue1 = ((ODocument) iDoc1.getRecord()).field(fieldName);
-      fieldValue2 = ((ODocument) iDoc2.getRecord()).field(fieldName);
+      fieldValue1 = ((ODocument) iDoc1.getRecord()).eval(fieldName);
+      fieldValue2 = ((ODocument) iDoc2.getRecord()).eval(fieldName);
 
       if (fieldValue1 == null && fieldValue2 == null) {
         continue;

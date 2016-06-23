@@ -19,17 +19,14 @@
  */
 package com.orientechnologies.orient.core.sql;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-
-import org.testng.annotations.Test;
-
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OProperty;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.sql.parser.OStatement;
+import org.testng.annotations.Test;
+
+import static org.testng.Assert.*;
 
 /**
  * @author Michael MacFadden
@@ -37,13 +34,13 @@ import com.orientechnologies.orient.core.sql.parser.OStatement;
 public class OCommandExecutorSQLCreatePropertyTest {
 
   private static final String PROP_NAME          = "name";
-  private static final String PROP_FULL_NAME     = "company.name";
+  private static final String PROP_FULL_NAME     = "`company`.`name`";
   private static final String PROP_DIVISION      = "division";
-  private static final String PROP_FULL_DIVISION = "company.division";
+  private static final String PROP_FULL_DIVISION = "`company`.`division`";
   private static final String PROP_OFFICERS      = "officers";
-  private static final String PROP_FULL_OFFICERS = "company.officers";
+  private static final String PROP_FULL_OFFICERS = "`company`.`officers`";
   private static final String PROP_ID            = "id";
-  private static final String PROP_FULL_ID       = "company.id";
+  private static final String PROP_FULL_ID       = "`company`.`id`";
 
   @Test
   public void testBasicCreateProperty() throws Exception {
@@ -447,6 +444,23 @@ public class OCommandExecutorSQLCreatePropertyTest {
     assertEquals(idProperty.getType(), OType.EMBEDDEDLIST);
     assertEquals(idProperty.getLinkedClass(), mandatoryClass);
     assertFalse(idProperty.isMandatory());
+
+    db.close();
+  }
+
+  @Test
+  public void testWeirdCharacters() throws Exception {
+    final ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:OCommandExecutorSQLCreatePropertyTest" + System.nanoTime());
+
+    db.create();
+
+    db.command(new OCommandSQL("CREATE CLASS company")).execute();
+    db.command(new OCommandSQL("CREATE PROPERTY company.`weird . foo@#!+;,foo` STRING")).execute();
+
+    OClass companyClass = db.getMetadata().getSchema().getClass("company");
+    OProperty idProperty = companyClass.getProperty("weird . foo@#!+;,foo");
+
+    assertEquals(idProperty.getName(), "weird . foo@#!+;,foo");
 
     db.close();
   }

@@ -304,12 +304,12 @@ public class ODocumentHelper {
 
           if (indexParts.size() == 1 && indexCondition.size() == 1 && indexRanges.size() == 1)
             // SINGLE VALUE
-            value = ((ODocument) record).field(indexAsString);
+            value = ((ODocument) record).eval(indexAsString);
           else if (indexParts.size() > 1) {
             // MULTI VALUE
             final Object[] values = new Object[indexParts.size()];
             for (int i = 0; i < indexParts.size(); ++i) {
-              values[i] = ((ODocument) record).field(OIOUtils.getStringContent(indexParts.get(i)));
+              values[i] = ((ODocument) record).eval(OIOUtils.getStringContent(indexParts.get(i)));
             }
             value = values;
           } else if (indexRanges.size() > 1) {

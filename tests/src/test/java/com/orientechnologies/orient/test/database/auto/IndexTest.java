@@ -71,6 +71,7 @@ public class IndexTest extends ObjectDBBaseTest {
     database.getEntityManager().registerEntityClasses("com.orientechnologies.orient.test.domain.base");
   }
 
+  @Test(dependsOnMethods = "testIndexInUniqueIndex")
   public void testDuplicatedIndexOnUnique() {
     Profile jayMiner = new Profile("Jay", "Jay", "Miner", null);
     database.save(jayMiner);
@@ -602,7 +603,7 @@ public class IndexTest extends ObjectDBBaseTest {
     }
   }
 
-  @Test
+  @Test(dependsOnMethods = "testIndexInUniqueIndex")
   public void testIndexCount() {
     final OIndex<?> nickIndex = database.getMetadata().getIndexManager().getIndex("Profile.nick");
     final List<ODocument> result = database.query(new OSQLSynchQuery<Object>("select count(*) from index:Profile.nick"));

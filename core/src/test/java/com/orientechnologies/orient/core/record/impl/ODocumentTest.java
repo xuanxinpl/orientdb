@@ -1,9 +1,5 @@
 package com.orientechnologies.orient.core.record.impl;
 
-import org.testng.annotations.Test;
-
-import java.util.*;
-
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
 import com.orientechnologies.orient.core.id.ORecordId;
@@ -12,6 +8,12 @@ import com.orientechnologies.orient.core.metadata.schema.OProperty;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.serialization.serializer.record.ORecordSerializer;
+import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.testng.Assert.*;
 
@@ -241,15 +243,15 @@ public class ODocumentTest {
 
     doc.field("data", data);
 
-    assertEquals(doc.field("data.array[3].prop"), "A");
+    assertEquals(doc.eval("data.array[3].prop"), "A");
+    //see the difference of field() from eval()
     doc.field("data.array[3].prop", "B");
 
+    assertEquals(doc.eval("data.array[3].prop"), "A");
     assertEquals(doc.field("data.array[3].prop"), "B");
 
-    assertEquals(doc.<Object>field("data.array[0]"), 1);
-    doc.field("data.array[0]", 5);
+    assertEquals(doc.<Object>eval("data.array[0]"), 1);
 
-    assertEquals(doc.<Object>field("data.array[0]"), 5);
   }
 
   @Test
@@ -312,10 +314,10 @@ public class ODocumentTest {
 
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
   public void testFailNestedSetNull() {
     ODocument doc = new ODocument();
     doc.field("test.nested", "value");
+    assertEquals(doc.field("test.nested"), "value");
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)

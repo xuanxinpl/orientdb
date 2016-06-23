@@ -15,18 +15,17 @@
  */
 package com.orientechnologies.orient.test.database.auto;
 
-import java.util.List;
-
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.OCommandSQL;
+import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-import com.orientechnologies.orient.core.metadata.schema.OClass;
-import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
+import java.util.List;
 
 @Test(groups = "query", sequential = true)
 public class FetchPlanComplexNestedLevelsTest extends DocumentDBBaseTest {
@@ -78,7 +77,7 @@ public class FetchPlanComplexNestedLevelsTest extends DocumentDBBaseTest {
 
     final ODocument parsed = new ODocument().fromJSON(json);
 
-    Assert.assertNotNull(parsed.rawField("out_FollowTest.in.out_FollowTest"));
+    Assert.assertNotNull(parsed.eval("out_FollowTest.in.out_FollowTest"));
   }
 
   @Test
@@ -93,7 +92,7 @@ public class FetchPlanComplexNestedLevelsTest extends DocumentDBBaseTest {
 
     final ODocument parsed = new ODocument().fromJSON(json);
 
-    Assert.assertNotNull(parsed.rawField("out_FollowTest.in.out_FollowTest"));
+    Assert.assertNotNull(parsed.eval("out_FollowTest.in.out_FollowTest"));
   }
 
   @Test

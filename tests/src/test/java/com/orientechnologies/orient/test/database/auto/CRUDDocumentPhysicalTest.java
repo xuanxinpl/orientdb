@@ -413,25 +413,6 @@ public class CRUDDocumentPhysicalTest extends DocumentDBBaseTest {
   }
 
   @Test
-  public void commandWrongParameterNames() {
-    ODocument doc = database.newInstance();
-
-    try {
-      doc.field("a:b", 10);
-      Assert.assertFalse(true);
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
-    }
-
-    try {
-      doc.field("a,b", 10);
-      Assert.assertFalse(true);
-    } catch (IllegalArgumentException e) {
-      Assert.assertTrue(true);
-    }
-  }
-
-  @Test
   public void queryWithNamedParameters() {
     final OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
         "select from Profile where name = :name and surname = :surname");
@@ -555,30 +536,32 @@ public class CRUDDocumentPhysicalTest extends DocumentDBBaseTest {
     Assert.assertEquals(doc.field("test"), s);
   }
 
-  @Test
+  @Test(dependsOnMethods = "testCreate")
   public void polymorphicQuery() {
     final ORecordAbstract newAccount = new ODocument("Account").field("name", "testInheritanceName").save();
+    try {
+      List<ODocument> superClassResult = database.query(new OSQLSynchQuery<ODocument>("select from Account"));
+      List<ODocument> subClassResult = database.query(new OSQLSynchQuery<ODocument>("select from Company"));
 
-    List<ODocument> superClassResult = database.query(new OSQLSynchQuery<ODocument>("select from Account"));
-    List<ODocument> subClassResult = database.query(new OSQLSynchQuery<ODocument>("select from Company"));
+      Assert.assertTrue(superClassResult.size() != 0);
+      Assert.assertTrue(subClassResult.size() != 0);
+      Assert.assertTrue(superClassResult.size() >= subClassResult.size());
 
-    Assert.assertTrue(superClassResult.size() != 0);
-    Assert.assertTrue(subClassResult.size() != 0);
-    Assert.assertTrue(superClassResult.size() >= subClassResult.size());
+      // VERIFY ALL THE SUBCLASS RESULT ARE ALSO CONTAINED IN SUPERCLASS
+      // RESULT
+      for (ODocument d : subClassResult) {
+        Assert.assertTrue(superClassResult.contains(d));
+      }
 
-    // VERIFY ALL THE SUBCLASS RESULT ARE ALSO CONTAINED IN SUPERCLASS
-    // RESULT
-    for (ODocument d : subClassResult) {
-      Assert.assertTrue(superClassResult.contains(d));
+      HashSet<ODocument> browsed = new HashSet<ODocument>();
+      for (ODocument d : database.browseClass("Account")) {
+        Assert.assertFalse(browsed.contains(d));
+        browsed.add(d);
+      }
+
+    }finally {
+      newAccount.delete();
     }
-
-    HashSet<ODocument> browsed = new HashSet<ODocument>();
-    for (ODocument d : database.browseClass("Account")) {
-      Assert.assertFalse(browsed.contains(d));
-      browsed.add(d);
-    }
-
-    newAccount.delete();
   }
 
   @Test(dependsOnMethods = "testCreate")
@@ -650,7 +633,7 @@ public class CRUDDocumentPhysicalTest extends DocumentDBBaseTest {
       }, null);
     }
 
-    while (callBackCalled.intValue() < total) {
+    while (callBackCalled.intValue() < TOT_RECORDS) {
       try {
         Thread.sleep(100);
       } catch (InterruptedException e) {
@@ -714,65 +697,6 @@ public class CRUDDocumentPhysicalTest extends DocumentDBBaseTest {
     bank.delete();
   }
 
-  @Test(dependsOnMethods = "cleanAll")
-  public void testUpdateInChain() {
-    ODocument bank = database.newInstance("Account");
-    bank.field("name", "MyBankChained");
-
-    // EMBEDDED
-    ODocument embedded = database.newInstance("Account").field("name", "embedded1");
-    bank.field("embedded", embedded, OType.EMBEDDED);
-
-    ODocument[] embeddeds = new ODocument[] { database.newInstance("Account").field("name", "embedded2"),
-        database.newInstance("Account").field("name", "embedded3") };
-    bank.field("embeddeds", embeddeds, OType.EMBEDDEDLIST);
-
-    // LINKED
-    ODocument linked = database.newInstance("Account").field("name", "linked1");
-    bank.field("linked", linked);
-
-    ODocument[] linkeds = new ODocument[] { database.newInstance("Account").field("name", "linked2"),
-        database.newInstance("Account").field("name", "linked3") };
-    bank.field("linkeds", linkeds, OType.LINKLIST);
-
-    bank.save();
-
-    database.close();
-    database.open("admin", "admin");
-
-    bank.reload();
-
-    ODocument changedDoc1 = bank.field("embedded.total", 100);
-    // MUST CHANGE THE PARENT DOC BECAUSE IT'S EMBEDDED
-    Assert.assertEquals(changedDoc1.field("name"), "MyBankChained");
-    Assert.assertEquals(changedDoc1.<Object>field("embedded.total"), 100);
-
-    ODocument changedDoc2 = bank.field("embeddeds.total", 200);
-    // MUST CHANGE THE PARENT DOC BECAUSE IT'S EMBEDDED
-    Assert.assertEquals(changedDoc2.field("name"), "MyBankChained");
-
-    Collection<Integer> intEmbeddeds = changedDoc2.field("embeddeds.total");
-    for (Integer e : intEmbeddeds)
-      Assert.assertEquals(e.intValue(), 200);
-
-    ODocument changedDoc3 = bank.field("linked.total", 300);
-    // MUST CHANGE THE LINKED DOCUMENT
-    Assert.assertEquals(changedDoc3.field("name"), "linked1");
-    Assert.assertEquals(changedDoc3.<Object>field("total"), 300);
-
-    try {
-      bank.field("linkeds.total", 400);
-      Assert.assertTrue(false);
-    } catch (IllegalArgumentException e) {
-      // MUST THROW AN EXCEPTION
-      Assert.assertTrue(true);
-    }
-
-    ((ODocument) bank.field("linked")).delete();
-    for (ODocument l : (Collection<ODocument>) bank.field("linkeds"))
-      l.delete();
-    bank.delete();
-  }
 
   public void testSerialization() {
     ORecordSerializer current = ODatabaseDocumentTx.getDefaultSerializer();

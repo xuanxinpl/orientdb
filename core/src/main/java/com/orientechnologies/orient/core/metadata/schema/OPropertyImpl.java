@@ -110,19 +110,15 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
   public String getFullName() {
     acquireSchemaReadLock();
     try {
-      return owner.getName() + "." + globalRef.getName();
+      return "`" + owner.getName() + "`.`" + globalRef.getName() + "`";
     } finally {
       releaseSchemaReadLock();
     }
   }
 
+  @Deprecated
   public String getFullNameQuoted() {
-    acquireSchemaReadLock();
-    try {
-      return "`" + owner.getName() + "`.`" + globalRef.getName() + "`";
-    } finally {
-      releaseSchemaReadLock();
-    }
+    return getFullName();
   }
 
   public OType getType() {
@@ -143,10 +139,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s type %s", getFullNameQuoted(), quoteString(type.toString()));
+        final String cmd = String.format("alter property %s type %s", getFullName(), quoteString(type.toString()));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s type %s", getFullNameQuoted(), quoteString(type.toString()));
+        final String cmd = String.format("alter property %s type %s", getFullName(), quoteString(type.toString()));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -201,7 +197,7 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
   public OIndex<?> createIndex(final String iType) {
     acquireSchemaReadLock();
     try {
-      return owner.createIndex(getFullName(), iType, globalRef.getName());
+      return owner.createIndex(owner.getName() + "." + globalRef.getName(), iType, globalRef.getName());
     } finally {
       releaseSchemaReadLock();
     }
@@ -216,7 +212,7 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
   public OIndex<?> createIndex(String iType, ODocument metadata) {
     acquireSchemaReadLock();
     try {
-      return owner.createIndex(getFullName(), iType, null, metadata, new String[] { globalRef.getName() });
+      return owner.createIndex(owner.getName()+"."+getName(), iType, null, metadata, new String[] { globalRef.getName() });
     } finally {
       releaseSchemaReadLock();
     }
@@ -325,10 +321,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s name %s", getFullNameQuoted(), quoteString(name));
+        final String cmd = String.format("alter property %s name %s", getFullName(), quoteString(name));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s name %s", getFullNameQuoted(), quoteString(name));
+        final String cmd = String.format("alter property %s name %s", getFullName(), quoteString(name));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -372,10 +368,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s linkedclass `%s`", getFullNameQuoted(), linkedClass);
+        final String cmd = String.format("alter property %s linkedclass `%s`", getFullName(), linkedClass);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s linkedclass `%s`", getFullNameQuoted(), linkedClass);
+        final String cmd = String.format("alter property %s linkedclass `%s`", getFullName(), linkedClass);
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -433,10 +429,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s linkedtype %s", getFullNameQuoted(), linkedType);
+        final String cmd = String.format("alter property %s linkedtype %s", getFullName(), linkedType);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s linkedtype %s", getFullNameQuoted(), linkedType);
+        final String cmd = String.format("alter property %s linkedtype %s", getFullName(), linkedType);
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -489,10 +485,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s notnull %s", getFullNameQuoted(), isNotNull);
+        final String cmd = String.format("alter property %s notnull %s", getFullName(), isNotNull);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s notnull %s", getFullNameQuoted(), isNotNull);
+        final String cmd = String.format("alter property %s notnull %s", getFullName(), isNotNull);
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -526,10 +522,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s mandatory %s", getFullNameQuoted(), isMandatory);
+        final String cmd = String.format("alter property %s mandatory %s", getFullName(), isMandatory);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s mandatory %s", getFullNameQuoted(), isMandatory);
+        final String cmd = String.format("alter property %s mandatory %s", getFullName(), isMandatory);
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -563,10 +559,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s readonly %s", getFullNameQuoted(), isReadonly);
+        final String cmd = String.format("alter property %s readonly %s", getFullName(), isReadonly);
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s readonly %s", getFullNameQuoted(), isReadonly);
+        final String cmd = String.format("alter property %s readonly %s", getFullName(), isReadonly);
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -601,10 +597,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s min %s", getFullNameQuoted(), quoteString(min));
+        final String cmd = String.format("alter property %s min %s", getFullName(), quoteString(min));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s min %s", getFullNameQuoted(), quoteString(min));
+        final String cmd = String.format("alter property %s min %s", getFullName(), quoteString(min));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
 
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
@@ -639,10 +635,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s max %s", getFullNameQuoted(), quoteString(max));
+        final String cmd = String.format("alter property %s max %s", getFullName(), quoteString(max));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s max %s", getFullNameQuoted(), quoteString(max));
+        final String cmd = String.format("alter property %s max %s", getFullName(), quoteString(max));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
 
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
@@ -685,10 +681,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s default %s", getFullNameQuoted(), quoteString(defaultValue));
+        final String cmd = String.format("alter property %s default %s", getFullName(), quoteString(defaultValue));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s default %s", getFullNameQuoted(), quoteString(defaultValue));
+        final String cmd = String.format("alter property %s default %s", getFullName(), quoteString(defaultValue));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
 
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
@@ -724,10 +720,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s regexp %s", getFullNameQuoted(), quoteString(regexp));
+        final String cmd = String.format("alter property %s regexp %s", getFullName(), quoteString(regexp));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s regexp %s", getFullNameQuoted(), quoteString(regexp));
+        final String cmd = String.format("alter property %s regexp %s", getFullName(), quoteString(regexp));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 
@@ -760,7 +756,7 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
 
     acquireSchemaWriteLock();
     try {
-      final String cmd = String.format("alter property %s custom %s=%s", getFullNameQuoted(), name, quoteString(value));
+      final String cmd = String.format("alter property %s custom %s=%s", getFullName(), name, quoteString(value));
 
       final ODatabaseDocumentInternal database = getDatabase();
       final OStorage storage = database.getStorage();
@@ -807,7 +803,7 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final ODatabaseDocumentInternal database = getDatabase();
       final OStorage storage = database.getStorage();
 
-      final String cmd = String.format("alter property %s custom clear", getFullNameQuoted());
+      final String cmd = String.format("alter property %s custom clear", getFullName());
       final OCommandSQL commandSQL = new OCommandSQL(cmd);
 
       if (storage instanceof OStorageProxy) {
@@ -986,7 +982,7 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final ODatabaseDocumentInternal database = getDatabase();
       final OStorage storage = database.getStorage();
 
-      final String cmd = String.format("alter property %s collate %s", getFullNameQuoted(), quoteString(collate));
+      final String cmd = String.format("alter property %s collate %s", getFullName(), quoteString(collate));
       final OCommandSQL commandSQL = new OCommandSQL(cmd);
 
       if (storage instanceof OStorageProxy) {
@@ -1026,10 +1022,10 @@ public class OPropertyImpl extends ODocumentWrapperNoClass implements OProperty 
       final OStorage storage = database.getStorage();
 
       if (storage instanceof OStorageProxy) {
-        final String cmd = String.format("alter property %s description %s", getFullNameQuoted(), quoteString(iDescription));
+        final String cmd = String.format("alter property %s description %s", getFullName(), quoteString(iDescription));
         database.command(new OCommandSQL(cmd)).execute();
       } else if (isDistributedCommand()) {
-        final String cmd = String.format("alter property %s description %s", getFullNameQuoted(), quoteString(iDescription));
+        final String cmd = String.format("alter property %s description %s", getFullName(), quoteString(iDescription));
         final OCommandSQL commandSQL = new OCommandSQL(cmd);
         commandSQL.addExcludedNode(((OAutoshardedStorage) storage).getNodeId());
 

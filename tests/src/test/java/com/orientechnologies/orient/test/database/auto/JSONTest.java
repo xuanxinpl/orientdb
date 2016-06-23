@@ -30,14 +30,12 @@ import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 import com.orientechnologies.orient.core.util.ODateHelper;
 import com.orientechnologies.orient.object.db.OObjectDatabaseTx;
-
 import org.testng.Assert;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.*;
-import java.util.regex.Pattern;
 
 @SuppressWarnings("unchecked")
 @Test
@@ -601,7 +599,7 @@ public class JSONTest extends DocumentDBBaseTest {
     ODocument doc = new ODocument();
     String s = "{\"name\": \"test\", \"nested\": { \"key\": \"value\", \"anotherKey\": 123 }, \"deep\": {\"deeper\": { \"k\": \"v\",\"quotes\": \"\\\"\\\",\\\"oops\\\":\\\"123\\\"\", \"likeJson\": \"[1,2,3]\",\"spaces\": \"value with spaces\"}}}";
     doc.fromJSON(s);
-    Assert.assertEquals(doc.field("deep[deeper][quotes]"), "\"\",\"oops\":\"123\"");
+    Assert.assertEquals(doc.eval("deep[deeper][quotes]"), "\"\",\"oops\":\"123\"");
 
     String res = doc.toJSON();
 
@@ -629,8 +627,8 @@ public class JSONTest extends DocumentDBBaseTest {
         + "        }\n"
         + "} ");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("foo.three"), "a");
-    Collection c = doc.field("foo.bar.P357");
+    Assert.assertEquals(doc.eval("foo.three"), "a");
+    Collection c = doc.eval("foo.bar.P357");
     Assert.assertEquals(c.size(), 1);
     Map doc2 = (Map) c.iterator().next();
     Assert.assertEquals(((Map) doc2.get("datavalue")).get("value"), "\"\"");
@@ -658,8 +656,8 @@ public class JSONTest extends DocumentDBBaseTest {
         + "} ");
 
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("foo.three"), "a");
-    Collection c = doc.field("foo.bar.P357");
+    Assert.assertEquals(doc.eval("foo.three"), "a");
+    Collection c = (Collection) doc.eval("foo.bar.P357");
     Assert.assertEquals(c.size(), 1);
     Map doc2 = (Map) c.iterator().next();
     Assert.assertEquals(((Map)doc2.get("datavalue")).get("value"), "\"");
@@ -672,7 +670,7 @@ public class JSONTest extends DocumentDBBaseTest {
     builder.append(" {\n" + "    \"foo\":{\n" + "            \"bar\":{\n" + "                \"P357\":[\n" + "                            {\n" + "\n" + "                                \"datavalue\":{\n" + "                                    \"value\":\"\\\"\",\n" + "\n" + "                                }\n" + "                        }\n" + "                ]   \n" + "            }\n" + "        }\n" + "} ");
 
     doc.fromJSON(builder.toString());
-    Collection c = doc.field("foo.bar.P357");
+    Collection c = doc.eval("foo.bar.P357");
     Assert.assertEquals(c.size(), 1);
     Map doc2 = (Map) c.iterator().next();
     Assert.assertEquals(((Map)doc2.get("datavalue")).get("value"), "\"");
@@ -686,7 +684,7 @@ public class JSONTest extends DocumentDBBaseTest {
     //FROM ISSUE 3151
     builder.append("{\"mainsnak\":{\"datavalue\":{\"value\":\"Sub\\\\urban\"}}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("mainsnak.datavalue.value"), "Sub\\urban");
+    Assert.assertEquals(doc.eval("mainsnak.datavalue.value"), "Sub\\urban");
   }
 
 
@@ -695,7 +693,7 @@ public class JSONTest extends DocumentDBBaseTest {
     StringBuilder builder = new StringBuilder();
     builder.append("{\"datavalue\":{\"value\":\"Sub\\\\urban\"}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("datavalue.value"), "Sub\\urban");
+    Assert.assertEquals(doc.eval("datavalue.value"), "Sub\\urban");
   }
 
   public void testEmbeddedQuotes2a(){
@@ -711,7 +709,7 @@ public class JSONTest extends DocumentDBBaseTest {
     StringBuilder builder = new StringBuilder();
     builder.append("{\"mainsnak\":{\"datavalue\":{\"value\":\"Suburban\\\\\"\"}}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("mainsnak.datavalue.value"), "Suburban\\\"");
+    Assert.assertEquals(doc.eval("mainsnak.datavalue.value"), "Suburban\\\"");
   }
 
   public void testEmbeddedQuotes4() {
@@ -719,7 +717,7 @@ public class JSONTest extends DocumentDBBaseTest {
     StringBuilder builder = new StringBuilder();
     builder.append("{\"datavalue\":{\"value\":\"Suburban\\\\\"\"}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("datavalue.value"), "Suburban\\\"");
+    Assert.assertEquals(doc.eval("datavalue.value"), "Suburban\\\"");
   }
 
   public void testEmbeddedQuotes5() {
@@ -735,7 +733,7 @@ public class JSONTest extends DocumentDBBaseTest {
     StringBuilder builder = new StringBuilder();
     builder.append("{\"mainsnak\":{\"datavalue\":{\"value\":\"Suburban\\\\\"}}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("mainsnak.datavalue.value"), "Suburban\\");
+    Assert.assertEquals(doc.eval("mainsnak.datavalue.value"), "Suburban\\");
   }
 
   public void testEmbeddedQuotes7() {
@@ -743,7 +741,7 @@ public class JSONTest extends DocumentDBBaseTest {
     StringBuilder builder = new StringBuilder();
     builder.append("{\"datavalue\":{\"value\":\"Suburban\\\\\"}}");
     doc.fromJSON(builder.toString());
-    Assert.assertEquals(doc.field("datavalue.value"), "Suburban\\");
+    Assert.assertEquals(doc.eval("datavalue.value"), "Suburban\\");
   }
 
   public void testEmbeddedQuotes8() {

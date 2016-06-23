@@ -40,7 +40,6 @@ import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.OExecutionThreadLocal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
-import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.db.record.ridbag.ORidBag;
 import com.orientechnologies.orient.core.exception.OCommandExecutionException;
@@ -765,7 +764,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
           if (field.startsWith("$"))
             fields[i] = iContext.getVariable(field);
           else
-            fields[i] = doc.field(field);
+            fields[i] = doc.eval(field);
 
         }
         fieldValue = fields;
@@ -775,7 +774,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
           if (field.startsWith("$"))
             fieldValue = iContext.getVariable(field);
           else
-            fieldValue = ((ODocument) iRecord.getRecord()).field(field);
+            fieldValue = ((ODocument) iRecord.getRecord()).eval(field);
         }
       }
     }

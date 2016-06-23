@@ -192,13 +192,13 @@ public class OPropertyIndexDefinition extends OAbstractIndexDefinition {
   }
 
   protected StringBuilder createIndexDDLWithoutFieldType(final String indexName, final String indexType,final String engine) {
-    final StringBuilder ddl = new StringBuilder("create index `");
+    final StringBuilder ddl = new StringBuilder("create index ");
 
     final String shortName = className + "." + field;
     if (indexName.equalsIgnoreCase(shortName)) {
-      ddl.append(shortName).append("` ");
+      ddl.append("`"+shortName+"` ");
     } else {
-      ddl.append(indexName).append("` on `");
+      ddl.append(indexName).append(" on `");
       ddl.append(className).append("` ( `").append(field).append("`");
 
       if (!collate.getName().equals(ODefaultCollate.NAME))

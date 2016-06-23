@@ -136,7 +136,7 @@ public class OTraverseRecordProcess extends OTraverseAbstractProcess<OIdentifiab
       if (field instanceof OSQLFilterItem)
         fieldValue = ((OSQLFilterItem) field).getValue(doc, null, null);
       else
-        fieldValue = doc.rawField(field.toString());
+        fieldValue = doc.eval(field.toString());
 
       if (fieldValue != null) {
         final OTraverseAbstractProcess<?> subProcess;
