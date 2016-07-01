@@ -55,14 +55,14 @@ import java.io.*;
 import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * Document representation to handle values dynamically. Can be used in schema-less, schema-mixed and schema-full modes. Fields can
  * be added at run-time. Instances can be reused across calls by using the reset() before to re-use.
  */
-@SuppressWarnings({ "unchecked" })
-public class ODocument extends ORecordAbstract
-    implements Iterable<Entry<String, Object>>, ORecordSchemaAware, ODetachable, Externalizable {
+@SuppressWarnings({ "unchecked" }) public class ODocument extends ORecordAbstract
+    implements Iterable<Entry<String, Object>>, ORecordSchemaAware, ODetachable, Externalizable, OElement {
 
   public static final    byte     RECORD_TYPE      = 'd';
   protected static final String[] EMPTY_STRINGS    = new String[] {};
@@ -203,6 +203,93 @@ public class ODocument extends ORecordAbstract
   public ODocument(final String iFieldName, final Object iFieldValue, final Object... iFields) {
     this(iFields);
     field(iFieldName, iFieldValue);
+  }
+
+  @Override public Optional<OVertex> asVertex() {
+    if (this instanceof OVertex)
+      return Optional.of((OVertex) this);
+    OClass type = this.getSchemaClass();
+    if (type == null) {
+      return Optional.empty();
+    }
+    if (type.isVertexType()) {
+      return Optional.of(new OVertexDelegate(this));
+    }
+    return Optional.empty();
+  }
+
+  @Override public Optional<OEdge> asEdge() {
+    if (this instanceof OVertex)
+      return Optional.of((OEdge) this);
+    OClass type = this.getSchemaClass();
+    if (type == null) {
+      return Optional.empty();
+    }
+    if (type.isEdgeType()) {
+      return Optional.of(new OEdgeDelegate(this));
+    }
+    return Optional.empty();
+  }
+
+  @Override public boolean isDocument() {
+    return true;
+  }
+
+  @Override public boolean isVertex() {
+    if (this instanceof OVertex)
+      return true;
+    OClass type = this.getSchemaClass();
+    if (type == null) {
+      return false;
+    }
+    if (type.isVertexType()) {
+      return true;
+    }
+    return false;
+  }
+
+  @Override public boolean isEdge() {
+    if (this instanceof OEdge)
+      return true;
+    OClass type = this.getSchemaClass();
+    if (type == null) {
+      return false;
+    }
+    if (type.isEdgeType()) {
+      return true;
+    }
+    return false;
+  }
+
+  @Override public Optional<OClass> getType() {
+    return Optional.ofNullable(getSchemaClass());
+  }
+
+  @Override public Set<String> getPropertyNames() {
+    checkForLoading();
+
+    if (_status == ORecordElement.STATUS.LOADED && _source != null && ODatabaseRecordThreadLocal.INSTANCE.isDefined()
+        && !ODatabaseRecordThreadLocal.INSTANCE.get().isClosed()) {
+      // DESERIALIZE FIELD NAMES ONLY (SUPPORTED ONLY BY BINARY SERIALIZER)
+      final String[] fieldNames = _recordFormat.getFieldNames(_source);
+      if (fieldNames != null) {
+        Set<String> result = new HashSet<String>();
+        for (String s : fieldNames) {
+          result.add(s);
+        }
+        return result;
+      }
+    }
+
+    checkForFields();
+
+    if (_fields == null || _fields.size() == 0)
+      return Collections.EMPTY_SET;
+
+    return _fields.entrySet().stream()
+        .filter(s -> s.getValue().exist())
+        .map(s -> s.getKey())
+        .collect(Collectors.toSet());
   }
 
   /**
@@ -682,8 +769,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Copies all the fields into iDestination document.
    */
-  @Override
-  public ORecordAbstract copyTo(final ORecordAbstract iDestination) {
+  @Override public ORecordAbstract copyTo(final ORecordAbstract iDestination) {
     // TODO: REMOVE THIS
     checkForFields();
 
@@ -803,8 +889,7 @@ public class ODocument extends ORecordAbstract
     return (ODocument) result;
   }
 
-  @Deprecated
-  public ODocument load(final String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone) {
+  @Deprecated public ODocument load(final String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone) {
     Object result;
     try {
       result = getDatabase().load(this, iFetchPlan, iIgnoreCache, loadTombstone, OStorage.LOCKING_STRATEGY.DEFAULT);
@@ -818,8 +903,7 @@ public class ODocument extends ORecordAbstract
     return (ODocument) result;
   }
 
-  @Override
-  public ODocument reload(final String fetchPlan, final boolean ignoreCache) {
+  @Override public ODocument reload(final String fetchPlan, final boolean ignoreCache) {
     super.reload(fetchPlan, ignoreCache);
     if (!_lazyLoad) {
       checkForLoading();
@@ -833,8 +917,7 @@ public class ODocument extends ORecordAbstract
     return ODocumentHelper.hasSameContentOf(this, currentDb, iOther, currentDb, null);
   }
 
-  @Override
-  public byte[] toStream() {
+  @Override public byte[] toStream() {
     if (_recordFormat == null)
       setup();
     return toStream(false);
@@ -865,8 +948,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Dumps the instance as string.
    */
-  @Override
-  public String toString() {
+  @Override public String toString() {
     return toString(new HashSet<ORecord>());
   }
 
@@ -885,8 +967,7 @@ public class ODocument extends ORecordAbstract
    *
    * @param iValue String representation of the record.
    */
-  @Deprecated
-  public void fromString(final String iValue) {
+  @Deprecated public void fromString(final String iValue) {
     _dirty = true;
     _contentChanged = true;
     try {
@@ -1111,8 +1192,7 @@ public class ODocument extends ORecordAbstract
    *
    * @see #fromMap(Map)
    */
-  @Deprecated
-  public ODocument fields(final Map<String, Object> iMap) {
+  @Deprecated public ODocument fields(final Map<String, Object> iMap) {
     return fromMap(iMap);
   }
 
@@ -1132,7 +1212,7 @@ public class ODocument extends ORecordAbstract
 
   /**
    * Writes the field value forcing the type. This method sets the current document as dirty.
-   * <p/>
+   * <p>
    * if there's a schema definition for the specified field, the value will be converted to respect the schema definition if needed.
    * if the type defined in the schema support less precision than the iPropertyValue provided, the iPropertyValue will be converted
    * following the java casting rules with possible precision loss.
@@ -1486,18 +1566,15 @@ public class ODocument extends ORecordAbstract
         final Entry<String, Object> toRet = new Entry<String, Object>() {
           private Entry<String, ODocumentEntry> intern = current;
 
-          @Override
-          public Object setValue(Object value) {
+          @Override public Object setValue(Object value) {
             throw new UnsupportedOperationException();
           }
 
-          @Override
-          public Object getValue() {
+          @Override public Object getValue() {
             return intern.getValue().value;
           }
 
-          @Override
-          public String getKey() {
+          @Override public String getKey() {
             return intern.getKey();
           }
         };
@@ -1543,8 +1620,7 @@ public class ODocument extends ORecordAbstract
     return _owners != null && !_owners.isEmpty();
   }
 
-  @Override
-  public ORecordElement getOwner() {
+  @Override public ORecordElement getOwner() {
     if (_owners == null)
       return null;
 
@@ -1573,8 +1649,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Propagates the dirty status to the owner, if any. This happens when the object is embedded in another one.
    */
-  @Override
-  public ORecordAbstract setDirty() {
+  @Override public ORecordAbstract setDirty() {
     if (_owners != null) {
       // PROPAGATES TO THE OWNER
       ORecordElement e;
@@ -1622,8 +1697,7 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public void setDirtyNoChanged() {
+  @Override public void setDirtyNoChanged() {
     if (_owners != null) {
       // PROPAGATES TO THE OWNER
       ORecordElement e;
@@ -1642,8 +1716,7 @@ public class ODocument extends ORecordAbstract
     super.setDirtyNoChanged();
   }
 
-  @Override
-  public ODocument fromStream(final byte[] iRecordBuffer) {
+  @Override public ODocument fromStream(final byte[] iRecordBuffer) {
     removeAllCollectionChangeListeners();
 
     _fields = null;
@@ -1677,8 +1750,7 @@ public class ODocument extends ORecordAbstract
     return null;
   }
 
-  @Override
-  public ODocument unload() {
+  @Override public ODocument unload() {
     super.unload();
     internalReset();
     return this;
@@ -1700,8 +1772,7 @@ public class ODocument extends ORecordAbstract
    * @return this
    * @see #reset()
    */
-  @Override
-  public ODocument clear() {
+  @Override public ODocument clear() {
     super.clear();
     internalReset();
     _owners = null;
@@ -1730,8 +1801,7 @@ public class ODocument extends ORecordAbstract
    * @throws IllegalStateException if transaction is begun.
    * @see #clear()
    */
-  @Override
-  public ODocument reset() {
+  @Override public ODocument reset() {
     ODatabaseDocument db = ODatabaseRecordThreadLocal.INSTANCE.getIfDefined();
     if (db != null && db.getTransaction().isActive())
       throw new IllegalStateException("Cannot reset documents during a transaction. Create a new one each time");
@@ -1879,16 +1949,14 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public boolean equals(Object obj) {
+  @Override public boolean equals(Object obj) {
     if (!super.equals(obj))
       return false;
 
     return this == obj || _recordId.isValid();
   }
 
-  @Override
-  public int hashCode() {
+  @Override public int hashCode() {
     if (_recordId.isValid())
       return super.hashCode();
 
@@ -1910,23 +1978,19 @@ public class ODocument extends ORecordAbstract
     return _fields == null || _fields.isEmpty();
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource, final String iOptions) {
+  @Override public ODocument fromJSON(final String iSource, final String iOptions) {
     return (ODocument) super.fromJSON(iSource, iOptions);
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource) {
+  @Override public ODocument fromJSON(final String iSource) {
     return (ODocument) super.fromJSON(iSource);
   }
 
-  @Override
-  public ODocument fromJSON(final InputStream iContentResult) throws IOException {
+  @Override public ODocument fromJSON(final InputStream iContentResult) throws IOException {
     return (ODocument) super.fromJSON(iContentResult);
   }
 
-  @Override
-  public ODocument fromJSON(final String iSource, final boolean needReload) {
+  @Override public ODocument fromJSON(final String iSource, final boolean needReload) {
     return (ODocument) super.fromJSON(iSource, needReload);
   }
 
@@ -1960,13 +2024,11 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  public ODocument save() {
+  @Override public ODocument save() {
     return (ODocument) save(null, false);
   }
 
-  @Override
-  public ODocument save(final String iClusterName) {
+  @Override public ODocument save(final String iClusterName) {
     return (ODocument) save(iClusterName, false);
   }
 
@@ -2047,8 +2109,8 @@ public class ODocument extends ORecordAbstract
     return true;
   }
 
-  @Override
-  public void writeExternal(final ObjectOutput stream) throws IOException {
+
+  @Override public void writeExternal(ObjectOutput stream) throws IOException {
     ORecordSerializer serializer = ORecordSerializerFactory.instance().getFormat(ORecordSerializerNetwork.NAME);
     final byte[] idBuffer = _recordId.toStream();
     stream.writeInt(-1);
@@ -2064,8 +2126,7 @@ public class ODocument extends ORecordAbstract
     stream.writeObject(serializer.toString());
   }
 
-  @Override
-  public void readExternal(final ObjectInput stream) throws IOException, ClassNotFoundException {
+  @Override public void readExternal(ObjectInput stream) throws IOException, ClassNotFoundException {
     int i = stream.readInt();
     int size;
     if (i < 0)
@@ -2351,15 +2412,13 @@ public class ODocument extends ORecordAbstract
     return this;
   }
 
-  @Override
-  protected ORecordAbstract fill(final ORID iRid, final int iVersion, final byte[] iBuffer, final boolean iDirty) {
+  @Override protected ORecordAbstract fill(final ORID iRid, final int iVersion, final byte[] iBuffer, final boolean iDirty) {
     _schema = null;
     fetchSchemaIfCan();
     return super.fill(iRid, iVersion, iBuffer, iDirty);
   }
 
-  @Override
-  protected void clearSource() {
+  @Override protected void clearSource() {
     super.clearSource();
     _schema = null;
   }
@@ -2732,8 +2791,7 @@ public class ODocument extends ORecordAbstract
   /**
    * Internal.
    */
-  @Override
-  protected void setup() {
+  @Override protected void setup() {
     super.setup();
 
     final ODatabaseDocumentInternal db = ODatabaseRecordThreadLocal.INSTANCE.getIfDefined();
