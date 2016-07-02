@@ -65,13 +65,15 @@ public class OVertexDelegate implements OVertex {
     Set<String> candidateClasses = new HashSet<>();
     String[] fieldNames = element.fieldNames();
     for (String fieldName : fieldNames) {
-      prefixes.stream().filter(prefix -> fieldName.startsWith(prefix)).forEach(prefix -> {
-        if (fieldName.equals(prefix)) {
-          candidateClasses.add("E");
-        } else {
-          candidateClasses.add(fieldName.substring(prefix.length()));
+      for(String prefix:prefixes){
+        if(fieldName.startsWith(prefix)){
+          if (fieldName.equals(prefix)) {
+            candidateClasses.add("E");
+          } else {
+            candidateClasses.add(fieldName.substring(prefix.length()));
+          }
         }
-      });
+      }
     }
     return getEdges(direction, candidateClasses.toArray(new String[] {}));
   }

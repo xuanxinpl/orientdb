@@ -55,7 +55,6 @@ import java.io.*;
 import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 /**
  * Document representation to handle values dynamically. Can be used in schema-less, schema-mixed and schema-full modes. Fields can
@@ -286,10 +285,13 @@ import java.util.stream.Collectors;
     if (_fields == null || _fields.size() == 0)
       return Collections.EMPTY_SET;
 
-    return _fields.entrySet().stream()
-        .filter(s -> s.getValue().exist())
-        .map(s -> s.getKey())
-        .collect(Collectors.toSet());
+    Set<String> result = new HashSet<>();
+    for (Map.Entry<String, ODocumentEntry> p : _fields.entrySet()) {
+      if (p.getValue().exist()) {
+        result.add(p.getKey());
+      }
+    }
+    return result;
   }
 
   /**
@@ -2109,7 +2111,6 @@ import java.util.stream.Collectors;
     return true;
   }
 
-
   @Override public void writeExternal(ObjectOutput stream) throws IOException {
     ORecordSerializer serializer = ORecordSerializerFactory.instance().getFormat(ORecordSerializerNetwork.NAME);
     final byte[] idBuffer = _recordId.toStream();
@@ -2970,14 +2971,12 @@ import java.util.stream.Collectors;
 
   }
 
-  @Override
-  protected void track(OIdentifiable id) {
+  @Override protected void track(OIdentifiable id) {
     if (isTrackingChanges() && id.getIdentity().getClusterId() != -2)
       super.track(id);
   }
 
-  @Override
-  protected void unTrack(OIdentifiable id) {
+  @Override protected void unTrack(OIdentifiable id) {
     if (isTrackingChanges() && id.getIdentity().getClusterId() != -2)
       super.unTrack(id);
   }
