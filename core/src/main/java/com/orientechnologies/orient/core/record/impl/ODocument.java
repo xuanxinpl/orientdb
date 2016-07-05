@@ -260,7 +260,7 @@ import java.util.Map.Entry;
     return false;
   }
 
-  @Override public Optional<OClass> getType() {
+  @Override public Optional<OClass> getSchemaType() {
     return Optional.ofNullable(getSchemaClass());
   }
 
