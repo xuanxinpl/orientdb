@@ -35,6 +35,7 @@ import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.security.OSecurityUser;
 import com.orientechnologies.orient.core.query.OQuery;
 import com.orientechnologies.orient.core.record.OEdge;
+import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.storage.ORecordCallback;
 import com.orientechnologies.orient.core.storage.ORecordMetadata;
@@ -94,7 +95,6 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    *
    * @param incrementalBackupPath Path to incremental backup
    * @param <DB>                  Concrete database instance type.
-   *
    * @return he Database instance itself giving a "fluent interface". Useful to call multiple methods in chain.
    */
   <DB extends ODatabase> DB create(String incrementalBackupPath);
@@ -164,8 +164,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * Returns the current status of database.
    * deprecated since 2.2
    */
-  @Deprecated
-  <DB extends ODatabase> DB setStatus(STATUS iStatus);
+  @Deprecated <DB extends ODatabase> DB setStatus(STATUS iStatus);
 
   /**
    * Returns the total size of database as the real used space.
@@ -401,8 +400,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    */
   void unregisterListener(ODatabaseListener iListener);
 
-  @Deprecated
-  ORecordMetadata getRecordMetadata(final ORID rid);
+  @Deprecated ORecordMetadata getRecordMetadata(final ORID rid);
 
   /**
    * Flush cached storage content to the disk.
@@ -450,20 +448,26 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    */
   <RET extends Object> RET newInstance();
 
+  OElement newElement();
+
+  OElement newElement(final String className);
+
   /**
    * Creates a new Edge of type E
+   *
    * @param from the starting point vertex
-   * @param to the endpoint vertex
+   * @param to   the endpoint vertex
    * @return the edge
    */
-  default OEdge newEdge(OVertex from, OVertex to){
+  default OEdge newEdge(OVertex from, OVertex to) {
     return newEdge(from, to, "E");
   }
 
   /**
    * Creates a new Edge
+   *
    * @param from the starting point vertex
-   * @param to the endpoint vertex
+   * @param to   the endpoint vertex
    * @param type the edge type
    * @return the edge
    */
@@ -471,8 +475,9 @@ public interface ODatabase<T> extends OBackupable, Closeable {
 
   /**
    * Creates a new Edge
+   *
    * @param from the starting point vertex
-   * @param to the endpoint vertex
+   * @param to   the endpoint vertex
    * @param type the edge type
    * @return the edge
    */
@@ -480,14 +485,16 @@ public interface ODatabase<T> extends OBackupable, Closeable {
 
   /**
    * Creates a new Vertex of type V
+   *
    * @return
    */
-  default OVertex newVertex(){
+  default OVertex newVertex() {
     return newVertex("V");
   }
 
   /**
    * Creates a new Vertex
+   *
    * @param type the vertex type
    * @return
    */
@@ -495,6 +502,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
 
   /**
    * Creates a new Vertex
+   *
    * @param type the vertex type (class name)
    * @return
    */
@@ -513,7 +521,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * @see com.orientechnologies.orient.core.metadata.security.OSecurity
    */
   OSecurityUser getUser();
-
+  
   /**
    * Loads the entity and return it.
    *
@@ -540,8 +548,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * @return The record received
    * @deprecated Usage of this method may lead to deadlocks.
    */
-  @Deprecated
-  <RET extends T> RET load(T iObject, String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone,
+  @Deprecated <RET extends T> RET load(T iObject, String iFetchPlan, boolean iIgnoreCache, boolean loadTombstone,
       OStorage.LOCKING_STRATEGY iLockingStrategy);
 
   /**
@@ -553,9 +560,8 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * @return The record received
    * @deprecated Usage of this method may lead to deadlocks.
    */
-  @Deprecated
-  <RET extends T> RET load(T iObject, String iFetchPlan, boolean iIgnoreCache, boolean iUpdateCache, boolean loadTombstone,
-      OStorage.LOCKING_STRATEGY iLockingStrategy);
+  @Deprecated <RET extends T> RET load(T iObject, String iFetchPlan, boolean iIgnoreCache, boolean iUpdateCache,
+      boolean loadTombstone, OStorage.LOCKING_STRATEGY iLockingStrategy);
 
   /**
    * Loads a record using a fetch plan.
@@ -747,8 +753,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    *
    * @return The Database instance itself giving a "fluent interface". Useful to call multiple methods in chain.
    */
-  @Deprecated
-  ODatabase<T> begin(OTransaction iTx) throws OTransactionException;
+  @Deprecated ODatabase<T> begin(OTransaction iTx) throws OTransactionException;
 
   /**
    * Commits the current transaction. The approach is all or nothing. All changes will be permanent following the storage type. If
@@ -830,8 +835,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * @return true if enabled, otherwise false
    * @see com.orientechnologies.orient.core.db.document.ODatabaseDocument#setMVCC(boolean) deprecated since 2.2
    */
-  @Deprecated
-  boolean isMVCC();
+  @Deprecated boolean isMVCC();
 
   /**
    * Retrieves all the registered listeners.
@@ -849,8 +853,7 @@ public interface ODatabase<T> extends OBackupable, Closeable {
    * deprecated since 2.2
    * @see com.orientechnologies.orient.core.db.document.ODatabaseDocument#isMVCC()
    */
-  @Deprecated
-  <DB extends ODatabase<?>> DB setMVCC(boolean iValue);
+  @Deprecated <DB extends ODatabase<?>> DB setMVCC(boolean iValue);
 
   String getType();
 

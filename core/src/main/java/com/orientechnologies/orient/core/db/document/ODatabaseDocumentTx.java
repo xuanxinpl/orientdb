@@ -2300,6 +2300,18 @@ import java.util.concurrent.atomic.AtomicReference;
     return new ODocument();
   }
 
+  public OElement newElement() {
+    return newInstance();
+  }
+
+  public OElement newElement(final String className) {
+    return newInstance(className);
+  }
+
+  public OElement newElement(final OClass clazz) {
+    return newInstance(clazz.getName());
+  }
+
   public OVertex newVertex(final String iClassName) {
     ODocument doc = newInstance(iClassName);
     if (!doc.isVertex()) {

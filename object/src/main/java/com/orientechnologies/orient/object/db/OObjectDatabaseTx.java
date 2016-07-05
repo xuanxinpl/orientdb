@@ -47,6 +47,7 @@ import com.orientechnologies.orient.core.metadata.security.ORule;
 import com.orientechnologies.orient.core.metadata.security.OToken;
 import com.orientechnologies.orient.core.metadata.security.OUser;
 import com.orientechnologies.orient.core.record.OEdge;
+import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -898,6 +899,14 @@ public class OObjectDatabaseTx extends ODatabasePojoAbstract<Object> implements 
   @Override
   public Set<Integer> getBlobClusterIds() {
     return getUnderlying().getBlobClusterIds();
+  }
+
+  @Override public OElement newElement() {
+    return underlying.newElement();
+  }
+
+  @Override public OElement newElement(String className) {
+    return underlying.newElement(className);
   }
 
   @Override public OEdge newEdge(OVertex from, OVertex to, OClass type) {
