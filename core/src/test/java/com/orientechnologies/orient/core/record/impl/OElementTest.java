@@ -3,11 +3,13 @@ package com.orientechnologies.orient.core.record.impl;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.record.OElement;
+import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -44,13 +46,14 @@ public class OElementTest {
 
   @Test
   public void testLoadAndSave(){
-
-    OElement elem = db.newElement("Foo");
-    elem.setProperty("foo", "foo1");
+    db.createClassIfNotExist("TestLoadAndSave");
+    OElement elem = db.newElement("TestLoadAndSave");
+    elem.setProperty("name", "foo");
     db.save(elem);
-    Set<String> names = elem.getPropertyNames();
-    Assert.assertTrue(names.contains("foo"));
-    Assert.assertTrue(names.contains("foo.bar"));
-    Assert.assertTrue(names.contains("  "));
+
+    List<OElement> result = db.query(new OSQLSynchQuery<>("select from TestLoadAndSave where name = 'foo'"));
+    Assert.assertEquals(1, result.size());
+    Assert.assertEquals("foo", result.get(0).getProperty("name"));
+
   }
 }
