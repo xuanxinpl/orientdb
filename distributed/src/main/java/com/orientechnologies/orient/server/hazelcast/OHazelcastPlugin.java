@@ -425,6 +425,9 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin implements Memb
 
   public void updateCachedDatabaseConfiguration(final String iDatabaseName, final ODocument cfg, final boolean iSaveToDisk,
       final boolean iDeployToCluster) {
+    // VALIDATE THE CONFIGURATION FIRST
+    getDistributedStrategy().validateConfiguration(new ODistributedConfiguration(cfg));
+
     final boolean updated = super.updateCachedDatabaseConfiguration(iDatabaseName, cfg, iSaveToDisk);
 
     if (updated) {

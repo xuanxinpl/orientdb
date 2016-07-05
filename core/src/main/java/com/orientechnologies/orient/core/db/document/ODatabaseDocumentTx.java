@@ -124,6 +124,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private OTransaction currentTx;
   private boolean                 keepStorageOpen = false;
   private AtomicReference<Thread> owner           = new AtomicReference<Thread>();
+  private boolean                 ownerProtection = true;
 
   protected ODatabaseSessionMetadata sessionMetadata;
 
@@ -136,11 +137,13 @@ import java.util.concurrent.atomic.AtomicReference;
    * @param iURL of the database
    */
   public ODatabaseDocumentTx(final String iURL) {
-    this(iURL, false);
+    this(iURL, false, true);
   }
 
-  public ODatabaseDocumentTx(final String iURL, boolean keepStorageOpen) {
+  public ODatabaseDocumentTx(final String iURL, boolean keepStorageOpen, boolean ownerProtection) {
     super(false);
+
+    this.ownerProtection = ownerProtection;
 
     if (iURL == null)
       throw new IllegalArgumentException("URL parameter is null");
@@ -257,7 +260,7 @@ import java.util.concurrent.atomic.AtomicReference;
       close();
       throw OException.wrapException(new ODatabaseException("Cannot open database url=" + getURL()), e);
     } finally {
-      if (failure)
+      if (failure && ownerProtection)
         owner.set(null);
     }
     return (DB) this;
@@ -316,13 +319,18 @@ import java.util.concurrent.atomic.AtomicReference;
       close();
       throw OException.wrapException(new ODatabaseException("Cannot open database"), e);
     } finally {
-      if (failure)
+      if (failure && ownerProtection) {
         owner.set(null);
+      }
+
     }
     return (DB) this;
   }
 
   private void setupThreadOwner() {
+    if (!ownerProtection)
+      return;
+
     final Thread current = Thread.currentThread();
     final Thread o = owner.get();
 
@@ -1197,6 +1205,9 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   private void clearOwner() {
+    if (!ownerProtection)
+      return;
+
     owner.set(null);
   }
 
