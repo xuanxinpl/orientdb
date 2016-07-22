@@ -20,6 +20,7 @@
 package com.orientechnologies.orient.core.serialization.serializer.stream;
 
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.entity.OClassDictionary;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 
@@ -70,7 +71,7 @@ public class OStreamSerializerHelper {
       }
 
       final String className = iBuffer.substring(0, pos);
-      cls = Class.forName(className);
+      cls = OClassLoader.classForName(className);
     }
 
     // SET THE CONTENT

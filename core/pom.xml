@@ -29,21 +29,6 @@
 
     <properties>
         <executeFindBugs>true</executeFindBugs>
-        <osgi.import>
-            com.orientechnologies.orient.graph.console;resolution:=optional,
-            com.orientechnologies.orient.graph.gremlin;resolution:=optional,
-            com.orientechnologies.orient.graph.handler;resolution:=optional,
-            com.orientechnologies.orient.graph.sql.functions;resolution:=optional,
-            javax.imageio.spi,sun.misc;resolution:=optional,
-            com.orientechnologies.orient.client.remote;resolution:=optional,
-            com.sun.jna;resolution:=optional,
-            org.xerial.snappy;resolution:=optional,
-            *
-        </osgi.import>
-        <osgi.export>com.orientechnologies.orient.core.*,
-            com.orientechnologies.common.*,com.orientechnologies.nio.*,
-            com.orientechnologies.orient.enterprise.*
-        </osgi.export>
         <jna.version>4.0.0</jna.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <argLine>-ea -Xmx3072m -XX:MaxDirectMemorySize=512g

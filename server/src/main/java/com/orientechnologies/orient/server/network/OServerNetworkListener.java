@@ -21,6 +21,7 @@ package com.orientechnologies.orient.server.network;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OContextConfiguration;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
@@ -120,7 +121,7 @@ public class OServerNetworkListener extends Thread {
   @SuppressWarnings("unchecked")
   public static OServerCommand createCommand(final OServer server, final OServerCommandConfiguration iCommand) {
     try {
-      final Constructor<OServerCommand> c = (Constructor<OServerCommand>) Class.forName(iCommand.implementation)
+      final Constructor<OServerCommand> c = (Constructor<OServerCommand>) OClassLoader.classForName(iCommand.implementation)
           .getConstructor(OServerCommandConfiguration.class);
       final OServerCommand cmd = c.newInstance(new Object[] { iCommand });
       cmd.configure(server);

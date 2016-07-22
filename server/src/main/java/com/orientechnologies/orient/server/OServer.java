@@ -29,6 +29,7 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.parser.OSystemVariableResolver;
 import com.orientechnologies.common.profiler.OAbstractProfiler.OProfilerHookValue;
 import com.orientechnologies.common.profiler.OProfiler.METRIC_TYPE;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.OConstants;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OContextConfiguration;
@@ -212,7 +213,7 @@ public class OServer {
       if (loaded == null) {
         loaded = tryLoadClass(getClass().getClassLoader(), name);
         if (loaded == null) {
-          loaded = Class.forName(name);
+          loaded = OClassLoader.classForName(name);
         }
       }
     }

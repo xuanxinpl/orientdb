@@ -22,6 +22,7 @@ package com.orientechnologies.orient.core.security;
 import com.orientechnologies.common.collection.OLRUCache;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.exception.OSecurityException;
@@ -305,7 +306,7 @@ public class OSecurityManager {
       String ciClass = OGlobalConfiguration.CLIENT_CREDENTIAL_INTERCEPTOR.getValueAsString();
 
       if (ciClass != null) {
-        Class<?> cls = Class.forName(ciClass); // Throws a ClassNotFoundException if not found.
+        Class<?> cls = OClassLoader.classForName(ciClass); // Throws a ClassNotFoundException if not found.
 
         if (OCredentialInterceptor.class.isAssignableFrom(cls)) {
           ci = (OCredentialInterceptor) cls.newInstance();

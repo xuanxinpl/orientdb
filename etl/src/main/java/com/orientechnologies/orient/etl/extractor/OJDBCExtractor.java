@@ -19,6 +19,7 @@
 package com.orientechnologies.orient.etl.extractor;
 
 import com.orientechnologies.common.exception.OException;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -69,7 +70,7 @@ public class OJDBCExtractor extends OAbstractExtractor {
       fetchSize = (Integer) resolve(iConfiguration.field("fetchSize"));
 
     try {
-      Class.forName(driverClass).newInstance();
+      OClassLoader.classForName(driverClass).newInstance();
     } catch (Exception e) {
       throw OException.wrapException(new OConfigurationException("[JDBC extractor] JDBC Driver " + driverClass + " not found"), e);
     }

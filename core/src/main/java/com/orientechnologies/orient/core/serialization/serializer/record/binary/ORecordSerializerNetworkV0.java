@@ -31,6 +31,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.serialization.types.ODecimalSerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.db.record.ORecordLazyList;
@@ -335,7 +336,7 @@ public class ORecordSerializerNetworkV0 implements ODocumentSerializer {
       if (((ODocument) value).containsField(ODocumentSerializable.CLASS_NAME)) {
         String className = ((ODocument) value).field(ODocumentSerializable.CLASS_NAME);
         try {
-          Class<?> clazz = Class.forName(className);
+          Class<?> clazz = OClassLoader.classForName(className);
           ODocumentSerializable newValue = (ODocumentSerializable) clazz.newInstance();
           newValue.fromDocument((ODocument) value);
           value = newValue;
@@ -385,7 +386,7 @@ public class ORecordSerializerNetworkV0 implements ODocumentSerializer {
     case CUSTOM:
       try {
         String className = readString(bytes);
-        Class<?> clazz = Class.forName(className);
+        Class<?> clazz = OClassLoader.classForName(className);
         OSerializableStream stream = (OSerializableStream) clazz.newInstance();
         stream.fromStream(readBinary(bytes));
         if (stream instanceof OSerializableWrapper)

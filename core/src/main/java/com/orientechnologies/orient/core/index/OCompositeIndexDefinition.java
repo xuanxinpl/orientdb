@@ -20,6 +20,7 @@
 package com.orientechnologies.orient.core.index;
 
 import com.orientechnologies.common.exception.OException;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.collate.OCollate;
 import com.orientechnologies.orient.core.db.record.OMultiValueChangeEvent;
 import com.orientechnologies.orient.core.db.record.ORecordElement;
@@ -465,7 +466,7 @@ public class OCompositeIndexDefinition extends OAbstractIndexDefinition {
       collate = new OCompositeCollate(this);
 
       for (int i = 0; i < indClasses.size(); i++) {
-        final Class<?> clazz = Class.forName(indClasses.get(i));
+        final Class<?> clazz = OClassLoader.classForName(indClasses.get(i));
         final ODocument indDoc = inds.get(i);
 
         final OIndexDefinition indexDefinition = (OIndexDefinition) clazz.getDeclaredConstructor().newInstance();

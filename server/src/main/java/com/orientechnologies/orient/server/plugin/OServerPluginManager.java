@@ -22,6 +22,7 @@ package com.orientechnologies.orient.server.plugin;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.parser.OSystemVariableResolver;
 import com.orientechnologies.common.util.OCallable;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.common.util.OService;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
@@ -267,7 +268,7 @@ public class OServerPluginManager implements OService {
   @SuppressWarnings("unchecked")
   protected OServerPlugin startPluginClass(final String iClassName, final OServerParameterConfiguration[] params) throws Exception {
 
-    final Class<? extends OServerPlugin> classToLoad = (Class<? extends OServerPlugin>) Class.forName(iClassName);
+    final Class<? extends OServerPlugin> classToLoad = (Class<? extends OServerPlugin>) OClassLoader.classForName(iClassName);
     final OServerPlugin instance = classToLoad.newInstance();
 
     // CONFIG()

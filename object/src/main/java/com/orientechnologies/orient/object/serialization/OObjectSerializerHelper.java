@@ -23,6 +23,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OUtils;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.reflection.OReflectionHelper;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.annotation.OAccess;
 import com.orientechnologies.orient.core.annotation.OAfterDeserialization;
@@ -117,15 +118,15 @@ public class OObjectSerializerHelper {
   static {
     try {
       // DETERMINE IF THERE IS AVAILABLE JPA 1
-      jpaIdClass = Class.forName("javax.persistence.Id");
-      jpaVersionClass = Class.forName("javax.persistence.Version");
-      jpaEmbeddedClass = Class.forName("javax.persistence.Embedded");
-      jpaTransientClass = Class.forName("javax.persistence.Transient");
-      jpaOneToOneClass = Class.forName("javax.persistence.OneToOne");
-      jpaOneToManyClass = Class.forName("javax.persistence.OneToMany");
-      jpaManyToManyClass = Class.forName("javax.persistence.ManyToMany");
+      jpaIdClass = OClassLoader.classForName("javax.persistence.Id");
+      jpaVersionClass = OClassLoader.classForName("javax.persistence.Version");
+      jpaEmbeddedClass = OClassLoader.classForName("javax.persistence.Embedded");
+      jpaTransientClass = OClassLoader.classForName("javax.persistence.Transient");
+      jpaOneToOneClass = OClassLoader.classForName("javax.persistence.OneToOne");
+      jpaOneToManyClass = OClassLoader.classForName("javax.persistence.OneToMany");
+      jpaManyToManyClass = OClassLoader.classForName("javax.persistence.ManyToMany");
       // DETERMINE IF THERE IS AVAILABLE JPA 2
-      jpaAccessClass = Class.forName("javax.persistence.Access");
+      jpaAccessClass = OClassLoader.classForName("javax.persistence.Access");
 
     } catch (Exception e) {
       // IGNORE THE EXCEPTION: JPA NOT FOUND

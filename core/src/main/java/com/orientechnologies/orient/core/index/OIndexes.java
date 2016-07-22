@@ -16,6 +16,7 @@
 package com.orientechnologies.orient.core.index;
 
 import com.orientechnologies.common.util.OCollections;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.index.hashindex.local.OHashIndexFactory;
@@ -24,8 +25,6 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.storage.OStorage;
 
 import java.util.*;
-
-import static com.orientechnologies.common.util.OClassLoaderHelper.lookupProviderWithOrientClassLoader;
 
 /**
  * Utility class to create indexes. New OIndexFactory can be registered
@@ -54,7 +53,6 @@ public final class OIndexes {
 
   private static Set<OIndexFactory>       FACTORIES         = null;
   private static final Set<OIndexFactory> DYNAMIC_FACTORIES = Collections.synchronizedSet(new HashSet<OIndexFactory>());
-  private static ClassLoader              orientClassLoader = OIndexes.class.getClassLoader();
 
   private OIndexes() {
   }
@@ -67,7 +65,7 @@ public final class OIndexes {
   private static synchronized Set<OIndexFactory> getFactories() {
     if (FACTORIES == null) {
 
-      final Iterator<OIndexFactory> ite = lookupProviderWithOrientClassLoader(OIndexFactory.class, orientClassLoader);
+      final Iterator<OIndexFactory> ite = OClassLoader.loadService(OIndexFactory.class);
 
       final Set<OIndexFactory> factories = new HashSet<OIndexFactory>();
       while (ite.hasNext()) {

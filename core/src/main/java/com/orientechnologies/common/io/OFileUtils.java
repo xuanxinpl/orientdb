@@ -19,6 +19,8 @@
  */
 package com.orientechnologies.common.io;
 
+import com.orientechnologies.common.util.OClassLoader;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -41,7 +43,7 @@ public class OFileUtils {
     boolean oldAPI = false;
 
     try {
-      Class.forName("java.nio.file.FileSystemException");
+      OClassLoader.classForName("java.nio.file.FileSystemException");
     } catch (ClassNotFoundException e) {
       oldAPI = true;
     }

@@ -21,6 +21,7 @@ package com.orientechnologies.orient.core.serialization.serializer.string;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -57,7 +58,7 @@ public class OStringSerializerEmbedded implements OStringSerializer {
 
     Class<?> clazz = null;
     try {
-      clazz = Class.forName(className);
+      clazz = OClassLoader.classForName(className);
     } catch (ClassNotFoundException e) {
       OLogManager.instance().debug(this, "Class name provided in embedded document " + className + " does not exist.");
     }

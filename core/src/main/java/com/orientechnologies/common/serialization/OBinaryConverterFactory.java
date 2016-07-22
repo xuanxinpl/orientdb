@@ -20,6 +20,7 @@
 
 package com.orientechnologies.common.serialization;
 
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 
 /**
@@ -33,7 +34,7 @@ public class OBinaryConverterFactory {
     boolean unsafeDetected = false;
 
     try {
-      Class<?> sunClass = Class.forName("sun.misc.Unsafe");
+      Class<?> sunClass = OClassLoader.classForName("sun.misc.Unsafe");
       unsafeDetected = sunClass != null;
     } catch (ClassNotFoundException cnfe) {
       // Ignore

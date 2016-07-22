@@ -17,6 +17,8 @@
  */
 package com.orientechnologies.orient.jdbc;
 
+import com.orientechnologies.common.util.OClassLoader;
+
 import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -30,7 +32,7 @@ public class OrientDataSource implements DataSource {
 
   static {
     try {
-      Class.forName(OrientJdbcDriver.class.getCanonicalName());
+      OClassLoader.classForName(OrientJdbcDriver.class.getCanonicalName());
     } catch (ClassNotFoundException e) {
       System.err.println("OrientDB DataSource unable to load OrientDB JDBC Driver");
     }

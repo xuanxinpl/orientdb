@@ -21,6 +21,7 @@ package com.orientechnologies.orient.core.serialization.serializer.string;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.serialization.OBase64Utils;
@@ -49,7 +50,7 @@ public class OStringSerializerAnyStreamable implements OStringSerializer {
     } else {
       final String className = iStream.substring(0, pos);
       try {
-        final Class<?> clazz = Class.forName(className);
+        final Class<?> clazz = OClassLoader.classForName(className);
         instance = (OSerializableStream) clazz.newInstance();
       } catch (Exception e) {
         final String message = "Error on unmarshalling content. Class: " + className;

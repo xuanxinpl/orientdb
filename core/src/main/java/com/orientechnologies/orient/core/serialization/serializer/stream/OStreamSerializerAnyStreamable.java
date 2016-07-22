@@ -25,6 +25,7 @@ import java.util.Arrays;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OArrays;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.command.script.OCommandScript;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 import com.orientechnologies.orient.core.query.OQuery;
@@ -79,7 +80,7 @@ public class OStreamSerializerAnyStreamable implements OStreamSerializer {
         stream = new OCommandScript();
       else
         // CREATE THE OBJECT BY INVOKING THE EMPTY CONSTRUCTOR
-        stream = (OSerializableStream) Class.forName(className).newInstance();
+        stream = (OSerializableStream) OClassLoader.classForName(className).newInstance();
 
       return stream.fromStream(OArrays.copyOfRange(iStream, 4 + classNameSize, iStream.length));
 

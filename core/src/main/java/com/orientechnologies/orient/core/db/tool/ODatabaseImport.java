@@ -24,6 +24,7 @@ import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.listener.OProgressListener;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OBinarySerializer;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.command.OCommandOutputListener;
 import com.orientechnologies.orient.core.db.ODatabase.STATUS;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
@@ -1548,7 +1549,7 @@ public class ODatabaseImport extends ODatabaseImpExpAbstract {
     final OIndexDefinition indexDefinition;
     final ODocument indexDefinitionDoc = (ODocument) ORecordSerializerJSON.INSTANCE.fromString(value, null, null);
     try {
-      final Class<?> indexDefClass = Class.forName(className);
+      final Class<?> indexDefClass = OClassLoader.classForName(className);
       indexDefinition = (OIndexDefinition) indexDefClass.getDeclaredConstructor().newInstance();
       indexDefinition.fromStream(indexDefinitionDoc);
     } catch (final ClassNotFoundException e) {

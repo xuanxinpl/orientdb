@@ -24,6 +24,7 @@ import com.orientechnologies.common.console.annotation.ConsoleParameter;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.parser.OStringParser;
 import com.orientechnologies.common.util.OArrays;
+import com.orientechnologies.common.util.OClassLoader;
 
 import java.io.*;
 import java.lang.annotation.Annotation;
@@ -565,7 +566,7 @@ public class OConsoleApplication {
       return methods;
 
     // search for declared command collections
-    final Iterator<OConsoleCommandCollection> ite = ServiceLoader.load(OConsoleCommandCollection.class).iterator();
+    final Iterator<OConsoleCommandCollection> ite = OClassLoader.loadService(OConsoleCommandCollection.class);
     final Collection<Object> candidates = new ArrayList<Object>();
     candidates.add(this);
     while (ite.hasNext()) {

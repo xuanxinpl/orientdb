@@ -24,6 +24,7 @@ import com.orientechnologies.common.collection.OMultiValue;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OCallable;
 import com.orientechnologies.common.util.OCollections;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.collate.OCollate;
 import com.orientechnologies.orient.core.collate.OCollateFactory;
 import com.orientechnologies.orient.core.command.OCommandContext;
@@ -54,8 +55,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import static com.orientechnologies.common.util.OClassLoaderHelper.lookupProviderWithOrientClassLoader;
-
 public class OSQLEngine {
 
   protected static final OSQLEngine               INSTANCE           = new OSQLEngine();
@@ -65,7 +64,6 @@ public class OSQLEngine {
   private static List<OQueryOperatorFactory>      OPERATOR_FACTORIES = null;
   private static List<OCollateFactory>            COLLATE_FACTORIES  = null;
   private static OQueryOperator[]                 SORTED_OPERATORS   = null;
-  private static ClassLoader                      orientClassLoader  = OSQLEngine.class.getClassLoader();
 
   /**
    * internal use only, to sort operators.
@@ -115,7 +113,7 @@ public class OSQLEngine {
   public static synchronized Iterator<OSQLFunctionFactory> getFunctionFactories() {
     if (FUNCTION_FACTORIES == null) {
 
-      final Iterator<OSQLFunctionFactory> ite = lookupProviderWithOrientClassLoader(OSQLFunctionFactory.class, orientClassLoader);
+      final Iterator<OSQLFunctionFactory> ite = OClassLoader.loadService(OSQLFunctionFactory.class);
 
       final List<OSQLFunctionFactory> factories = new ArrayList<OSQLFunctionFactory>();
       while (ite.hasNext()) {
@@ -129,7 +127,7 @@ public class OSQLEngine {
   public static synchronized Iterator<OSQLMethodFactory> getMethodFactories() {
     if (METHOD_FACTORIES == null) {
 
-      final Iterator<OSQLMethodFactory> ite = lookupProviderWithOrientClassLoader(OSQLMethodFactory.class, orientClassLoader);
+      final Iterator<OSQLMethodFactory> ite = OClassLoader.loadService(OSQLMethodFactory.class);
 
       final List<OSQLMethodFactory> factories = new ArrayList<OSQLMethodFactory>();
       while (ite.hasNext()) {
@@ -146,7 +144,7 @@ public class OSQLEngine {
   public static synchronized Iterator<OCollateFactory> getCollateFactories() {
     if (COLLATE_FACTORIES == null) {
 
-      final Iterator<OCollateFactory> ite = lookupProviderWithOrientClassLoader(OCollateFactory.class, orientClassLoader);
+      final Iterator<OCollateFactory> ite = OClassLoader.loadService(OCollateFactory.class);
 
       final List<OCollateFactory> factories = new ArrayList<OCollateFactory>();
       while (ite.hasNext()) {
@@ -163,8 +161,7 @@ public class OSQLEngine {
   public static synchronized Iterator<OQueryOperatorFactory> getOperatorFactories() {
     if (OPERATOR_FACTORIES == null) {
 
-      final Iterator<OQueryOperatorFactory> ite = lookupProviderWithOrientClassLoader(OQueryOperatorFactory.class,
-          orientClassLoader);
+      final Iterator<OQueryOperatorFactory> ite = OClassLoader.loadService(OQueryOperatorFactory.class);
 
       final List<OQueryOperatorFactory> factories = new ArrayList<OQueryOperatorFactory>();
       while (ite.hasNext()) {
@@ -181,8 +178,7 @@ public class OSQLEngine {
   public static synchronized Iterator<OCommandExecutorSQLFactory> getCommandFactories() {
     if (EXECUTOR_FACTORIES == null) {
 
-      final Iterator<OCommandExecutorSQLFactory> ite = lookupProviderWithOrientClassLoader(OCommandExecutorSQLFactory.class,
-          orientClassLoader);
+      final Iterator<OCommandExecutorSQLFactory> ite = OClassLoader.loadService(OCommandExecutorSQLFactory.class);
       final List<OCommandExecutorSQLFactory> factories = new ArrayList<OCommandExecutorSQLFactory>();
       while (ite.hasNext()) {
         try {

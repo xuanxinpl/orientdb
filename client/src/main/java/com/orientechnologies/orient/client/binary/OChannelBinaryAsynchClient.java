@@ -26,6 +26,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.exception.OSystemException;
 import com.orientechnologies.common.io.OIOException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.orient.client.remote.OStorageRemoteNodeSession;
 import com.orientechnologies.orient.client.remote.OStorageRemoteSession;
@@ -115,7 +116,7 @@ public class OChannelBinaryAsynchClient extends OChannelBinary {
     RuntimeException rootException = null;
     Constructor<?> c = null;
     try {
-      final Class<RuntimeException> excClass = (Class<RuntimeException>) Class.forName(iClassName);
+      final Class<RuntimeException> excClass = (Class<RuntimeException>) OClassLoader.classForName(iClassName);
       if (iPrevious != null) {
         try {
           c = excClass.getConstructor(String.class, Throwable.class);

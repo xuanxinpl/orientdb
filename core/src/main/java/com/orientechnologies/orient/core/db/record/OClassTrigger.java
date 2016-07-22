@@ -27,6 +27,7 @@ import javax.script.ScriptException;
 import com.orientechnologies.common.concur.resource.OPartitionedObjectPool;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.common.util.OCommonConst;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.command.script.OCommandScriptException;
@@ -244,7 +245,7 @@ public class OClassTrigger extends ODocumentHookAbstract {
     if (clzName == null || methodName == null)
       return null;
     try {
-      Class clz = ClassLoader.getSystemClassLoader().loadClass(clzName);
+      Class clz = OClassLoader.classForName(clzName);
       Method method = clz.getMethod(methodName, ODocument.class);
       return new Object[] { clz, method };
     } catch (Exception ex) {

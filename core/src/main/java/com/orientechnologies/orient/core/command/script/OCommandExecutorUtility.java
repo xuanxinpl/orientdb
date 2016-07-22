@@ -19,6 +19,8 @@
   */
 package com.orientechnologies.orient.core.command.script;
 
+import com.orientechnologies.common.util.OClassLoader;
+
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -33,7 +35,7 @@ public class OCommandExecutorUtility {
   private static Method java8MethodIsArray;
   static {
    try {
-     java8MethodIsArray = Class.forName("jdk.nashorn.api.scripting.JSObject").getDeclaredMethod("isArray",null);
+     java8MethodIsArray = OClassLoader.classForName("jdk.nashorn.api.scripting.JSObject").getDeclaredMethod("isArray",null);
    } catch(Exception e) {}
   }
   /**

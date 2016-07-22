@@ -27,7 +27,7 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.parser.OSystemVariableResolver;
 import com.orientechnologies.common.profiler.OProfiler;
 import com.orientechnologies.common.profiler.OProfilerStub;
-import com.orientechnologies.common.util.OClassLoaderHelper;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.cache.OLocalRecordCacheFactory;
 import com.orientechnologies.orient.core.cache.OLocalRecordCacheFactoryImpl;
 import com.orientechnologies.orient.core.command.script.OScriptManager;
@@ -300,9 +300,7 @@ public class Orient extends OListenerManger<OOrientListener> {
    * @see
    */
   private void registerEngines() {
-    ClassLoader classLoader = Orient.class.getClassLoader();
-
-    Iterator<OEngine> engines = OClassLoaderHelper.lookupProviderWithOrientClassLoader(OEngine.class, classLoader);
+    Iterator<OEngine> engines = OClassLoader.loadService(OEngine.class);
 
     OEngine engine = null;
     while (engines.hasNext()) {

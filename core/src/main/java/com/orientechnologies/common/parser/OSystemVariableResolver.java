@@ -19,6 +19,8 @@
   */
 package com.orientechnologies.common.parser;
 
+import com.orientechnologies.common.util.OClassLoader;
+
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
@@ -73,7 +75,7 @@ public class OSystemVariableResolver implements OVariableParserListener {
 
   public static void setEnv(final Map<String, String> newenv) {
     try {
-      Class<?> processEnvironmentClass = Class.forName("java.lang.ProcessEnvironment");
+      Class<?> processEnvironmentClass = OClassLoader.classForName("java.lang.ProcessEnvironment");
       Field theEnvironmentField = processEnvironmentClass.getDeclaredField("theEnvironment");
       theEnvironmentField.setAccessible(true);
       Map<String, String> env = (Map<String, String>) theEnvironmentField.get(null);

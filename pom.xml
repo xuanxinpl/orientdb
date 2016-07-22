@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!-- ~ Copyright 2010-2013 Orient Technologies LTD ~ ~ Licensed under the 
-    Apache License, Version 2.0 (the "License"); ~ you may not use this file 
+    Apache License, Version 2.0 (the "License"); ~ you may not use this file
     except in compliance with the License. ~ You may obtain a copy of the License 
     at ~ ~ http://www.apache.org/licenses/LICENSE-2.0 ~ ~ Unless required by 
     applicable law or agreed to in writing, software ~ distributed under the 
@@ -176,12 +176,7 @@
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ssZ</maven.build.timestamp.format>
         <implementation.build>${scmBranch}@r${buildNumber}</implementation.build>
         <blueprints.version>2.6.0</blueprints.version>
-        <!-- | Configuration properties for the OSGi maven-bundle-plugin -->
-        <osgi.fragment.host/>
-        <osgi.export>${project.groupId}.*;version=${project.version};-noimport:=true</osgi.export>
-        <osgi.import>*</osgi.import>
-        <osgi.dynamicImport/>
-        <osgi.private/>
+        <lucene.version>5.3.2</lucene.version>
         <!-- | shared build/report plugins version -->
         <surefire.version>2.19.1</surefire.version>
         <sonatypeOssDistMgmtSnapshotsUrl>https://oss.sonatype.org/content/repositories/snapshots/
@@ -288,33 +283,6 @@
                     <version>2.6</version>
                 </plugin>
 
-                <!-- | This plugin's configuration is used to store Eclipse
-                    | m2e settings only. It has no influence on the Maven build itself. -->
-                <plugin>
-                    <groupId>org.eclipse.m2e</groupId>
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <version>1.0</version>
-                    <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.felix</groupId>
-                                        <artifactId>maven-bundle-plugin</artifactId>
-                                        <versionRange>[2.3.7,)</versionRange>
-                                        <goals>
-                                            <goal>manifest</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <execute/>
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
-                    </configuration>
-                </plugin>
-
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-release-plugin</artifactId>
@@ -414,54 +382,11 @@
                 </configuration>
             </plugin>
 
-
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-                <version>2.3.7</version>
-                <configuration>
-                    <!-- | dummy entry to stop bundle plugin from picking 
-                        up jar config and reporting | WARNING: Duplicate name in Manifest | See http://markmail.org/message/mpkl24wk3jrjhhjg -->
-                    <archive>
-                        <forced>true</forced>
-                    </archive>
-                    <excludeDependencies>true</excludeDependencies>
-                    <manifestLocation>${project.build.directory}/osgi</manifestLocation>
-                    <instructions>
-                        <!-- | stops the "uses" clauses being added to "Export-Package" 
-                            manifest entry -->
-                        <_nouses>true</_nouses>
-                        <!-- | Stop the JAVA_1_n_HOME variables from being 
-                            treated as headers by Bnd -->
-                        <_removeheaders>JAVA_1_3_HOME,JAVA_1_4_HOME,JAVA_1_5_HOME,JAVA_1_6_HOME,JAVA_1_7_HOME,
-                            Bnd-LastModified,Built-By,Private-Package,Tool,Created-By,Build-Jdk,Include-Resource,
-                            Ignore-Package,Private-Package,Bundle-DocURL
-                        </_removeheaders>
-                        <Fragment-Host>${osgi.fragment.host}</Fragment-Host>
-                        <Export-Package>${osgi.export}</Export-Package>
-                        <Private-Package>${osgi.private}</Private-Package>
-                        <Import-Package>${project.groupId}.*;provide:=true,${osgi.import}</Import-Package>
-                        <DynamicImport-Package>${osgi.dynamicImport}</DynamicImport-Package>
-                        <Bundle-RequiredExecutionEnvironment>JavaSE-1.6</Bundle-RequiredExecutionEnvironment>
-                    </instructions>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>bundle-manifest</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>manifest</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <archive>
-                        <manifestFile>${project.build.directory}/osgi/MANIFEST.MF</manifestFile>
                         <manifest>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                             <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>

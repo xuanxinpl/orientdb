@@ -20,6 +20,7 @@ package com.orientechnologies.orient.etl;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OIOUtils;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.OConstants;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.command.OBasicCommandContext;
@@ -551,7 +552,7 @@ public class OETLProcessor {
       inClass = OrientEdge.class;
     else
       try {
-        inClass = Class.forName(iClassName);
+        inClass = OClassLoader.classForName(iClassName);
       } catch (ClassNotFoundException e) {
         throw new OConfigurationException(
             "Class '" + iClassName + "' declared as 'input' of ETL Component '" + iComponent.getName() + "' was not found.");

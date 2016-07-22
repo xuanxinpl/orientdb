@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.index.OCompositeKey;
 import com.orientechnologies.orient.core.index.OIndex;
@@ -219,7 +220,7 @@ public class OrientIndex<T extends OrientElement> implements Index<T> {
       this.indexClass = Edge.class;
     else
       try {
-        this.indexClass = (Class<T>) Class.forName(indexClassName);
+        this.indexClass = (Class<T>) OClassLoader.classForName(indexClassName);
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException("Index class '" + indexClassName
             + "' is not registered. Supported ones: Vertex, Edge and custom class that extends them", e);

@@ -15,13 +15,12 @@
  */
 package com.orientechnologies.orient.core.metadata.schema.clusterselection;
 
-import static com.orientechnologies.common.util.OClassLoaderHelper.lookupProviderWithOrientClassLoader;
-
 import java.lang.reflect.Method;
 import java.util.Iterator;
 
 import com.orientechnologies.common.factory.OConfigurableStatefulFactory;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 
 /**
  * Factory to get the cluster selection strategy.
@@ -34,9 +33,8 @@ public class OClusterSelectionFactory extends OConfigurableStatefulFactory<Strin
     this.registerStrategy();
   }
   
-  private static ClassLoader orientClassLoader  = OClusterSelectionFactory.class.getClassLoader();
   private void registerStrategy() {
-    final Iterator<OClusterSelectionStrategy> ite = lookupProviderWithOrientClassLoader(OClusterSelectionStrategy.class, orientClassLoader);
+    final Iterator<OClusterSelectionStrategy> ite = OClassLoader.loadService(OClusterSelectionStrategy.class);
     while(ite.hasNext()) {
       OClusterSelectionStrategy strategy = ite.next();
       Class clz = strategy.getClass();

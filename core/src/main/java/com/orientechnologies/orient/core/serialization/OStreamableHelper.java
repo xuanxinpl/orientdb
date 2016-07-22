@@ -20,6 +20,7 @@
 package com.orientechnologies.orient.core.serialization;
 
 import com.orientechnologies.common.exception.OException;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.exception.OSerializationException;
 
 import java.io.*;
@@ -45,7 +46,10 @@ public class OStreamableHelper {
 
   /**
    * Set the preferred {@link ClassLoader} used to load streamable types.
+   *
+   * Deprecated in favor of {@link OClassLoader#registerClassLoader(ClassLoader)}.
    */
+  @Deprecated
   public static void setStreamableClassLoader(/* @Nullable */final ClassLoader streamableClassLoader) {
     OStreamableHelper.streamableClassLoader = streamableClassLoader;
   }
@@ -104,7 +108,7 @@ public class OStreamableHelper {
         if (streamableClassLoader != null) {
           object = streamableClassLoader.loadClass(payloadClassName).newInstance();
         } else {
-          object = Class.forName(payloadClassName).newInstance();
+          object = OClassLoader.classForName(payloadClassName).newInstance();
         }
         ((OStreamable) object).fromStream(in);
       } catch (Exception e) {

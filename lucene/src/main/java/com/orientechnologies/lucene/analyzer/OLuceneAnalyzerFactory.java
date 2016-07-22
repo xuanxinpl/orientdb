@@ -2,6 +2,7 @@ package com.orientechnologies.lucene.analyzer;
 
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.index.OIndexDefinition;
 import com.orientechnologies.orient.core.index.OIndexException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -63,7 +64,7 @@ public class OLuceneAnalyzerFactory {
 
     try {
 
-      final Class classAnalyzer = Class.forName(analyzerFQN);
+      final Class classAnalyzer = OClassLoader.classForName(analyzerFQN);
       final Constructor constructor = classAnalyzer.getConstructor();
 
       return (Analyzer) constructor.newInstance();
@@ -72,7 +73,7 @@ public class OLuceneAnalyzerFactory {
     } catch (NoSuchMethodException e) {
       Class classAnalyzer = null;
       try {
-        classAnalyzer = Class.forName(analyzerFQN);
+        classAnalyzer = OClassLoader.classForName(analyzerFQN);
         return (Analyzer) classAnalyzer.newInstance();
 
       } catch (Throwable e1) {
@@ -89,7 +90,7 @@ public class OLuceneAnalyzerFactory {
 
     try {
 
-      final Class classAnalyzer = Class.forName(analyzerFQN);
+      final Class classAnalyzer = OClassLoader.classForName(analyzerFQN);
       final Constructor constructor = classAnalyzer.getDeclaredConstructor(CharArraySet.class);
 
       return (Analyzer) constructor.newInstance(new CharArraySet(stopwords, true));

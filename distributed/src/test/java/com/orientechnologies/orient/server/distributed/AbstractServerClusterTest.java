@@ -21,6 +21,7 @@ import com.hazelcast.instance.GroupProperties;
 import com.orientechnologies.common.concur.OTimeoutException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OCallable;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
@@ -68,7 +69,7 @@ public abstract class AbstractServerClusterTest {
     int servers = 2;
 
     if (args.length > 0)
-      testClass = (Class<? extends AbstractServerClusterTest>) Class.forName(args[0]);
+      testClass = (Class<? extends AbstractServerClusterTest>) OClassLoader.classForName(args[0]);
     else
       syntaxError();
 

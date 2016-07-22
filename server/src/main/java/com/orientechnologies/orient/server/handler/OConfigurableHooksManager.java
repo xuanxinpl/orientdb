@@ -21,6 +21,7 @@
 package com.orientechnologies.orient.server.handler;
 
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.db.ODatabaseInternal;
@@ -69,7 +70,7 @@ public class OConfigurableHooksManager implements ODatabaseLifecycleListener {
     for (OServerHookConfiguration hook : configuredHooks) {
       try {
         final ORecordHook.HOOK_POSITION pos = ORecordHook.HOOK_POSITION.valueOf(hook.position);
-        final ORecordHook h = (ORecordHook) Class.forName(hook.clazz).newInstance();
+        final ORecordHook h = (ORecordHook) OClassLoader.classForName(hook.clazz).newInstance();
         if (hook.parameters != null && hook.parameters.length > 0)
           try {
             final Method m = h.getClass().getDeclaredMethod("config", new Class[] { OServerParameterConfiguration[].class });

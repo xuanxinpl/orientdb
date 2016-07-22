@@ -31,6 +31,7 @@ import java.util.Map.Entry;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.reflection.OReflectionHelper;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.exception.ODatabaseException;
 import com.orientechnologies.orient.core.metadata.security.ORole;
@@ -77,7 +78,7 @@ public class OEntityManager {
 
     try {
       // TRY TO INSTANTIATE THE CLASS DIRECTLY BY ITS NAME
-      return createInstance(Class.forName(iClassName));
+      return createInstance(OClassLoader.classForName(iClassName));
     } catch (Exception e) {
       throw OException.wrapException(new OConfigurationException("The class '" + iClassName
           + "' was not found between the entity classes. Ensure registerEntityClasses(package) has been called first"), e);

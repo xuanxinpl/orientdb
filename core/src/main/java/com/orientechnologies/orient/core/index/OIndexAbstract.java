@@ -28,6 +28,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.listener.OProgressListener;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OBinarySerializer;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.OOrientShutdownListener;
 import com.orientechnologies.orient.core.OOrientStartupListener;
 import com.orientechnologies.orient.core.Orient;
@@ -126,7 +127,7 @@ public abstract class OIndexAbstract<T> implements OIndexInternal<T>, OOrientSta
     if (indexDefinitionDoc != null) {
       try {
         final String indexDefClassName = config.field(OIndexInternal.INDEX_DEFINITION_CLASS);
-        final Class<?> indexDefClass = Class.forName(indexDefClassName);
+        final Class<?> indexDefClass = OClassLoader.classForName(indexDefClassName);
         loadedIndexDefinition = (OIndexDefinition) indexDefClass.getDeclaredConstructor().newInstance();
         loadedIndexDefinition.fromStream(indexDefinitionDoc);
 

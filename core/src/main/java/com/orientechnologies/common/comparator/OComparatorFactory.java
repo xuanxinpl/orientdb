@@ -19,6 +19,7 @@
   */
 package com.orientechnologies.common.comparator;
 
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 
 import java.util.Comparator;
@@ -38,7 +39,7 @@ public class OComparatorFactory {
     boolean unsafeDetected = false;
 
     try {
-      Class<?> sunClass = Class.forName("sun.misc.Unsafe");
+      Class<?> sunClass = OClassLoader.classForName("sun.misc.Unsafe");
       unsafeDetected = sunClass != null;
     } catch (ClassNotFoundException cnfe) {
       // Ignore

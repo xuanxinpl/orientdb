@@ -16,6 +16,7 @@
  */
 package com.orientechnologies.orient.core.sql.functions.conversion;
 
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -49,7 +50,7 @@ public class OSQLMethodConvert extends OAbstractSQLMethod {
 
     if (destType.contains(".")) {
       try {
-        return OType.convert(iThis, Class.forName(destType));
+        return OType.convert(iThis, OClassLoader.classForName(destType));
       } catch (ClassNotFoundException e) {
       }
     } else {

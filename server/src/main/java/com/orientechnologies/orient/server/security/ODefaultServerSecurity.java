@@ -23,6 +23,7 @@ import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.parser.OSystemVariableResolver;
 import com.orientechnologies.common.util.OCallable;
+import com.orientechnologies.common.util.OClassLoader;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.ODatabase;
@@ -125,7 +126,7 @@ public class ODefaultServerSecurity implements OSecurityFactory, OServerLifecycl
         if (securityClassMap.containsKey(clsName)) {
           cls = securityClassMap.get(clsName);
         } else {
-          cls = Class.forName(clsName);
+          cls = OClassLoader.classForName(clsName);
         }
       }
     } catch (Throwable th) {
