@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~
+  ~  *  Copyright 2016 OrientDB LTD (info(at)orientdb.com)
+  ~  *
+  ~  *  Licensed under the Apache License, Version 2.0 (the "License");
+  ~  *  you may not use this file except in compliance with the License.
+  ~  *  You may obtain a copy of the License at
+  ~  *
+  ~  *       http://www.apache.org/licenses/LICENSE-2.0
+  ~  *
+  ~  *  Unless required by applicable law or agreed to in writing, software
+  ~  *  distributed under the License is distributed on an "AS IS" BASIS,
+  ~  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~  *  See the License for the specific language governing permissions and
+  ~  *  limitations under the License.
+  ~  *
+  ~  * For more information: http://www.orientdb.com
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <artifactId>orientdb-osgi</artifactId>
+        <groupId>com.orientechnologies</groupId>
+        <version>2.2.9-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>orientdb-osgi-tests</artifactId>
+    <packaging>pom</packaging>
+    <name>OrientDB OSGi Tests</name>
+
+    <properties>
+        <!-- maven-junit4osgi-plugin doesn't honor -DskipTests, remapping to -Dmaven.test.skip -->
+        <maven.test.skip>${skipTests}</maven.test.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.core</artifactId>
+            <version>${osgi.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.ipojo.junit4osgi</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+
+                <extensions>true</extensions>
+
+                <configuration>
+                    <excludeDependencies>
+                        org.osgi.core
+                    </excludeDependencies>
+                    <instructions>
+                        <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
+
+                        <_nouses>true</_nouses>
+
+                        <Import-Package>
+                            !javax.*,*
+                        </Import-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-junit4osgi-plugin</artifactId>
+                <version>1.0.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <m_deployProjectArtifact>true</m_deployProjectArtifact>
+
+                            <configuration>
+                                <!-- XXX: Not sure why this works, but seem like internal "system packages extra" of junit4osgi
+                                plugin are somehow overwritten during Felix startup and this brings them back to life. -->
+                                <org.osgi.framework.system.packages.extra>
+                                    org.osgi.service.log,
+                                    junit.framework
+                                </org.osgi.framework.system.packages.extra>
+
+                                <org.osgi.framework.bootdelegation>
+                                    javax.*,
+                                    sun.misc.*,
+                                    com.sun.*
+                                </org.osgi.framework.bootdelegation>
+                            </configuration>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
+    </build>
+
+
+</project>
