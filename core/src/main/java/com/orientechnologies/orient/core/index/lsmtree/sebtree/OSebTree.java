@@ -798,17 +798,22 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
         node.moveTailTo(rightNode, rightNodeSize);
         rightNode.setLeftPointer(node.pointerAt(node.getSize() - 1));
 
-        ((newMarkerNode == rightNode) ? rightNode : node)
-            .insertMarkerForPointerAt(newMarkerPointerIndex, blockIndex, blockPagesUsed);
-
-        final OSebTreeNode.Marker rightMarker = node.markerAt(node.getMarkerCount() - 1);
-        rightNode.insertMarker(0, -1, rightMarker.blockIndex, rightMarker.blockPagesUsed);
-        if (rightMarker.pointerIndex == node.getSize() - 1) {
+        if (newMarkerPointerIndex == -1) {
+          rightNode.insertMarker(0, -1, blockIndex, blockPagesUsed);
           leftNode.setContinuedTo(false);
           rightNode.setContinuedFrom(false);
         } else {
-          leftNode.setContinuedTo(true);
-          rightNode.setContinuedFrom(true);
+          ((newMarkerNode == rightNode) ? rightNode : node)
+              .insertMarkerForPointerAt(newMarkerPointerIndex, blockIndex, blockPagesUsed); // like it already were here
+          final OSebTreeNode.Marker rightMarker = node.markerAt(node.getMarkerCount() - 1);
+          rightNode.insertMarker(0, -1, rightMarker.blockIndex, rightMarker.blockPagesUsed);
+          if (rightMarker.pointerIndex == node.getSize() - 1) {
+            leftNode.setContinuedTo(false);
+            rightNode.setContinuedFrom(false);
+          } else {
+            leftNode.setContinuedTo(true);
+            rightNode.setContinuedFrom(true);
+          }
         }
 
         node.delete(node.getSize() - 1, separatorSize, node.getPointerEncoder().maximumSize());
@@ -889,17 +894,23 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
       rightNode.setLeftPointer(node.pointerAt(node.getSize() - 1));
 
-      ((newMarkerNode == rightNode) ? rightNode : node).insertMarkerForPointerAt(newMarkerPointerIndex, blockIndex, blockPagesUsed);
-
-      final OSebTreeNode.Marker rightMarker = node.markerAt(node.getMarkerCount() - 1);
-      rightNode.insertMarker(0, -1, rightMarker.blockIndex, rightMarker.blockPagesUsed);
-      rightNode.setContinuedTo(node.isContinuedTo());
-      if (rightMarker.pointerIndex == node.getSize() - 1) {
+      if (newMarkerPointerIndex == -1) {
         node.setContinuedTo(false);
         rightNode.setContinuedFrom(false);
+        rightNode.insertMarker(0, -1, blockIndex, blockPagesUsed);
       } else {
-        node.setContinuedTo(true);
-        rightNode.setContinuedFrom(true);
+        ((newMarkerNode == rightNode) ? rightNode : node)
+            .insertMarkerForPointerAt(newMarkerPointerIndex, blockIndex, blockPagesUsed); // like it already were here
+        final OSebTreeNode.Marker rightMarker = node.markerAt(node.getMarkerCount() - 1);
+        rightNode.insertMarker(0, -1, rightMarker.blockIndex, rightMarker.blockPagesUsed);
+        rightNode.setContinuedTo(node.isContinuedTo());
+        if (rightMarker.pointerIndex == node.getSize() - 1) {
+          node.setContinuedTo(false);
+          rightNode.setContinuedFrom(false);
+        } else {
+          node.setContinuedTo(true);
+          rightNode.setContinuedFrom(true);
+        }
       }
 
       node.delete(node.getSize() - 1, node.getKeyEncoder().exactSize(separator), node.getPointerEncoder().maximumSize());
