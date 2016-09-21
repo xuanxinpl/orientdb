@@ -417,7 +417,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       throws IOException {
 
     parent.updateMarker(marker.index, marker.blockPagesUsed + 1);
-    parent.verifyNonLeaf();
+    //parent.verifyNonLeaf();
 
     if ((parent.isContinuedFrom() && marker.index == 0)) {
       long siblingPointer = parent.getLeftSibling();
@@ -428,7 +428,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
           if (!(siblingParent.isContinuedFrom() && siblingParent.getMarkerCount() == 1))
             break;
 
-          siblingParent.verifyNonLeaf();
+          //siblingParent.verifyNonLeaf();
 
           siblingPointer = siblingParent.getLeftSibling();
         } finally {
@@ -446,7 +446,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
           if (!(siblingParent.isContinuedTo() && siblingParent.getMarkerCount() == 1))
             break;
 
-          siblingParent.verifyNonLeaf();
+          //siblingParent.verifyNonLeaf();
 
           siblingPointer = siblingParent.getRightSibling();
         } finally {
@@ -670,8 +670,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
           node.setContinuedTo(false);
 
       } finally {
-        if (middleMarkerNode != node)
-          node.verifyNonLeaf();
+//        if (middleMarkerNode != node)
+//          node.verifyNonLeaf();
 
         if (!onPath && middleMarkerNode != node)
           releaseNode(atomicOperation, node.endWrite());
@@ -694,7 +694,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
     if (markerNode.markerFits()) {
       markerNode.insertMarkerForPointerAt(pointerIndex, blockIndex, blockPagesUsed);
-      markerNode.verifyNonLeaf();
+      //markerNode.verifyNonLeaf();
 
       if (markerNode != path.get(path.size() - rank - 2))
         releaseNode(atomicOperation, markerNode.endWrite());

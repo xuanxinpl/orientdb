@@ -314,7 +314,7 @@ public class StringSebTreeTest {
     final int MAX_SIZE = OSebTreeNode.MAX_ENTRY_SIZE / 2 - 50;
 
     // marker split seeds: 1474360278867L, 1474370347066L
-    final long seed = 1474370347066L; // System.currentTimeMillis();
+    final long seed = 1474360278867L; // System.currentTimeMillis();
     final Random random = new Random(seed);
     System.out.println("StringSebTreeTest.testLargeVariablePutRemove seed: " + seed);
 

@@ -61,6 +61,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   private static final int FLAGS_FIELD              = 2;
   private static final int SIZE_FIELD               = 4;
   private static final int TREE_SIZE_FIELD          = 8;
+  private static final int MARKER_COUNT_FIELD       = 16;
 
   private final OEncoder.Provider<K> keyProvider;
   private final OEncoder.Provider<V> valueProvider;
@@ -82,6 +83,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   private byte flags;
   private int  size;
   private long treeSize;
+  private int  markerCount;
 
   public static boolean isInsertionPoint(int searchIndex) {
     return searchIndex < 0;
@@ -156,6 +158,8 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
         setIntValue(SIZE_OFFSET, size);
       if (dirty(TREE_SIZE_FIELD))
         setLongValue(TREE_SIZE_OFFSET, treeSize);
+      if (dirty(MARKER_COUNT_FIELD))
+        setIntValue(MARKER_COUNT_OFFSET, markerCount);
     }
 
     loadedFields = 0;
@@ -425,12 +429,17 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     treeSize = value;
   }
 
-  public int getMarkerCount() { // opt: cache value
-    return getIntValue(MARKER_COUNT_OFFSET);
+  public int getMarkerCount() {
+    if (absent(MARKER_COUNT_FIELD)) {
+      markerCount = getIntValue(MARKER_COUNT_OFFSET);
+      loaded(MARKER_COUNT_FIELD);
+    }
+    return markerCount;
   }
 
   public void setMarkerCount(int value) {
-    setIntValue(MARKER_COUNT_OFFSET, value);
+    changed(MARKER_COUNT_FIELD);
+    markerCount = value;
   }
 
   public byte getFlags() {
