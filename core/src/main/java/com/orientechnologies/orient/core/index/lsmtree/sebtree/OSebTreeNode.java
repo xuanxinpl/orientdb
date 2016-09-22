@@ -573,7 +573,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       int mid = (low + high) >>> 1;
       K midVal = getKey(mid);
 
-      final int order = compare(key, midVal);
+      final int order = compareKeys(key, midVal);
       if (order > 0)
         low = mid + 1;
       else if (order < 0)
@@ -917,10 +917,6 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
   private int getFreeBytes() {
     return getFreeDataPosition() - getSize() * recordSize - RECORDS_OFFSET - (isLeaf() ? 0 : getMarkerCount() * markerSize);
-  }
-
-  private int compare(K a, K b) {
-    return compareKeys(a, b);
   }
 
   private int recordKeyPosition(int index) {

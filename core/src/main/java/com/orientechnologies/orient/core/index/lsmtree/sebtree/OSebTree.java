@@ -295,13 +295,33 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   @Override
-  public K beginningKey() {
-    return null; // TODO
+  public K firstKey() {
+    final OSessionStoragePerformanceStatistic statistic = start();
+    try {
+      atomicOperationsManager.acquireReadLock(this);
+      try {
+        return firstKey(atomicOperation());
+      } finally {
+        atomicOperationsManager.releaseReadLock(this);
+      }
+    } finally {
+      end(statistic);
+    }
   }
 
   @Override
-  public K endKey() {
-    return null; // TODO
+  public K lastKey() {
+    final OSessionStoragePerformanceStatistic statistic = start();
+    try {
+      atomicOperationsManager.acquireReadLock(this);
+      try {
+        return lastKey(atomicOperation());
+      } finally {
+        atomicOperationsManager.releaseReadLock(this);
+      }
+    } finally {
+      end(statistic);
+    }
   }
 
   @Override
@@ -311,7 +331,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, true, true, beginningKey, endKey, beginning, end, direction);
+        return new Cursor<>(atomicOperation(), this, true, internalKey(beginningKey), internalKey(endKey), beginning, end,
+            direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -327,7 +348,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, true, false, beginningKey, endKey, beginning, end, direction);
+        return new Cursor<>(atomicOperation(), this, false, internalKey(beginningKey), internalKey(endKey), beginning, end,
+            direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -343,7 +365,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, false, true, beginningKey, endKey, beginning, end, direction);
+        return new Cursor<>(atomicOperation(), this, true, internalKey(beginningKey), internalKey(endKey), beginning, end,
+            direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -670,8 +693,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
           node.setContinuedTo(false);
 
       } finally {
-//        if (middleMarkerNode != node)
-//          node.verifyNonLeaf();
+        //        if (middleMarkerNode != node)
+        //          node.verifyNonLeaf();
 
         if (!onPath && middleMarkerNode != node)
           releaseNode(atomicOperation, node.endWrite());
@@ -1083,6 +1106,54 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
   }
 
+  private OSebTreeNode<K, V> leftMostLeaf(OAtomicOperation atomicOperation) throws IOException {
+    long nodePage = getRootPageIndex();
+    while (true) {
+      final OSebTreeNode<K, V> node = getNode(atomicOperation, nodePage).beginRead();
+
+      final boolean leaf;
+      try {
+        leaf = node.isLeaf();
+      } catch (Exception e) {
+        releaseNode(atomicOperation, node.endRead());
+        throw e;
+      }
+
+      if (leaf)
+        return node.endRead();
+
+      try {
+        nodePage = node.pointerAt(-1);
+      } finally {
+        releaseNode(atomicOperation, node.endRead());
+      }
+    }
+  }
+
+  private OSebTreeNode<K, V> rightMostLeaf(OAtomicOperation atomicOperation) throws IOException {
+    long nodePage = getRootPageIndex();
+    while (true) {
+      final OSebTreeNode<K, V> node = getNode(atomicOperation, nodePage).beginRead();
+
+      final boolean leaf;
+      try {
+        leaf = node.isLeaf();
+      } catch (Exception e) {
+        releaseNode(atomicOperation, node.endRead());
+        throw e;
+      }
+
+      if (leaf)
+        return node.endRead();
+
+      try {
+        nodePage = node.pointerAt(node.getSize() - 1);
+      } finally {
+        releaseNode(atomicOperation, node.endRead());
+      }
+    }
+  }
+
   private int indexOfKeyInLeaf(OSebTreeNode<K, V> leaf, K key) {
     return key == null ? leaf.getSize() == 1 ? 0 : -1 : leaf.indexOf(key);
   }
@@ -1097,6 +1168,32 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       }
     } catch (IOException e) {
       throw error("Error during retrieving the size of SebTree " + getName(), e);
+    }
+  }
+
+  private K firstKey(OAtomicOperation atomicOperation) {
+    try {
+      final OSebTreeNode<K, V> leaf = leftMostLeaf(atomicOperation).beginRead();
+      try {
+        return leaf.getSize() > 0 ? leaf.keyAt(0) : null;
+      } finally {
+        releaseNode(atomicOperation, leaf.endRead());
+      }
+    } catch (IOException e) {
+      throw error("Error during retrieving the beginning key of SebTree " + getName(), e);
+    }
+  }
+
+  private K lastKey(OAtomicOperation atomicOperation) {
+    try {
+      final OSebTreeNode<K, V> leaf = rightMostLeaf(atomicOperation).beginRead();
+      try {
+        return leaf.getSize() > 0 ? leaf.keyAt(leaf.getSize() - 1) : null;
+      } finally {
+        releaseNode(atomicOperation, leaf.endRead());
+      }
+    } catch (IOException e) {
+      throw error("Error during retrieving the end key of SebTree " + getName(), e);
     }
   }
 
@@ -1826,7 +1923,6 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   private static class Cursor<K, V> implements OKeyValueCursor<K, V> {
 
     private final OSebTree<K, V> tree;
-    private final boolean        fetchKeys;
     private final boolean        fetchValues;
     private final K              beginningKey;
     private final K              endKey;
@@ -1837,55 +1933,48 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     private long leafPointer;
     private int  index;
 
-    private long endLeafPointer;
-    private int  endIndex;
+    private boolean loaded = false;
+    private K key;
+    private V value;
 
-    public Cursor(OAtomicOperation atomicOperation, OSebTree<K, V> tree, boolean fetchKeys, boolean fetchValues, K beginningKey,
-        K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction) {
+    public Cursor(OAtomicOperation atomicOperation, OSebTree<K, V> tree, boolean fetchValues, K beginningKey, K endKey,
+        OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction) {
 
       this.tree = tree;
-      this.fetchKeys = fetchKeys;
       this.fetchValues = fetchValues;
-      this.beginningKey = beginningKey;
-      this.endKey = endKey;
-      this.beginning = beginning;
-      this.end = end;
+      this.beginningKey = direction == Direction.Forward ? beginningKey : endKey;
+      this.endKey = direction == Direction.Forward ? endKey : beginningKey;
+      this.beginning = direction == Direction.Forward ? beginning : Beginning.values()[end.ordinal()];
+      this.end = direction == Direction.Forward ? end : End.values()[beginning.ordinal()];
       this.direction = direction;
 
       try {
-        final OSebTreeNode<K, V> leaf = tree.findLeaf(atomicOperation, beginningKey).beginRead();
-        try {
-          leafPointer = leaf.getPointer();
-          index = leaf.indexOf(beginningKey);
-
-          if (OSebTreeNode.isInsertionPoint(index))
-            index = OSebTreeNode.toIndex(index);
-          else {
-            if (beginning == Beginning.Exclusive)
-              index += direction == Direction.Forward ? +1 : -1;
-          }
-        } finally {
-          tree.releaseNode(atomicOperation, leaf.endRead());
-        }
-
-        if (!fetchKeys && end != End.Open) {
-          final OSebTreeNode<K, V> endLeaf = tree.findLeaf(atomicOperation, endKey).beginRead();
+        if (beginning == Beginning.Open) {
+          final OSebTreeNode<K, V> leaf = (direction == Direction.Forward ?
+              tree.leftMostLeaf(atomicOperation) :
+              tree.rightMostLeaf(atomicOperation)).beginRead();
           try {
-            endLeafPointer = endLeaf.getPointer();
-            endIndex = endLeaf.indexOf(endKey);
-
-            if (OSebTreeNode.isInsertionPoint(endIndex))
-              endIndex = OSebTreeNode.toIndex(endIndex);
-            else {
-              if (end == End.Exclusive)
-                endIndex += direction == Direction.Forward ? -1 : +1;
-            }
+            leafPointer = leaf.getPointer();
+            index = direction == Direction.Forward ? 0 : leaf.getSize() - 1;
           } finally {
-            tree.releaseNode(atomicOperation, endLeaf.endRead());
+            tree.releaseNode(atomicOperation, leaf.endRead());
           }
-        } else
-          endLeafPointer = -1;
+        } else {
+          final OSebTreeNode<K, V> leaf = tree.findLeaf(atomicOperation, beginningKey).beginRead();
+          try {
+            leafPointer = leaf.getPointer();
+            index = leaf.indexOf(beginningKey);
 
+            if (OSebTreeNode.isInsertionPoint(index)) {
+              index = OSebTreeNode.toIndex(index);
+              if (direction == Direction.Reverse)
+                --index;
+            } else if (beginning == Beginning.Exclusive)
+              index += direction == Direction.Forward ? +1 : -1;
+          } finally {
+            tree.releaseNode(atomicOperation, leaf.endRead());
+          }
+        }
       } catch (IOException e) {
         throw tree.error("Error while constructing cursor for SebTree " + tree.getName(), e);
       }
@@ -1907,12 +1996,14 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
     @Override
     public K key() {
-      return null;
+      assert loaded;
+      return key;
     }
 
     @Override
     public V value() {
-      return null;
+      assert loaded;
+      return value;
     }
 
   }

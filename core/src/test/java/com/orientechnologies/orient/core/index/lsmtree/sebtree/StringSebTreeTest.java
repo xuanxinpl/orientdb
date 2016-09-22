@@ -23,12 +23,17 @@ import com.orientechnologies.common.serialization.types.OStringSerializer;
 import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
-import org.junit.*;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+
+import static org.junit.Assert.*;
 
 /**
  * @author Sergey Sitnikov
@@ -80,37 +85,45 @@ public class StringSebTreeTest {
   public void testBasicOperations() {
     final OModifiableBoolean found = new OModifiableBoolean();
 
-    Assert.assertEquals(0, tree.size());
+    assertEquals(0, tree.size());
+    assertEquals(tree.firstKey(), null);
+    assertEquals(tree.lastKey(), null);
 
     found.setValue(true);
-    Assert.assertEquals(null, tree.get("nonexistent key", found));
-    Assert.assertFalse(found.getValue());
+    assertEquals(null, tree.get("nonexistent key", found));
+    assertFalse(found.getValue());
 
-    Assert.assertTrue(tree.put("key1", "value1"));
-    Assert.assertEquals(1, tree.size());
-    Assert.assertTrue(tree.contains("key1"));
-    Assert.assertEquals("value1", tree.get("key1"));
+    assertTrue(tree.put("key1", "value1"));
+    assertEquals(1, tree.size());
+    assertTrue(tree.contains("key1"));
+    assertEquals("value1", tree.get("key1"));
+    assertEquals(tree.firstKey(), "key1");
+    assertEquals(tree.lastKey(), "key1");
 
     found.setValue(false);
-    Assert.assertEquals("value1", tree.get("key1", found));
-    Assert.assertTrue(found.getValue());
+    assertEquals("value1", tree.get("key1", found));
+    assertTrue(found.getValue());
 
-    Assert.assertFalse(tree.put("key1", "new value1"));
-    Assert.assertTrue(tree.contains("key1"));
-    Assert.assertEquals(1, tree.size());
-    Assert.assertEquals("new value1", tree.get("key1"));
+    assertFalse(tree.put("key1", "new value1"));
+    assertTrue(tree.contains("key1"));
+    assertEquals(1, tree.size());
+    assertEquals("new value1", tree.get("key1"));
 
-    Assert.assertTrue(tree.put("key2", "value2"));
-    Assert.assertTrue(tree.contains("key2"));
-    Assert.assertEquals(2, tree.size());
-    Assert.assertEquals("value2", tree.get("key2"));
-    Assert.assertEquals("new value1", tree.get("key1"));
+    assertTrue(tree.put("key2", "value2"));
+    assertTrue(tree.contains("key2"));
+    assertEquals(2, tree.size());
+    assertEquals("value2", tree.get("key2"));
+    assertEquals("new value1", tree.get("key1"));
+    assertEquals(tree.firstKey(), "key1");
+    assertEquals(tree.lastKey(), "key2");
 
-    Assert.assertFalse(tree.remove("nonexistent key"));
+    assertFalse(tree.remove("nonexistent key"));
 
-    Assert.assertTrue(tree.remove("key1"));
-    Assert.assertEquals(1, tree.size());
-    Assert.assertEquals("value2", tree.get("key2"));
+    assertTrue(tree.remove("key1"));
+    assertEquals(1, tree.size());
+    assertEquals("value2", tree.get("key2"));
+    assertEquals(tree.firstKey(), "key2");
+    assertEquals(tree.lastKey(), "key2");
   }
 
   @Test
@@ -120,19 +133,19 @@ public class StringSebTreeTest {
     System.out.println("StringSebTreeTest.testDensePutRemove seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
-    final Map<String, String> expected = new TreeMap<>();
+    final TreeMap<String, String> expected = new TreeMap<>();
 
     for (int i = 0; i < RANDOMIZED_TESTS_ITERATIONS; ++i) {
       switch (random.nextInt(2)) {
       case 0: {
         final String key = "key" + random.nextInt(count);
         final String value = "value" + random.nextInt(count);
-        Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+        assertEquals(expected.put(key, value) == null, tree.put(key, value));
       }
       break;
       case 1: {
         final String key = "key" + random.nextInt(count);
-        Assert.assertEquals(expected.remove(key) != null, tree.remove(key));
+        assertEquals(expected.remove(key) != null, tree.remove(key));
       }
       break;
       }
@@ -140,10 +153,12 @@ public class StringSebTreeTest {
 
     for (int i = 0; i < count; ++i) {
       final String key = "key" + i;
-      Assert.assertEquals(expected.get(key), tree.get(key));
+      assertEquals(expected.get(key), tree.get(key));
     }
 
-    Assert.assertEquals(expected.size(), tree.size());
+    assertEquals(expected.size(), tree.size());
+    assertEquals(expected.firstKey(), tree.firstKey());
+    assertEquals(expected.lastKey(), tree.lastKey());
   }
 
   @Test
@@ -157,7 +172,7 @@ public class StringSebTreeTest {
     System.out.println("StringSebTreeTest.testLargeDensePutRemove seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
-    final Map<String, String> expected = new TreeMap<>();
+    final TreeMap<String, String> expected = new TreeMap<>();
 
     try {
       for (int i = 0; i < RANDOMIZED_TESTS_ITERATIONS; ++i) {
@@ -170,7 +185,7 @@ public class StringSebTreeTest {
           final String value = valueId + valuePostfix;
           if (DEBUG)
             System.out.println("put: " + keyId + " -> " + valueId);
-          Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+          assertEquals(expected.put(key, value) == null, tree.put(key, value));
 
           if (DEBUG)
             tree.dump();
@@ -182,7 +197,7 @@ public class StringSebTreeTest {
           final String key = keyId + keyPostfix;
           if (DEBUG)
             System.out.println("delete: " + keyId);
-          Assert.assertEquals(expected.remove(key) != null, tree.remove(key));
+          assertEquals(expected.remove(key) != null, tree.remove(key));
 
           if (DEBUG)
             tree.dump();
@@ -196,7 +211,7 @@ public class StringSebTreeTest {
             final String newValue = value.length() * 2 < (OSebTreeNode.MAX_ENTRY_SIZE / 2 - SIZE) - 100 ?
                 value + value :
                 value.substring(0, value.length() / 2);
-            Assert.assertEquals(expected.put(key, newValue) == null, tree.put(key, newValue));
+            assertEquals(expected.put(key, newValue) == null, tree.put(key, newValue));
 
             if (DEBUG)
               tree.dump();
@@ -209,11 +224,12 @@ public class StringSebTreeTest {
 
       for (int i = 0; i < count; ++i) {
         final String key = i + keyPostfix;
-        Assert.assertEquals(key, expected.get(key), tree.get(key));
+        assertEquals(key, expected.get(key), tree.get(key));
       }
 
-      Assert.assertEquals(expected.size(), tree.size());
-
+      assertEquals(expected.size(), tree.size());
+      assertEquals(expected.firstKey(), tree.firstKey());
+      assertEquals(expected.lastKey(), tree.lastKey());
     } finally {
       if (DUMP) {
         tree.dump();
@@ -237,7 +253,7 @@ public class StringSebTreeTest {
     System.out.println("StringSebTreeTest.testLargeKeyDensePutRemove seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
-    final Map<String, String> expected = new TreeMap<>();
+    final TreeMap<String, String> expected = new TreeMap<>();
 
     try {
       for (int i = 0; i < RANDOMIZED_TESTS_ITERATIONS; ++i) {
@@ -250,7 +266,7 @@ public class StringSebTreeTest {
           final String value = valueId + valuePostfix;
           if (DEBUG)
             System.out.println("put: " + keyId + " -> " + valueId);
-          Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+          assertEquals(expected.put(key, value) == null, tree.put(key, value));
 
           if (DEBUG)
             tree.dump();
@@ -262,7 +278,7 @@ public class StringSebTreeTest {
           final String key = keyId + keyPostfix;
           if (DEBUG)
             System.out.println("delete: " + keyId);
-          Assert.assertEquals(expected.remove(key) != null, tree.remove(key));
+          assertEquals(expected.remove(key) != null, tree.remove(key));
 
           if (DEBUG)
             tree.dump();
@@ -276,7 +292,7 @@ public class StringSebTreeTest {
             final String value = valueId + valuePostfix;
             if (DEBUG)
               System.out.println("update: " + (key.length() > 3 ? key.substring(0, 3) : key) + " -> " + value);
-            Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+            assertEquals(expected.put(key, value) == null, tree.put(key, value));
 
             if (DEBUG)
               tree.dump();
@@ -289,11 +305,12 @@ public class StringSebTreeTest {
 
       for (int i = 0; i < count; ++i) {
         final String key = i + keyPostfix;
-        Assert.assertEquals(key, expected.get(key), tree.get(key));
+        assertEquals(key, expected.get(key), tree.get(key));
       }
 
-      Assert.assertEquals(expected.size(), tree.size());
-
+      assertEquals(expected.size(), tree.size());
+      assertEquals(expected.firstKey(), tree.firstKey());
+      assertEquals(expected.lastKey(), tree.lastKey());
     } finally {
       if (DUMP) {
         tree.dump();
@@ -319,7 +336,7 @@ public class StringSebTreeTest {
     System.out.println("StringSebTreeTest.testLargeVariablePutRemove seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
-    final Map<String, String> expected = new TreeMap<>();
+    final TreeMap<String, String> expected = new TreeMap<>();
 
     try {
       for (int i = 0; i < RANDOMIZED_TESTS_ITERATIONS; ++i) {
@@ -329,17 +346,18 @@ public class StringSebTreeTest {
         final String value = valueId + randomString(random, MAX_SIZE);
         if (DEBUG)
           System.out.println("put: " + keyId + " -> " + valueId);
-        Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+        assertEquals(expected.put(key, value) == null, tree.put(key, value));
 
         if (DEBUG)
           tree.dump();
       }
 
       for (String key : expected.keySet())
-        Assert.assertEquals(expected.get(key), tree.get(key));
+        assertEquals(expected.get(key), tree.get(key));
 
-      Assert.assertEquals(expected.size(), tree.size());
-
+      assertEquals(expected.size(), tree.size());
+      assertEquals(expected.firstKey(), tree.firstKey());
+      assertEquals(expected.lastKey(), tree.lastKey());
     } finally {
       if (DUMP) {
         tree.dump();
@@ -365,7 +383,7 @@ public class StringSebTreeTest {
     System.out.println("StringSebTreeTest.testSmallVariablePutRemove seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
-    final Map<String, String> expected = new TreeMap<>();
+    final TreeMap<String, String> expected = new TreeMap<>();
 
     try {
       for (int i = 0; i < RANDOMIZED_TESTS_ITERATIONS; ++i) {
@@ -375,17 +393,18 @@ public class StringSebTreeTest {
         final String value = valueId + randomString(random, MAX_SIZE);
         if (DEBUG)
           System.out.println("put: " + keyId + " -> " + valueId);
-        Assert.assertEquals(expected.put(key, value) == null, tree.put(key, value));
+        assertEquals(expected.put(key, value) == null, tree.put(key, value));
 
         if (DEBUG)
           tree.dump();
       }
 
       for (String key : expected.keySet())
-        Assert.assertEquals(expected.get(key), tree.get(key));
+        assertEquals(expected.get(key), tree.get(key));
 
-      Assert.assertEquals(expected.size(), tree.size());
-
+      assertEquals(expected.size(), tree.size());
+      assertEquals(expected.firstKey(), tree.firstKey());
+      assertEquals(expected.lastKey(), tree.lastKey());
     } finally {
       if (DUMP) {
         tree.dump();
@@ -414,60 +433,60 @@ public class StringSebTreeTest {
     tree.put("a", A);
     tree.put("b", B);
     tree.put("c", C);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("b", B);
     tree.put("a", A);
     tree.put("c", C);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("b", B);
     tree.put("c", C);
     tree.put("a", A);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("c", C);
     tree.put("a", A);
     tree.put("b", B);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("a", a);
     tree.put("b", b);
     tree.put("c", c);
     tree.put("c", C);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("a", a);
     tree.put("b", b);
     tree.put("c", c);
     tree.put("b", B);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
 
     tree.put("a", a);
     tree.put("b", b);
     tree.put("c", c);
     tree.put("a", A);
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
     tree.reset();
   }
 
@@ -488,13 +507,13 @@ public class StringSebTreeTest {
     tree.put(Y, "Y");
     tree.put(Z, "Z");
     tree.put(B, "B");
-    Assert.assertTrue(tree.contains("a"));
-    Assert.assertTrue(tree.contains("b"));
-    Assert.assertTrue(tree.contains("c"));
-    Assert.assertTrue(tree.contains(A));
-    Assert.assertTrue(tree.contains(X));
-    Assert.assertTrue(tree.contains(Y));
-    Assert.assertTrue(tree.contains(Z));
+    assertTrue(tree.contains("a"));
+    assertTrue(tree.contains("b"));
+    assertTrue(tree.contains("c"));
+    assertTrue(tree.contains(A));
+    assertTrue(tree.contains(X));
+    assertTrue(tree.contains(Y));
+    assertTrue(tree.contains(Z));
   }
 
   private static String dup(char char_, int length) {

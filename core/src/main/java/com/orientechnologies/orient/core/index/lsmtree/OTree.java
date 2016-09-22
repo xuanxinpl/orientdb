@@ -38,9 +38,9 @@ public interface OTree<K, V> {
 
   boolean remove(K key);
 
-  K beginningKey();
+  K firstKey();
 
-  K endKey();
+  K lastKey();
 
   OKeyValueCursor<K, V> range(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction);
 
