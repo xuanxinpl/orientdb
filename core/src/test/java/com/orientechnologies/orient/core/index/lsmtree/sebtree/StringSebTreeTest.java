@@ -22,6 +22,8 @@ package com.orientechnologies.orient.core.index.lsmtree.sebtree;
 import com.orientechnologies.common.serialization.types.OStringSerializer;
 import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.index.lsmtree.OCursor;
+import com.orientechnologies.orient.core.index.lsmtree.OKeyValueCursor;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -43,7 +45,7 @@ public class StringSebTreeTest {
   private static final boolean DEBUG = false;
   private static final boolean DUMP  = false;
 
-  private static final int RANDOMIZED_TESTS_ITERATIONS = 100000;
+  private static final int RANDOMIZED_TESTS_ITERATIONS = 1000;
 
   private static final int LARGE = OSebTreeNode.MAX_ENTRY_SIZE / 2 - 50;
   private static final int SMALL = LARGE / 2;
@@ -151,14 +153,7 @@ public class StringSebTreeTest {
       }
     }
 
-    for (int i = 0; i < count; ++i) {
-      final String key = "key" + i;
-      assertEquals(expected.get(key), tree.get(key));
-    }
-
-    assertEquals(expected.size(), tree.size());
-    assertEquals(expected.firstKey(), tree.firstKey());
-    assertEquals(expected.lastKey(), tree.lastKey());
+    verifyTree(expected, tree, random);
   }
 
   @Test
@@ -222,14 +217,7 @@ public class StringSebTreeTest {
         }
       }
 
-      for (int i = 0; i < count; ++i) {
-        final String key = i + keyPostfix;
-        assertEquals(key, expected.get(key), tree.get(key));
-      }
-
-      assertEquals(expected.size(), tree.size());
-      assertEquals(expected.firstKey(), tree.firstKey());
-      assertEquals(expected.lastKey(), tree.lastKey());
+      verifyTree(expected, tree, random);
     } finally {
       if (DUMP) {
         tree.dump();
@@ -303,14 +291,7 @@ public class StringSebTreeTest {
         }
       }
 
-      for (int i = 0; i < count; ++i) {
-        final String key = i + keyPostfix;
-        assertEquals(key, expected.get(key), tree.get(key));
-      }
-
-      assertEquals(expected.size(), tree.size());
-      assertEquals(expected.firstKey(), tree.firstKey());
-      assertEquals(expected.lastKey(), tree.lastKey());
+      verifyTree(expected, tree, random);
     } finally {
       if (DUMP) {
         tree.dump();
@@ -327,13 +308,13 @@ public class StringSebTreeTest {
   }
 
   @Test
-  public void testLargeVariablePutRemove() throws IOException {
+  public void testLargeVariablePut() throws IOException {
     final int MAX_SIZE = OSebTreeNode.MAX_ENTRY_SIZE / 2 - 50;
 
-    // marker split seeds: 1474360278867L, 1474370347066L
-    final long seed = 1474360278867L; // System.currentTimeMillis();
+    // marker split seeds: 1474360278867L, 1474370347066L, 1474546657660L
+    final long seed = System.currentTimeMillis();
     final Random random = new Random(seed);
-    System.out.println("StringSebTreeTest.testLargeVariablePutRemove seed: " + seed);
+    System.out.println("StringSebTreeTest.testLargeVariablePut seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
     final TreeMap<String, String> expected = new TreeMap<>();
@@ -352,12 +333,7 @@ public class StringSebTreeTest {
           tree.dump();
       }
 
-      for (String key : expected.keySet())
-        assertEquals(expected.get(key), tree.get(key));
-
-      assertEquals(expected.size(), tree.size());
-      assertEquals(expected.firstKey(), tree.firstKey());
-      assertEquals(expected.lastKey(), tree.lastKey());
+      verifyTree(expected, tree, random);
     } finally {
       if (DUMP) {
         tree.dump();
@@ -375,12 +351,12 @@ public class StringSebTreeTest {
   }
 
   @Test
-  public void testSmallVariablePutRemove() throws IOException {
+  public void testSmallVariablePut() throws IOException {
     final int MAX_SIZE = 256;
 
     final long seed = System.currentTimeMillis();
     final Random random = new Random(seed);
-    System.out.println("StringSebTreeTest.testSmallVariablePutRemove seed: " + seed);
+    System.out.println("StringSebTreeTest.testSmallVariablePut seed: " + seed);
 
     final int count = (int) Math.sqrt(RANDOMIZED_TESTS_ITERATIONS);
     final TreeMap<String, String> expected = new TreeMap<>();
@@ -399,12 +375,7 @@ public class StringSebTreeTest {
           tree.dump();
       }
 
-      for (String key : expected.keySet())
-        assertEquals(expected.get(key), tree.get(key));
-
-      assertEquals(expected.size(), tree.size());
-      assertEquals(expected.firstKey(), tree.firstKey());
-      assertEquals(expected.lastKey(), tree.lastKey());
+      verifyTree(expected, tree, random);
     } finally {
       if (DUMP) {
         tree.dump();
@@ -543,4 +514,208 @@ public class StringSebTreeTest {
     tree.put("c", C);
   }
 
+  private static void verifyTree(TreeMap<String, String> expected, OSebTree<String, String> actual, Random random) {
+    for (String key : expected.keySet())
+      assertEquals(expected.get(key), actual.get(key));
+
+    assertEquals(expected.size(), actual.size());
+    assertEquals(expected.firstKey(), actual.firstKey());
+    assertEquals(expected.lastKey(), actual.lastKey());
+
+    final String[] expectedKeys = expected.keySet().toArray(new String[0]);
+    final String beginningKey = expectedKeys[random.nextInt(expectedKeys.length)];
+    final String endKey = expectedKeys[random.nextInt(expectedKeys.length)];
+
+    verifyWholeCursor(expected, actual);
+    verifyOpenEndCursor(expected, actual, beginningKey);
+    verifyOpenBeginningCursor(expected, actual, endKey);
+    verifyCursor(expected, actual, beginningKey, endKey);
+  }
+
+  private static void verifyWholeCursor(TreeMap<String, String> expected, OSebTree<String, String> actual) {
+    OKeyValueCursor<String, String> cursor;
+
+    // whole forward
+    cursor = actual.range(null, null, OCursor.Beginning.Open, OCursor.End.Open, OCursor.Direction.Forward);
+    for (Map.Entry<String, String> entry : expected.entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // whole reverse
+    cursor = actual.range(null, null, OCursor.Beginning.Open, OCursor.End.Open, OCursor.Direction.Reverse);
+    for (Map.Entry<String, String> entry : expected.descendingMap().entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+  }
+
+  private static void verifyOpenEndCursor(TreeMap<String, String> expected, OSebTree<String, String> actual, String beginningKey) {
+    OKeyValueCursor<String, String> cursor;
+
+    // forward exclusive beginning open end
+    cursor = actual.range(beginningKey, null, OCursor.Beginning.Exclusive, OCursor.End.Open, OCursor.Direction.Forward);
+    for (Map.Entry<String, String> entry : expected.tailMap(beginningKey, false).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // reverse exclusive beginning open end
+    cursor = actual.range(beginningKey, null, OCursor.Beginning.Exclusive, OCursor.End.Open, OCursor.Direction.Reverse);
+    for (Map.Entry<String, String> entry : expected.descendingMap().headMap(beginningKey, false).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // forward inclusive beginning open end
+    cursor = actual.range(beginningKey, null, OCursor.Beginning.Inclusive, OCursor.End.Open, OCursor.Direction.Forward);
+    for (Map.Entry<String, String> entry : expected.tailMap(beginningKey, true).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // reverse inclusive beginning open end
+    cursor = actual.range(beginningKey, null, OCursor.Beginning.Inclusive, OCursor.End.Open, OCursor.Direction.Reverse);
+    for (Map.Entry<String, String> entry : expected.descendingMap().headMap(beginningKey, true).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+  }
+
+  private static void verifyOpenBeginningCursor(TreeMap<String, String> expected, OSebTree<String, String> actual, String endKey) {
+    OKeyValueCursor<String, String> cursor;
+
+    // forward open beginning exclusive end
+    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    for (Map.Entry<String, String> entry : expected.headMap(endKey, false).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // reverse open beginning exclusive end
+    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    for (Map.Entry<String, String> entry : expected.descendingMap().tailMap(endKey, false).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // forward open beginning inclusive end
+    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    for (Map.Entry<String, String> entry : expected.headMap(endKey, true).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+
+    // reverse open beginning inclusive end
+    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    for (Map.Entry<String, String> entry : expected.descendingMap().tailMap(endKey, true).entrySet()) {
+      assertTrue(cursor.next());
+      assertEquals(entry.getKey(), cursor.key());
+      assertEquals(entry.getValue(), cursor.value());
+    }
+    assertFalse(cursor.next());
+  }
+
+  private static void verifyCursor(TreeMap<String, String> expected, OSebTree<String, String> actual, String beginningKey,
+      String endKey) {
+    OKeyValueCursor<String, String> cursor;
+
+    // forward exclusive beginning exclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.subMap(beginningKey, false, endKey, false).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // reverse exclusive beginning exclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, false, beginningKey, false).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // forward inclusive beginning exclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.subMap(beginningKey, true, endKey, false).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // reverse inclusive beginning exclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, false, beginningKey, true).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // forward exclusive beginning inclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.subMap(beginningKey, false, endKey, true).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // reverse exclusive beginning inclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, true, beginningKey, false).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // forward inclusive beginning inclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.subMap(beginningKey, true, endKey, true).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+
+    // reverse inclusive beginning inclusive end
+    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    if (beginningKey.compareTo(endKey) <= 0)
+      for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, true, beginningKey, true).entrySet()) {
+        assertTrue(cursor.next());
+        assertEquals(entry.getKey(), cursor.key());
+        assertEquals(entry.getValue(), cursor.value());
+      }
+    assertFalse(cursor.next());
+  }
 }

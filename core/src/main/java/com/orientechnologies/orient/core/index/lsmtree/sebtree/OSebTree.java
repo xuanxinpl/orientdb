@@ -1173,9 +1173,16 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private K firstKey(OAtomicOperation atomicOperation) {
     try {
-      final OSebTreeNode<K, V> leaf = leftMostLeaf(atomicOperation).beginRead();
+      OSebTreeNode<K, V> leaf = leftMostLeaf(atomicOperation).beginRead();
       try {
-        return leaf.getSize() > 0 ? leaf.keyAt(0) : null;
+
+        long siblingPointer;
+        while (leaf.getSize() == 0 && (siblingPointer = leaf.getRightSibling()) != 0) {
+          releaseNode(atomicOperation, leaf.endRead());
+          leaf = getNode(atomicOperation, siblingPointer).beginRead();
+        }
+
+        return leaf.getSize() == 0 ? null : leaf.keyAt(0);
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1186,9 +1193,16 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private K lastKey(OAtomicOperation atomicOperation) {
     try {
-      final OSebTreeNode<K, V> leaf = rightMostLeaf(atomicOperation).beginRead();
+      OSebTreeNode<K, V> leaf = rightMostLeaf(atomicOperation).beginRead();
       try {
-        return leaf.getSize() > 0 ? leaf.keyAt(leaf.getSize() - 1) : null;
+
+        long siblingPointer;
+        while (leaf.getSize() == 0 && (siblingPointer = leaf.getLeftSibling()) != 0) {
+          releaseNode(atomicOperation, leaf.endRead());
+          leaf = getNode(atomicOperation, siblingPointer).beginRead();
+        }
+
+        return leaf.getSize() == 0 ? null : leaf.keyAt(leaf.getSize() - 1);
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1931,9 +1945,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     private final Direction      direction;
 
     private long leafPointer;
-    private int  index;
+    private int  recordIndex;
 
-    private boolean loaded = false;
+    private boolean hasRecord = false;
     private K key;
     private V value;
 
@@ -1948,6 +1962,37 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       this.end = direction == Direction.Forward ? end : End.values()[beginning.ordinal()];
       this.direction = direction;
 
+      initialize(atomicOperation);
+    }
+
+    @Override
+    public boolean next() {
+      final OSessionStoragePerformanceStatistic statistic = tree.start();
+      try {
+        tree.atomicOperationsManager.acquireReadLock(tree);
+        try {
+          return next(tree.atomicOperation());
+        } finally {
+          tree.atomicOperationsManager.releaseReadLock(tree);
+        }
+      } finally {
+        tree.end(statistic);
+      }
+    }
+
+    @Override
+    public K key() {
+      assert hasRecord;
+      return key;
+    }
+
+    @Override
+    public V value() {
+      assert hasRecord;
+      return value;
+    }
+
+    private void initialize(OAtomicOperation atomicOperation) {
       try {
         if (beginning == Beginning.Open) {
           final OSebTreeNode<K, V> leaf = (direction == Direction.Forward ?
@@ -1955,7 +2000,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
               tree.rightMostLeaf(atomicOperation)).beginRead();
           try {
             leafPointer = leaf.getPointer();
-            index = direction == Direction.Forward ? 0 : leaf.getSize() - 1;
+            recordIndex = direction == Direction.Forward ? 0 : leaf.getSize() - 1;
           } finally {
             tree.releaseNode(atomicOperation, leaf.endRead());
           }
@@ -1963,14 +2008,14 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
           final OSebTreeNode<K, V> leaf = tree.findLeaf(atomicOperation, beginningKey).beginRead();
           try {
             leafPointer = leaf.getPointer();
-            index = leaf.indexOf(beginningKey);
+            recordIndex = leaf.indexOf(beginningKey);
 
-            if (OSebTreeNode.isInsertionPoint(index)) {
-              index = OSebTreeNode.toIndex(index);
+            if (OSebTreeNode.isInsertionPoint(recordIndex)) {
+              recordIndex = OSebTreeNode.toIndex(recordIndex);
               if (direction == Direction.Reverse)
-                --index;
+                --recordIndex;
             } else if (beginning == Beginning.Exclusive)
-              index += direction == Direction.Forward ? +1 : -1;
+              recordIndex += direction == Direction.Forward ? +1 : -1;
           } finally {
             tree.releaseNode(atomicOperation, leaf.endRead());
           }
@@ -1980,32 +2025,57 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       }
     }
 
-    @Override
-    public boolean next() {
+    private boolean next(OAtomicOperation atomicOperation) {
+      try {
+        hasRecord = false;
 
-      switch (direction) {
-      case Forward:
-        break;
+        while (leafPointer >= 0) {
+          final OSebTreeNode<K, V> leaf = tree.getNode(atomicOperation, leafPointer).beginRead();
+          try {
+            if (recordIndex == Integer.MAX_VALUE)
+              recordIndex = leaf.getSize() - 1;
 
-      case Reverse:
-        break;
+            if (recordIndex >= 0 && recordIndex < leaf.getSize()) {
+              key = leaf.keyAt(recordIndex);
+
+              if (end != End.Open) {
+                final int order = OSebTreeNode.compareKeys(key, endKey);
+
+                if (direction == Direction.Forward)
+                  hasRecord = end == End.Inclusive ? order <= 0 : order < 0;
+                else
+                  hasRecord = end == End.Inclusive ? order >= 0 : order > 0;
+
+                if (!hasRecord) {
+                  leafPointer = -1;
+                  break;
+                }
+              }
+
+              if (fetchValues)
+                value = leaf.valueAt(recordIndex);
+
+              recordIndex += direction == Direction.Forward ? +1 : -1;
+
+              hasRecord = true;
+              break;
+            } else {
+              leafPointer = direction == Direction.Forward ? leaf.getRightSibling() : leaf.getLeftSibling();
+              recordIndex = direction == Direction.Forward ? 0 : Integer.MAX_VALUE;
+
+              if (leafPointer == 0)
+                leafPointer = -1;
+            }
+          } finally {
+            tree.releaseNode(atomicOperation, leaf.endRead());
+          }
+        }
+
+        return hasRecord;
+      } catch (IOException e) {
+        throw tree.error("Error during iterating SebTree " + tree.getName(), e);
       }
-
-      return false;
     }
-
-    @Override
-    public K key() {
-      assert loaded;
-      return key;
-    }
-
-    @Override
-    public V value() {
-      assert loaded;
-      return value;
-    }
-
   }
 
 }
