@@ -22,7 +22,9 @@ package com.orientechnologies.orient.core.index.lsmtree.sebtree;
 import com.orientechnologies.common.serialization.types.OStringSerializer;
 import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
-import com.orientechnologies.orient.core.index.lsmtree.OCursor;
+import com.orientechnologies.orient.core.index.lsmtree.OCursor.Beginning;
+import com.orientechnologies.orient.core.index.lsmtree.OCursor.Direction;
+import com.orientechnologies.orient.core.index.lsmtree.OCursor.End;
 import com.orientechnologies.orient.core.index.lsmtree.OKeyValueCursor;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
 import org.junit.After;
@@ -536,7 +538,7 @@ public class StringSebTreeTest {
     OKeyValueCursor<String, String> cursor;
 
     // whole forward
-    cursor = actual.range(null, null, OCursor.Beginning.Open, OCursor.End.Open, OCursor.Direction.Forward);
+    cursor = actual.range(null, null, Beginning.Open, End.Open, Direction.Forward);
     for (Map.Entry<String, String> entry : expected.entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -545,7 +547,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // whole reverse
-    cursor = actual.range(null, null, OCursor.Beginning.Open, OCursor.End.Open, OCursor.Direction.Reverse);
+    cursor = actual.range(null, null, Beginning.Open, End.Open, Direction.Reverse);
     for (Map.Entry<String, String> entry : expected.descendingMap().entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -558,7 +560,7 @@ public class StringSebTreeTest {
     OKeyValueCursor<String, String> cursor;
 
     // forward exclusive beginning open end
-    cursor = actual.range(beginningKey, null, OCursor.Beginning.Exclusive, OCursor.End.Open, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, null, Beginning.Exclusive, End.Open, Direction.Forward);
     for (Map.Entry<String, String> entry : expected.tailMap(beginningKey, false).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -567,7 +569,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse exclusive beginning open end
-    cursor = actual.range(beginningKey, null, OCursor.Beginning.Exclusive, OCursor.End.Open, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, null, Beginning.Exclusive, End.Open, Direction.Reverse);
     for (Map.Entry<String, String> entry : expected.descendingMap().headMap(beginningKey, false).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -576,7 +578,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // forward inclusive beginning open end
-    cursor = actual.range(beginningKey, null, OCursor.Beginning.Inclusive, OCursor.End.Open, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, null, Beginning.Inclusive, End.Open, Direction.Forward);
     for (Map.Entry<String, String> entry : expected.tailMap(beginningKey, true).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -585,7 +587,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse inclusive beginning open end
-    cursor = actual.range(beginningKey, null, OCursor.Beginning.Inclusive, OCursor.End.Open, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, null, Beginning.Inclusive, End.Open, Direction.Reverse);
     for (Map.Entry<String, String> entry : expected.descendingMap().headMap(beginningKey, true).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -598,7 +600,7 @@ public class StringSebTreeTest {
     OKeyValueCursor<String, String> cursor;
 
     // forward open beginning exclusive end
-    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    cursor = actual.range(null, endKey, Beginning.Open, End.Exclusive, Direction.Forward);
     for (Map.Entry<String, String> entry : expected.headMap(endKey, false).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -607,7 +609,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse open beginning exclusive end
-    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(null, endKey, Beginning.Open, End.Exclusive, Direction.Reverse);
     for (Map.Entry<String, String> entry : expected.descendingMap().tailMap(endKey, false).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -616,7 +618,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // forward open beginning inclusive end
-    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    cursor = actual.range(null, endKey, Beginning.Open, End.Inclusive, Direction.Forward);
     for (Map.Entry<String, String> entry : expected.headMap(endKey, true).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -625,7 +627,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse open beginning inclusive end
-    cursor = actual.range(null, endKey, OCursor.Beginning.Open, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(null, endKey, Beginning.Open, End.Inclusive, Direction.Reverse);
     for (Map.Entry<String, String> entry : expected.descendingMap().tailMap(endKey, true).entrySet()) {
       assertTrue(cursor.next());
       assertEquals(entry.getKey(), cursor.key());
@@ -639,7 +641,7 @@ public class StringSebTreeTest {
     OKeyValueCursor<String, String> cursor;
 
     // forward exclusive beginning exclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, endKey, Beginning.Exclusive, End.Exclusive, Direction.Forward);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.subMap(beginningKey, false, endKey, false).entrySet()) {
         assertTrue(cursor.next());
@@ -649,7 +651,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse exclusive beginning exclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, endKey, Beginning.Exclusive, End.Exclusive, Direction.Reverse);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, false, beginningKey, false).entrySet()) {
         assertTrue(cursor.next());
@@ -659,7 +661,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // forward inclusive beginning exclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Exclusive, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, endKey, Beginning.Inclusive, End.Exclusive, Direction.Forward);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.subMap(beginningKey, true, endKey, false).entrySet()) {
         assertTrue(cursor.next());
@@ -669,7 +671,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse inclusive beginning exclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Exclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, endKey, Beginning.Inclusive, End.Exclusive, Direction.Reverse);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, false, beginningKey, true).entrySet()) {
         assertTrue(cursor.next());
@@ -679,7 +681,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // forward exclusive beginning inclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, endKey, Beginning.Exclusive, End.Inclusive, Direction.Forward);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.subMap(beginningKey, false, endKey, true).entrySet()) {
         assertTrue(cursor.next());
@@ -689,7 +691,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse exclusive beginning inclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Exclusive, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, endKey, Beginning.Exclusive, End.Inclusive, Direction.Reverse);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, true, beginningKey, false).entrySet()) {
         assertTrue(cursor.next());
@@ -699,7 +701,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // forward inclusive beginning inclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Inclusive, OCursor.Direction.Forward);
+    cursor = actual.range(beginningKey, endKey, Beginning.Inclusive, End.Inclusive, Direction.Forward);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.subMap(beginningKey, true, endKey, true).entrySet()) {
         assertTrue(cursor.next());
@@ -709,7 +711,7 @@ public class StringSebTreeTest {
     assertFalse(cursor.next());
 
     // reverse inclusive beginning inclusive end
-    cursor = actual.range(beginningKey, endKey, OCursor.Beginning.Inclusive, OCursor.End.Inclusive, OCursor.Direction.Reverse);
+    cursor = actual.range(beginningKey, endKey, Beginning.Inclusive, End.Inclusive, Direction.Reverse);
     if (beginningKey.compareTo(endKey) <= 0)
       for (Map.Entry<String, String> entry : expected.descendingMap().subMap(endKey, true, beginningKey, true).entrySet()) {
         assertTrue(cursor.next());

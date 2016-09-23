@@ -23,6 +23,9 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OBinarySerializer;
 import com.orientechnologies.common.types.OModifiableBoolean;
+import com.orientechnologies.orient.core.index.OAlwaysGreaterKey;
+import com.orientechnologies.orient.core.index.OAlwaysLessKey;
+import com.orientechnologies.orient.core.index.OCompositeKey;
 import com.orientechnologies.orient.core.index.lsmtree.*;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.OEncoder;
 import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -53,6 +56,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private static final int BLOCK_HALF                = BLOCK_SIZE / 2;
   private static final int IN_MEMORY_PAGES_THRESHOLD = 64 * 1024 * 1024 / OSebTreeNode.MAX_PAGE_SIZE_BYTES;
+
+  private static final OAlwaysLessKey    ALWAYS_LESS_KEY    = new OAlwaysLessKey();
+  private static final OAlwaysGreaterKey ALWAYS_GREATER_KEY = new OAlwaysGreaterKey();
 
   private boolean inMemory;
   private boolean full = false;
@@ -134,7 +140,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
       fileId = openFile(atomicOperation(), getFullName());
     } catch (IOException e) {
-      throw error("Exception during opening of SebTree " + getName(), e);
+      throw error("Exception while opening of SebTree " + getName(), e);
     } finally {
       end(statistic);
     }
@@ -331,8 +337,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, true, internalKey(beginningKey), internalKey(endKey), beginning, end,
-            direction);
+        return new Cursor<>(atomicOperation(), this, true,
+            internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -348,8 +355,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, false, internalKey(beginningKey), internalKey(endKey), beginning, end,
-            direction);
+        return new Cursor<>(atomicOperation(), this, false,
+            internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -365,8 +373,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return new Cursor<>(atomicOperation(), this, true, internalKey(beginningKey), internalKey(endKey), beginning, end,
-            direction);
+        return new Cursor<>(atomicOperation(), this, true,
+            internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -481,8 +490,6 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private Creation<K, V> splitBlock(OAtomicOperation atomicOperation, List<OSebTreeNode<K, V>> path, int rank,
       OSebTreeNode<K, V> node, OSebTreeNode<K, V> parent, OSebTreeNode.Marker marker, int keyIndex, K key) throws IOException {
-
-    //    System.out.println("split block");
 
     final Block block = collectBlockInformation(atomicOperation, parent, marker, keyIndex);
     final long[] oldBlockPointers = block.pointers;
@@ -1167,7 +1174,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
         releaseNode(atomicOperation, rootNode.endRead());
       }
     } catch (IOException e) {
-      throw error("Error during retrieving the size of SebTree " + getName(), e);
+      throw error("Error while retrieving the size of SebTree " + getName(), e);
     }
   }
 
@@ -1187,7 +1194,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
         releaseNode(atomicOperation, leaf.endRead());
       }
     } catch (IOException e) {
-      throw error("Error during retrieving the beginning key of SebTree " + getName(), e);
+      throw error("Error while retrieving the first key of SebTree " + getName(), e);
     }
   }
 
@@ -1207,7 +1214,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
         releaseNode(atomicOperation, leaf.endRead());
       }
     } catch (IOException e) {
-      throw error("Error during retrieving the end key of SebTree " + getName(), e);
+      throw error("Error while retrieving the last key of SebTree " + getName(), e);
     }
   }
 
@@ -1841,6 +1848,35 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     return key == null ? null : keySerializer.preprocess(key, (Object[]) keyTypes);
   }
 
+  @SuppressWarnings("unchecked")
+  private K internalRangeKey(K key, boolean beginning, boolean inclusive) {
+    key = internalKey(key);
+
+    if (keySize == 1)
+      return key;
+
+    if (!(key instanceof OCompositeKey))
+      return key;
+    final OCompositeKey compositeKey = (OCompositeKey) key;
+
+    if (compositeKey.getKeys().size() == keySize)
+      return key;
+
+    final OCompositeKey rangeKey = new OCompositeKey(compositeKey);
+    final int subkeysToAdd = keySize - rangeKey.getKeys().size();
+
+    final Comparable<?> subkey;
+    if (beginning)
+      subkey = inclusive ? ALWAYS_LESS_KEY : ALWAYS_GREATER_KEY;
+    else
+      subkey = inclusive ? ALWAYS_GREATER_KEY : ALWAYS_LESS_KEY;
+
+    for (int i = 0; i < subkeysToAdd; ++i)
+      rangeKey.addKey(subkey);
+
+    return (K) rangeKey;
+  }
+
   private void updateTreeSize(OAtomicOperation atomicOperation, long delta) throws IOException {
     final OSebTreeNode<K, V> root = getRootNode(atomicOperation).beginWrite();
     try {
@@ -2073,7 +2109,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
         return hasRecord;
       } catch (IOException e) {
-        throw tree.error("Error during iterating SebTree " + tree.getName(), e);
+        throw tree.error("Error while iterating SebTree " + tree.getName(), e);
       }
     }
   }

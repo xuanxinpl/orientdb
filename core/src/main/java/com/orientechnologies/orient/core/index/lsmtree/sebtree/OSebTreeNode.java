@@ -340,7 +340,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       nonLeafMoveTailTo(destination, length);
   }
 
-  public int countEntriesToMoveUntilHalfFree() { // todo: account to markers
+  public int countEntriesToMoveUntilHalfFree() { // todo: account to markers (?)
     final int size = getSize();
     final boolean leaf = isLeaf();
 
@@ -494,7 +494,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     setFlags((byte) ((value << ENCODERS_VERSION_SHIFT & ENCODERS_VERSION_MASK) | (getFlags() & ~ENCODERS_VERSION_MASK)));
   }
 
-  public long getLeftPointer() { // opt: cache value?
+  public long getLeftPointer() {
     assert !isLeaf();
     return getLongValue(LEFT_POINTER_OFFSET);
   }
