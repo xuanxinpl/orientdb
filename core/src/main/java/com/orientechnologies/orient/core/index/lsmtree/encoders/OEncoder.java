@@ -59,9 +59,9 @@ public interface OEncoder<V> {
   interface Runtime {
     <T> OEncoder.Provider<T> getProvider(Class<? extends OEncoder<T>> encoderClass, OEncoder.Size size);
 
-    <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keyEncoder, OType[] keyTypes, OEncoder.Size size);
+    <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keySerializer, OType[] keyTypes, OEncoder.Size size);
 
-    <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueEncoder, OEncoder.Size size);
+    <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueSerializer, OEncoder.Size size);
   }
 
   interface Provider<V> {

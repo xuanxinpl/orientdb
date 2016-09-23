@@ -951,8 +951,8 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     if (isLeaf())
       recordSize += valuesInlined ? valueEncoder.maximumSize() : positionEncoder.maximumSize();
     else {
-      markerSize = positionEncoder.maximumSize() + pointerEncoder.maximumSize() + positionEncoder.maximumSize();
       recordSize += pointerEncoder.maximumSize();
+      markerSize = positionEncoder.maximumSize() + pointerEncoder.maximumSize() + positionEncoder.maximumSize();
     }
   }
 

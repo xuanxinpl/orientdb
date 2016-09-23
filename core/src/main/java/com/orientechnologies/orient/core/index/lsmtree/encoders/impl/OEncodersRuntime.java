@@ -23,8 +23,11 @@ import com.orientechnologies.common.serialization.types.OBinarySerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
 import com.orientechnologies.common.serialization.types.OStringSerializer;
+import com.orientechnologies.orient.core.index.OCompositeKey;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.*;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.serialization.serializer.binary.OBinarySerializerFactory;
+import com.orientechnologies.orient.core.serialization.serializer.binary.impl.index.OCompositeKeySerializer;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OWALChanges;
 
 import java.lang.reflect.Constructor;
@@ -87,45 +90,47 @@ public class OEncodersRuntime implements OEncoder.Runtime {
     }
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  public <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keyEncoder, OType[] keyTypes,
+  public <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keySerializer, OType[] keyTypes,
       OEncoder.Size size) {
 
-    // TODO: better composite key support
+    if (keySerializer instanceof OCompositeKeySerializer)
+      return new CompositeKeyProvider(this, keyTypes, size);
 
     final OEncoder.Provider provider;
     switch (size) {
     case Auto:
     case PreferVariable:
-      provider = variableSizeSerializerClassToProvider.get(keyEncoder.getClass());
+      provider = variableSizeSerializerClassToProvider.get(keySerializer.getClass());
       break;
     case PreferFixed:
-      provider = fixedSizeSerializerClassToProvider.get(keyEncoder.getClass());
+      provider = fixedSizeSerializerClassToProvider.get(keySerializer.getClass());
       break;
     default:
       throw new IllegalStateException("Unexpected preferred size.");
     }
 
-    return provider == null ? new SerializerWrapper(keyEncoder, keyTypes) : provider;
+    return provider == null ? new SerializerWrapper(keySerializer, keyTypes) : provider;
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueEncoder, OEncoder.Size size) {
+  public <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueSerializer, OEncoder.Size size) {
     final OEncoder.Provider provider;
     switch (size) {
     case Auto:
     case PreferVariable:
-      provider = variableSizeSerializerClassToProvider.get(valueEncoder.getClass());
+      provider = variableSizeSerializerClassToProvider.get(valueSerializer.getClass());
       break;
     case PreferFixed:
-      provider = fixedSizeSerializerClassToProvider.get(valueEncoder.getClass());
+      provider = fixedSizeSerializerClassToProvider.get(valueSerializer.getClass());
       break;
     default:
       throw new IllegalStateException("Unexpected preferred size.");
     }
 
-    return provider == null ? new SerializerWrapper(valueEncoder) : provider;
+    return provider == null ? new SerializerWrapper(valueSerializer) : provider;
   }
 
   @SuppressWarnings("unchecked")
@@ -281,14 +286,15 @@ public class OEncodersRuntime implements OEncoder.Runtime {
     }
 
     @Override
-    public <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keyEncoder, OType[] keyTypes,
+    public <K> OEncoder.Provider<K> getProviderForKeySerializer(OBinarySerializer<K> keySerializer, OType[] keyTypes,
         OEncoder.Size size) {
-      return OEncodersRuntime.this.getProviderForKeySerializer(keyEncoder, keyTypes, size == OEncoder.Size.Auto ? autoSize : size);
+      return OEncodersRuntime.this
+          .getProviderForKeySerializer(keySerializer, keyTypes, size == OEncoder.Size.Auto ? autoSize : size);
     }
 
     @Override
-    public <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueEncoder, OEncoder.Size size) {
-      return OEncodersRuntime.this.getProviderForValueSerializer(valueEncoder, size == OEncoder.Size.Auto ? autoSize : size);
+    public <V> OEncoder.Provider<V> getProviderForValueSerializer(OBinarySerializer<V> valueSerializer, OEncoder.Size size) {
+      return OEncodersRuntime.this.getProviderForValueSerializer(valueSerializer, size == OEncoder.Size.Auto ? autoSize : size);
     }
   }
 
@@ -364,6 +370,115 @@ public class OEncodersRuntime implements OEncoder.Runtime {
     @Override
     public OEncoder getEncoder(int version) {
       return this;
+    }
+  }
+
+  private static class CompositeKeyProvider implements OEncoder.Provider {
+    private final OEncoder.Provider[] subkeysProviders;
+
+    public CompositeKeyProvider(OEncodersRuntime runtime, OType[] keyTypes, OEncoder.Size size) {
+      final OBinarySerializerFactory serializerFactory = OBinarySerializerFactory.getInstance();
+      subkeysProviders = new OEncoder.Provider[keyTypes.length];
+      for (int i = 0; i < subkeysProviders.length; ++i)
+        subkeysProviders[i] = runtime.getProviderForValueSerializer(serializerFactory.getObjectSerializer(keyTypes[i]), size);
+    }
+
+    @Override
+    public OEncoder getEncoder(int version) {
+      return new CompositeKeyEncoder(subkeysProviders, version);
+    }
+  }
+
+  private static class CompositeKeyEncoder implements OEncoder<OCompositeKey> {
+    private final OEncoder[] subkeyEncoders;
+    private final int        minimumSize;
+    private final int        maximumSize;
+
+    public CompositeKeyEncoder(OEncoder.Provider[] subkeysProviders, int version) {
+      subkeyEncoders = new OEncoder[subkeysProviders.length];
+      int minimumSize = 0;
+      int maximumSize = 0;
+      for (int i = 0; i < subkeyEncoders.length; ++i) {
+        final OEncoder subkeyEncoder = subkeysProviders[i].getEncoder(version);
+        subkeyEncoders[i] = subkeyEncoder;
+
+        if (minimumSize != UNBOUND_SIZE) {
+          final int subkeyMinimumSize = subkeyEncoder.minimumSize();
+          if (subkeyMinimumSize == UNBOUND_SIZE)
+            minimumSize = UNBOUND_SIZE;
+          else
+            minimumSize += subkeyMinimumSize;
+        }
+
+        if (maximumSize != UNBOUND_SIZE) {
+          final int subkeyMaximumSize = subkeyEncoder.maximumSize();
+          if (subkeyMaximumSize == UNBOUND_SIZE)
+            maximumSize = UNBOUND_SIZE;
+          else
+            maximumSize += subkeyMaximumSize;
+        }
+      }
+
+      this.minimumSize = minimumSize;
+      this.maximumSize = maximumSize;
+    }
+
+    @Override
+    public int version() {
+      return 0;
+    }
+
+    @Override
+    public int minimumSize() {
+      return minimumSize;
+    }
+
+    @Override
+    public int maximumSize() {
+      return maximumSize;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public int exactSize(OCompositeKey value) {
+      final List<Object> subkeys = value.getKeys();
+      final int subkeysSize = subkeys.size();
+      assert subkeysSize == subkeyEncoders.length;
+
+      int size = 0;
+      for (int i = 0; i < subkeysSize; ++i)
+        size += subkeyEncoders[i].exactSize(subkeys.get(i));
+      return size;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void encode(OCompositeKey value, Stream stream) {
+      final List<Object> subkeys = value.getKeys();
+      final int subkeysSize = subkeys.size();
+      assert subkeysSize == subkeyEncoders.length;
+
+      for (int i = 0; i < subkeysSize; ++i)
+        subkeyEncoders[i].encode(subkeys.get(i), stream);
+    }
+
+    @Override
+    public int exactSizeInStream(Stream stream) {
+      final int start = stream.getPosition();
+      int size = 0;
+      for (OEncoder subkeyEncoder : subkeyEncoders) {
+        size += subkeyEncoder.exactSizeInStream(stream);
+        stream.setPosition(start + size);
+      }
+      return size;
+    }
+
+    @Override
+    public OCompositeKey decode(Stream stream) {
+      final OCompositeKey compositeKey = new OCompositeKey();
+      for (OEncoder subkeyEncoder : subkeyEncoders)
+        compositeKey.addKey(subkeyEncoder.decode(stream));
+      return compositeKey;
     }
   }
 }
