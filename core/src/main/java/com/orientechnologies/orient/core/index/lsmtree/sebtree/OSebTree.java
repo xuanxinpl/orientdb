@@ -47,8 +47,6 @@ import java.util.List;
  */
 public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
-  // TODO: add locks to create/open/delete/... operations
-
   /* internal */ static final int ENCODERS_VERSION             = 0;
   /* internal */ static final int BLOCK_SIZE                   = 16 /* pages, must be even */;
   /* internal */ static final int INLINE_KEYS_SIZE_THRESHOLD   = 16 /* bytes */;
@@ -89,32 +87,38 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       final OAtomicOperation atomicOperation = startAtomicOperation("creation", false);
       try {
-        this.keySerializer = keySerializer;
-        this.keyProvider = selectKeyProvider(keySerializer, keyTypes);
-        this.keyTypes = keyTypes == null ? null : Arrays.copyOf(keyTypes, keyTypes.length);
-        this.keySize = keySize;
-        this.nullKeyAllowed = nullKeyAllowed;
-        this.valueProvider = selectValueProvider(valueSerializer);
-
-        fileId = addFile(atomicOperation, getFullName());
-
-        if (nullKeyAllowed) {
-          final OSebTreeNode<K, V> nullNode = createNode(atomicOperation).beginCreate();
-          try {
-            nullNode.create(true);
-          } finally {
-            releaseNode(atomicOperation, nullNode.endWrite());
-          }
-        }
-
-        final OSebTreeNode<K, V> rootNode = createNode(atomicOperation).beginCreate();
+        acquireExclusiveLock();
         try {
-          rootNode.create(true);
+          this.keySerializer = keySerializer;
+          this.keyProvider = selectKeyProvider(keySerializer, keyTypes);
+          this.keyTypes = keyTypes == null ? null : Arrays.copyOf(keyTypes, keyTypes.length);
+          this.keySize = keySize;
+          this.nullKeyAllowed = nullKeyAllowed;
+          this.valueProvider = selectValueProvider(valueSerializer);
+
+          fileId = addFile(atomicOperation, getFullName());
+
+          if (nullKeyAllowed) {
+            final OSebTreeNode<K, V> nullNode = createNode(atomicOperation).beginCreate();
+            try {
+              nullNode.create(true);
+            } finally {
+              releaseNode(atomicOperation, nullNode.endWrite());
+            }
+          }
+
+          final OSebTreeNode<K, V> rootNode = createNode(atomicOperation).beginCreate();
+          try {
+            rootNode.create(true);
+          } finally {
+            releaseNode(atomicOperation, rootNode.endWrite());
+          }
+
+          opened = true;
         } finally {
-          releaseNode(atomicOperation, rootNode.endWrite());
+          releaseExclusiveLock();
         }
 
-        opened = true;
         endSuccessfulAtomicOperation();
       } catch (Exception e) {
         throw endFailedAtomicOperation(e);
@@ -126,19 +130,23 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   public void open(OBinarySerializer<K> keySerializer, OType[] keyTypes, int keySize, boolean nullKeyAllowed,
       OBinarySerializer<V> valueSerializer) {
-
     assert !opened;
 
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
-      this.keySerializer = keySerializer;
-      this.keyProvider = selectKeyProvider(keySerializer, keyTypes);
-      this.keyTypes = keyTypes;
-      this.keySize = keySize;
-      this.nullKeyAllowed = nullKeyAllowed;
-      this.valueProvider = selectValueProvider(valueSerializer);
+      acquireExclusiveLock();
+      try {
+        this.keySerializer = keySerializer;
+        this.keyProvider = selectKeyProvider(keySerializer, keyTypes);
+        this.keyTypes = keyTypes;
+        this.keySize = keySize;
+        this.nullKeyAllowed = nullKeyAllowed;
+        this.valueProvider = selectValueProvider(valueSerializer);
 
-      fileId = openFile(atomicOperation(), getFullName());
+        fileId = openFile(atomicOperation(), getFullName());
+      } finally {
+        releaseExclusiveLock();
+      }
     } catch (IOException e) {
       throw error("Exception while opening of SebTree " + getName(), e);
     } finally {
@@ -147,7 +155,22 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   public void close() {
-    assert opened; // TODO
+    assert opened;
+
+    final OSessionStoragePerformanceStatistic statistic = start();
+    try {
+      acquireExclusiveLock();
+      try {
+        readCache.closeFile(fileId, true, writeCache);
+        opened = false;
+      } catch (IOException e) {
+        throw error("Exception while closing of SebTree " + getName(), e);
+      } finally {
+        releaseExclusiveLock();
+      }
+    } finally {
+      end(statistic);
+    }
   }
 
   public void reset() {
@@ -157,22 +180,27 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       final OAtomicOperation atomicOperation = startAtomicOperation("reset", true);
       try {
-        truncateFile(atomicOperation, fileId);
-
-        if (nullKeyAllowed) {
-          final OSebTreeNode<K, V> nullNode = createNode(atomicOperation).beginCreate();
-          try {
-            nullNode.create(true);
-          } finally {
-            releaseNode(atomicOperation, nullNode.endWrite());
-          }
-        }
-
-        final OSebTreeNode<K, V> rootNode = createNode(atomicOperation).beginCreate();
+        acquireExclusiveLock();
         try {
-          rootNode.create(true);
+          truncateFile(atomicOperation, fileId);
+
+          if (nullKeyAllowed) {
+            final OSebTreeNode<K, V> nullNode = createNode(atomicOperation).beginCreate();
+            try {
+              nullNode.create(true);
+            } finally {
+              releaseNode(atomicOperation, nullNode.endWrite());
+            }
+          }
+
+          final OSebTreeNode<K, V> rootNode = createNode(atomicOperation).beginCreate();
+          try {
+            rootNode.create(true);
+          } finally {
+            releaseNode(atomicOperation, rootNode.endWrite());
+          }
         } finally {
-          releaseNode(atomicOperation, rootNode.endWrite());
+          releaseExclusiveLock();
         }
 
         endSuccessfulAtomicOperation();
@@ -189,12 +217,16 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     try {
       final OAtomicOperation atomicOperation = startAtomicOperation("delete", false);
       try {
-
-        if (opened)
-          deleteFile(atomicOperation, fileId);
-        else if (isFileExists(atomicOperation, getFullName())) {
-          final long fileId = openFile(atomicOperation, getFullName());
-          deleteFile(atomicOperation, fileId);
+        acquireExclusiveLock();
+        try {
+          if (opened)
+            deleteFile(atomicOperation, fileId);
+          else if (isFileExists(atomicOperation, getFullName())) {
+            final long fileId = openFile(atomicOperation, getFullName());
+            deleteFile(atomicOperation, fileId);
+          }
+        } finally {
+          releaseExclusiveLock();
         }
 
         endSuccessfulAtomicOperation();
