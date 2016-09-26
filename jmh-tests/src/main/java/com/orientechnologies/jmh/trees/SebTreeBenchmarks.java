@@ -50,7 +50,7 @@ public class SebTreeBenchmarks {
 
     db.create();
 
-    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree", ".seb", false);
+    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree", ".seb", OSebTree.Mode.Standalone);
     tree.create(OStringSerializer.INSTANCE, null, 1, false, OStringSerializer.INSTANCE);
 
     random = new Random(57);

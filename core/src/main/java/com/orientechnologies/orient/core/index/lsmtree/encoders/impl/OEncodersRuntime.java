@@ -19,10 +19,7 @@
 
 package com.orientechnologies.orient.core.index.lsmtree.encoders.impl;
 
-import com.orientechnologies.common.serialization.types.OBinarySerializer;
-import com.orientechnologies.common.serialization.types.OIntegerSerializer;
-import com.orientechnologies.common.serialization.types.OLongSerializer;
-import com.orientechnologies.common.serialization.types.OStringSerializer;
+import com.orientechnologies.common.serialization.types.*;
 import com.orientechnologies.orient.core.index.OCompositeKey;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.*;
 import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -48,13 +45,15 @@ public class OEncodersRuntime implements OEncoder.Runtime {
   private final OEncoder.Runtime fixedSizeView    = new View(OEncoder.Size.PreferFixed);
   private final OEncoder.Runtime variableSizeView = new View(OEncoder.Size.PreferVariable);
 
-  private final Map<Class<?>, Provider> fixedSizeSerializerClassToProvider = new IdentityHashMap<>();
-  private final Map<Class<?>, Provider> fixedSizeEncoderClassToProvider    = new IdentityHashMap<>();
+  private final Map<Class<?>, Provider> fixedSizeSerializerClassToProvider = new IdentityHashMap<>(64);
+  private final Map<Class<?>, Provider> fixedSizeEncoderClassToProvider    = new IdentityHashMap<>(64);
 
-  private final Map<Class<?>, Provider> variableSizeSerializerClassToProvider = new IdentityHashMap<>();
-  private final Map<Class<?>, Provider> variableSizeEncoderClassToProvider    = new IdentityHashMap<>();
+  private final Map<Class<?>, Provider> variableSizeSerializerClassToProvider = new IdentityHashMap<>(64);
+  private final Map<Class<?>, Provider> variableSizeEncoderClassToProvider    = new IdentityHashMap<>(64);
 
   private final List<Mapping> mappings = new ArrayList<>();
+
+  private int maximumVersion = -1;
 
   private OEncodersRuntime() {
     registerV0();
@@ -64,6 +63,7 @@ public class OEncodersRuntime implements OEncoder.Runtime {
 
   private void registerV0() {
     // @formatter:off
+    registerMapping(0, OByteSerializer.class,      OByteEncoder.class,             OFixedByteEncoder_V0.class);
     registerMapping(0, OIntegerSerializer.class,   OIntegerEncoder.class,          OFixedIntegerEncoder_V0.class);
     registerMapping(0, OIntegerSerializer.class,   OIntegerEncoder.class,          OVariableIntegerEncoder_V0.class);
     registerMapping(0, null,                       OUnsignedIntegerEncoder.class,  OFixedIntegerEncoder_V0.class);
@@ -153,6 +153,8 @@ public class OEncodersRuntime implements OEncoder.Runtime {
         maxVersion = mapping.version;
     if (maxVersion == Integer.MIN_VALUE)
       return;
+
+    maximumVersion = maxVersion;
 
     // set provider for each version there provider is set in mapping
 
@@ -375,17 +377,24 @@ public class OEncodersRuntime implements OEncoder.Runtime {
 
   private static class CompositeKeyProvider implements OEncoder.Provider {
     private final OEncoder.Provider[] subkeysProviders;
+    private final OEncoder[]          versions;
 
     public CompositeKeyProvider(OEncodersRuntime runtime, OType[] keyTypes, OEncoder.Size size) {
       final OBinarySerializerFactory serializerFactory = OBinarySerializerFactory.getInstance();
+
       subkeysProviders = new OEncoder.Provider[keyTypes.length];
+      versions = new OEncoder[runtime.maximumVersion + 1];
+
       for (int i = 0; i < subkeysProviders.length; ++i)
         subkeysProviders[i] = runtime.getProviderForValueSerializer(serializerFactory.getObjectSerializer(keyTypes[i]), size);
     }
 
     @Override
     public OEncoder getEncoder(int version) {
-      return new CompositeKeyEncoder(subkeysProviders, version);
+      OEncoder encoder = versions[version];
+      if (encoder == null)
+        encoder = versions[version] = new CompositeKeyEncoder(subkeysProviders, version);
+      return encoder;
     }
   }
 

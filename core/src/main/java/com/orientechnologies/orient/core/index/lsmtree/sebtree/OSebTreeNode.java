@@ -20,9 +20,9 @@
 package com.orientechnologies.orient.core.index.lsmtree.sebtree;
 
 import com.orientechnologies.common.comparator.ODefaultComparator;
-import com.orientechnologies.common.serialization.types.OByteSerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
+import com.orientechnologies.orient.core.index.lsmtree.encoders.OByteEncoder;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.OEncoder;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.OPageIndexEncoder;
 import com.orientechnologies.orient.core.index.lsmtree.encoders.OPagePositionEncoder;
@@ -36,7 +36,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
   private static final int FREE_DATA_POSITION_OFFSET = NEXT_FREE_POSITION;
   private static final int FLAGS_OFFSET              = FREE_DATA_POSITION_OFFSET + OIntegerSerializer.INT_SIZE;
-  private static final int SIZE_OFFSET               = FLAGS_OFFSET + OByteSerializer.BYTE_SIZE;
+  private static final int SIZE_OFFSET               = FLAGS_OFFSET + OIntegerSerializer.INT_SIZE;
   private static final int TREE_SIZE_OFFSET          = SIZE_OFFSET + OIntegerSerializer.INT_SIZE;
   private static final int LEFT_POINTER_OFFSET       = TREE_SIZE_OFFSET + OLongSerializer.LONG_SIZE;
   private static final int MARKER_COUNT_OFFSET       = LEFT_POINTER_OFFSET + OLongSerializer.LONG_SIZE;
@@ -50,26 +50,31 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
   private static final int CLONE_BUFFER_SIZE = 4 * 1024;
 
-  private static final byte LEAF_FLAG_MASK           = 0b0000_0001;
-  private static final byte CONTINUED_FROM_FLAG_MASK = 0b0000_0010;
-  private static final byte CONTINUED_TO_FLAG_MASK   = 0b0000_0100;
-  private static final byte ENCODERS_VERSION_MASK    = 0b0111_1000;
-  private static final byte ENCODERS_VERSION_SHIFT   = 3;
-  private static final byte EXTENSION_FLAG_MASK      = (byte) 0b1000_0000;
+  private static final int LEAF_FLAG_MASK           = 0b0000_0000__0000_0000___0000_0000__0000_0001;
+  private static final int CONTINUED_FROM_FLAG_MASK = 0b0000_0000__0000_0000___0000_0000__0000_0010;
+  private static final int CONTINUED_TO_FLAG_MASK   = 0b0000_0000__0000_0000___0000_0000__0000_0100;
+  private static final int RECORD_FLAGS_FLAG_MASK   = 0b0000_0000__0000_0000___0000_0000__0000_1000;
+  private static final int EXTENSION_FLAG_MASK      = 0b0000_0000__1000_0000___0000_0000__0000_0000;
+  private static final int ENCODERS_VERSION_MASK    = 0b1111_1111__0000_0000___0000_0000__0000_0000;
+  private static final int ENCODERS_VERSION_SHIFT   = 24;
 
-  private static final int FREE_DATA_POSITION_FIELD = 1;
-  private static final int FLAGS_FIELD              = 2;
-  private static final int SIZE_FIELD               = 4;
-  private static final int TREE_SIZE_FIELD          = 8;
-  private static final int MARKER_COUNT_FIELD       = 16;
+  private static final int FREE_DATA_POSITION_FIELD = 0b0000_0000__0000_0000___0000_0000__0000_0001;
+  private static final int FLAGS_FIELD              = 0b0000_0000__0000_0000___0000_0000__0000_0010;
+  private static final int SIZE_FIELD               = 0b0000_0000__0000_0000___0000_0000__0000_0100;
+  private static final int TREE_SIZE_FIELD          = 0b0000_0000__0000_0000___0000_0000__0000_1000;
+  private static final int MARKER_COUNT_FIELD       = 0b0000_0000__0000_0000___0000_0000__0001_0000;
+
+  private static final byte TOMBSTONE_RECORD_FLAG_MASK = 0b0000_0001;
 
   private final OEncoder.Provider<K> keyProvider;
   private final OEncoder.Provider<V> valueProvider;
+  private final boolean              tombstoneDelete;
 
   private OEncoder<K>          keyEncoder;
   private OEncoder<V>          valueEncoder;
   private OPagePositionEncoder positionEncoder;
   private OPageIndexEncoder    pointerEncoder;
+  private OByteEncoder         recordFlagsEncoder;
 
   private boolean keysInlined;
   private boolean valuesInlined;
@@ -80,7 +85,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   private int dirtyFields  = 0;
 
   private int  freeDataPosition;
-  private byte flags;
+  private int  flags;
   private int  size;
   private long treeSize;
   private int  markerCount;
@@ -105,10 +110,12 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     return ODefaultComparator.INSTANCE.compare(a, b);
   }
 
-  public OSebTreeNode(OCacheEntry page, OEncoder.Provider<K> keyProvider, OEncoder.Provider<V> valueProvider) {
+  public OSebTreeNode(OCacheEntry page, OEncoder.Provider<K> keyProvider, OEncoder.Provider<V> valueProvider,
+      boolean tombstoneDelete) {
     super(page);
     this.keyProvider = keyProvider;
     this.valueProvider = valueProvider;
+    this.tombstoneDelete = tombstoneDelete;
   }
 
   public OSebTreeNode<K, V> beginRead() {
@@ -153,7 +160,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       if (dirty(FREE_DATA_POSITION_FIELD))
         setIntValue(FREE_DATA_POSITION_OFFSET, freeDataPosition);
       if (dirty(FLAGS_FIELD))
-        setByteValue(FLAGS_OFFSET, flags);
+        setIntValue(FLAGS_OFFSET, flags);
       if (dirty(SIZE_FIELD))
         setIntValue(SIZE_OFFSET, size);
       if (dirty(TREE_SIZE_FIELD))
@@ -181,6 +188,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     setLeaf(leaf);
     setContinuedFrom(false);
     setContinuedTo(false);
+    setHasRecordFlags(leaf && tombstoneDelete);
     setEncodersVersion(OSebTree.ENCODERS_VERSION);
     setFlag(EXTENSION_FLAG_MASK, false);
     setSize(0);
@@ -382,6 +390,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     setLeaf(false);
     setContinuedFrom(false);
     setContinuedTo(false);
+    setHasRecordFlags(false);
     setEncodersVersion(OSebTree.ENCODERS_VERSION);
     setFlag(EXTENSION_FLAG_MASK, false);
     setSize(0);
@@ -442,23 +451,23 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     markerCount = value;
   }
 
-  public byte getFlags() {
+  public int getFlags() {
     return flags;
   }
 
-  public void setFlags(byte value) {
+  public void setFlags(int value) {
     changed(FLAGS_FIELD);
     flags = value;
   }
 
-  public void setFlag(byte mask, boolean value) {
+  public void setFlag(int mask, boolean value) {
     if (value)
-      setFlags((byte) (getFlags() | mask));
+      setFlags(getFlags() | mask);
     else
-      setFlags((byte) (getFlags() & ~mask));
+      setFlags(getFlags() & ~mask);
   }
 
-  public boolean getFlag(byte mask) {
+  public boolean getFlag(int mask) {
     return (getFlags() & mask) != 0;
   }
 
@@ -484,6 +493,14 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
   public void setContinuedTo(boolean value) {
     setFlag(CONTINUED_TO_FLAG_MASK, value);
+  }
+
+  public boolean hasRecordFlags() {
+    return getFlag(RECORD_FLAGS_FLAG_MASK);
+  }
+
+  public void setHasRecordFlags(boolean value) {
+    setFlag(RECORD_FLAGS_FLAG_MASK, value);
   }
 
   public int getEncodersVersion() {
@@ -953,6 +970,12 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     else {
       recordSize += pointerEncoder.maximumSize();
       markerSize = positionEncoder.maximumSize() + pointerEncoder.maximumSize() + positionEncoder.maximumSize();
+    }
+
+    if (hasRecordFlags()) {
+      recordFlagsEncoder = OEncoder.runtime().getProvider(OByteEncoder.class, OEncoder.Size.PreferFixed)
+          .getEncoder(getEncodersVersion());
+      recordSize += recordFlagsEncoder.maximumSize();
     }
   }
 

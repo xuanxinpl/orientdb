@@ -20,7 +20,6 @@
 package com.orientechnologies.jmh.trees;
 
 import com.orientechnologies.common.serialization.types.OStringSerializer;
-import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.index.lsmtree.sebtree.OSebTree;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
@@ -73,10 +72,11 @@ public class SebTreeLsmLikeBenchmarks {
   }
 
   private OSebTree<String, String> getTree() {
-    if (tree == null || tree.isFull()) {
+    if (tree == null || tree.getMode() == OSebTree.Mode.FullShard) {
       System.out.println("\n" + ++fileIndex + " seb tree created");
       System.out.println(keyIndex + " keys inserted");
-      tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree" + fileIndex, ".seb", true);
+      tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree" + fileIndex, ".seb",
+          OSebTree.Mode.GrowingShard);
       tree.create(OStringSerializer.INSTANCE, null, 1, false, OStringSerializer.INSTANCE);
     }
 

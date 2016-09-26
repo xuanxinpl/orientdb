@@ -28,7 +28,7 @@ import org.openjdk.jmh.annotations.*;
 import java.util.Random;
 
 @State(Scope.Thread)
-public class SebTreeInMemoryBenchmarks {
+public class SebTreeShardBenchmarks {
 
   private ODatabaseDocumentTx      db;
   private OSebTree<String, String> tree;
@@ -42,7 +42,7 @@ public class SebTreeInMemoryBenchmarks {
     if (buildDirectory == null)
       buildDirectory = "./jmh-tests/target";
 
-    db = new ODatabaseDocumentTx("memory:" + buildDirectory + "/SebTreeInMemoryBenchmarks");
+    db = new ODatabaseDocumentTx("plocal:" + buildDirectory + "/SebTreeShardBenchmarks");
     if (db.exists()) {
       db.open("admin", "admin");
       db.drop();
@@ -50,7 +50,7 @@ public class SebTreeInMemoryBenchmarks {
 
     db.create();
 
-    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree", ".seb", true);
+    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "seb-tree", ".seb", OSebTree.Mode.GrowingShard);
     tree.create(OStringSerializer.INSTANCE, null, 1, false, OStringSerializer.INSTANCE);
 
     random = new Random(57);

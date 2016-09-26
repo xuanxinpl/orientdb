@@ -52,14 +52,13 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   /* internal */ static final int INLINE_KEYS_SIZE_THRESHOLD   = 16 /* bytes */;
   /* internal */ static final int INLINE_VALUES_SIZE_THRESHOLD = 10 /* bytes */;
 
-  private static final int BLOCK_HALF                = BLOCK_SIZE / 2;
-  private static final int IN_MEMORY_PAGES_THRESHOLD = 64 * 1024 * 1024 / OSebTreeNode.MAX_PAGE_SIZE_BYTES;
+  private static final int BLOCK_HALF            = BLOCK_SIZE / 2;
+  private static final int SHARD_PAGES_THRESHOLD = 64 * 1024 * 1024 / OSebTreeNode.MAX_PAGE_SIZE_BYTES;
 
   private static final OAlwaysLessKey    ALWAYS_LESS_KEY    = new OAlwaysLessKey();
   private static final OAlwaysGreaterKey ALWAYS_GREATER_KEY = new OAlwaysGreaterKey();
 
-  private boolean inMemory;
-  private boolean full = false;
+  private Mode mode;
 
   private OEncoder.Provider<K> keyProvider;
   private OEncoder.Provider<V> valueProvider;
@@ -74,9 +73,17 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   private boolean opened           = false;
   private String  currentOperation = null;
 
-  public OSebTree(OAbstractPaginatedStorage storage, String name, String extension, boolean inMemory) {
+  public enum Mode {
+    Standalone, GrowingShard, FullShard
+  }
+
+  public OSebTree(OAbstractPaginatedStorage storage, String name, String extension, Mode mode) {
     super(storage, name, extension, name + extension);
-    this.inMemory = inMemory;
+    this.mode = mode;
+  }
+
+  public Mode getMode() {
+    return mode;
   }
 
   public void create(OBinarySerializer<K> keySerializer, OType[] keyTypes, int keySize, boolean nullKeyAllowed,
@@ -448,10 +455,10 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private OSebTreeNode<K, V> createNode(OAtomicOperation atomicOperation) throws IOException {
     final OCacheEntry page = addPage(atomicOperation, fileId);
-    if (inMemory && !full)
+    if (mode == Mode.GrowingShard)
       pinPage(atomicOperation, page);
     //    System.out.println("* " + page.getPageIndex());
-    return new OSebTreeNode<>(page, keyProvider, valueProvider);
+    return new OSebTreeNode<>(page, keyProvider, valueProvider, mode != Mode.Standalone);
   }
 
   private Creation<K, V> createNode(OAtomicOperation atomicOperation, List<OSebTreeNode<K, V>> path, int rank,
@@ -1062,9 +1069,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     //      final int preload = (int) (BLOCK_SIZE - (pageIndex - 1 - (nullKeyAllowed ? 1 : 0)) % BLOCK_SIZE);
     //      page = loadPage(atomicOperation, fileId, pageIndex, false, preload);
     //    } else
-    page = loadPage(atomicOperation, fileId, pageIndex, inMemory);
+    page = loadPage(atomicOperation, fileId, pageIndex, mode == Mode.GrowingShard);
 
-    return new OSebTreeNode<>(page, keyProvider, valueProvider);
+    return new OSebTreeNode<>(page, keyProvider, valueProvider, mode != Mode.Standalone);
   }
 
   private void releaseNode(OAtomicOperation atomicOperation, OSebTreeNode<K, V> node) {
@@ -1918,17 +1925,13 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
   }
 
-  public boolean isFull() {
-    return full;
-  }
-
   private long allocateBlock(OAtomicOperation atomicOperation) throws IOException {
     final OSebTreeNode<K, V> firstNode = createNode(atomicOperation).beginCreate().createDummy().endWrite();
     final long firstPage = firstNode.getPointer();
     releaseNode(atomicOperation, firstNode);
 
-    if (!full && firstPage >= IN_MEMORY_PAGES_THRESHOLD) {
-      full = true;
+    if (mode == Mode.GrowingShard && firstPage >= SHARD_PAGES_THRESHOLD) {
+      mode = Mode.FullShard;
       unpinAllPages(atomicOperation, fileId);
     }
 

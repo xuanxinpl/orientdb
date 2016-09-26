@@ -70,7 +70,7 @@ public class StringSebTreeTest {
 
     db.create();
 
-    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "tree", ".seb", true);
+    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "tree", ".seb", OSebTree.Mode.Standalone);
     tree.create(OStringSerializer.INSTANCE, null, 1, false, OStringSerializer.INSTANCE);
   }
 
@@ -470,9 +470,6 @@ public class StringSebTreeTest {
     final String X = dup('X', LARGE);
     final String Y = dup('Y', LARGE);
     final String Z = dup('Z', LARGE);
-    final String x = dup('x', SMALL);
-    final String y = dup('y', SMALL);
-    final String z = dup('z', SMALL);
 
     makeNonLeafRootTree();
     tree.put(A, "A");
