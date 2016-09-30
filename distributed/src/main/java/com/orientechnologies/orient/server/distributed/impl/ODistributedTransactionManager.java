@@ -363,7 +363,7 @@ public class ODistributedTransactionManager {
       switch (op.type) {
       case ORecordOperation.CREATED:
         // ADD UNDO TASK ONCE YHE RID OS KNOWN
-        undoTasks.add(new ODeleteRecordTask(record));
+        undoTasks.add(new OFixCreateRecordTask(record));
         break;
       }
     }
@@ -595,7 +595,7 @@ public class ODistributedTransactionManager {
           throw new ORecordNotFoundException(rid);
 
         if (op.type == ORecordOperation.UPDATED)
-          undoTask = new OUpdateRecordTask(previousRecord.get(),
+          undoTask = new OFixUpdateRecordTask(previousRecord.get(),
               ORecordVersionHelper.clearRollbackMode(previousRecord.get().getVersion()));
         else
           undoTask = new OResurrectRecordTask(previousRecord.get());

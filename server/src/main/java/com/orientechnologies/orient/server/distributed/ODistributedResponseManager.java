@@ -194,7 +194,7 @@ public class ODistributedResponseManager {
   }
 
   public long getSentOn() {
-    return sentOn / 1000000;
+    return sentOn;
   }
 
   public void setLocalResult(final String localNodeName, final Object localResult) {
@@ -276,6 +276,7 @@ public class ODistributedResponseManager {
             // ANALYZE THE NODE WITHOUT A RESPONSE
             final ODistributedServerManager.DB_STATUS dbStatus = dManager.getDatabaseStatus(curr.getKey(), getDatabaseName());
             switch (dbStatus) {
+            case BACKUP:
             case SYNCHRONIZING:
               synchronizingNodes++;
               missingActiveNodes++;
@@ -339,8 +340,8 @@ public class ODistributedResponseManager {
 
       if (receivedResponses == 0) {
         if (quorum > 0 && !request.getTask().isIdempotent())
-          throw new ODistributedOperationException(
-              "No response received from any of nodes " + getExpectedNodes() + " for request " + request);
+          throw new ODistributedOperationException("No response received from any of nodes " + getExpectedNodes() + " for request "
+              + request + " after " + ((System.nanoTime() - sentOn) / 1000000) + "ms");
 
         // NO QUORUM, RETURN NULL
         return null;
@@ -359,7 +360,7 @@ public class ODistributedResponseManager {
           if (entry.getValue() != NO_RESPONSE)
             payloads.put(entry.getKey(), ((ODistributedResponse) entry.getValue()).getPayload());
 
-        if( payloads.isEmpty())
+        if (payloads.isEmpty())
           return null;
 
         final ODistributedResponse response = (ODistributedResponse) getReceivedResponses().iterator().next();
@@ -644,7 +645,7 @@ public class ODistributedResponseManager {
   private String composeConflictMessage() {
     final StringBuilder msg = new StringBuilder(256);
     msg.append("Quorum " + getQuorum() + " not reached for request (" + request + "). Elapsed="
-        + (System.currentTimeMillis() - getSentOn()) + "ms");
+        + ((System.nanoTime() - getSentOn())/1000000) + "ms");
     final List<ODistributedResponse> res = getConflictResponses();
     if (res.isEmpty())
       msg.append(" No server in conflict. ");
@@ -703,8 +704,12 @@ public class ODistributedResponseManager {
           ODistributedServerLog.warn(this, dManager.getLocalNodeName(), targetNode, DIRECTION.OUT,
               "Sending undo message (%s) for request (%s) to server %s", undoTask, request, targetNode);
 
-          dManager.sendRequest(request.getDatabaseName(), null, OMultiValue.getSingletonList(targetNode), undoTask,
-              dManager.getNextMessageIdCounter(), ODistributedRequest.EXECUTION_MODE.RESPONSE, null, null);
+          final ODistributedResponse result = dManager
+              .sendRequest(request.getDatabaseName(), null, OMultiValue.getSingletonList(targetNode), undoTask,
+                  dManager.getNextMessageIdCounter(), ODistributedRequest.EXECUTION_MODE.RESPONSE, null, null);
+
+          ODistributedServerLog.warn(this, dManager.getLocalNodeName(), targetNode, DIRECTION.OUT,
+              "Received response from undo message (%s) for request (%s) to server %s: result", undoTask, request, targetNode, result);
         }
       }
     }

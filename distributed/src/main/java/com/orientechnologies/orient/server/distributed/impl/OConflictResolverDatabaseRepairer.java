@@ -360,8 +360,12 @@ public class OConflictResolverDatabaseRepairer implements ODistributedDatabaseRe
               dManager.getNextMessageIdCounter(), ODistributedRequest.EXECUTION_MODE.RESPONSE, null, null);
         }
 
-        ODistributedServerLog.info(this, dManager.getLocalNodeName(), null, ODistributedServerLog.DIRECTION.NONE,
-            "Auto repair aligned %d records of cluster '%s'", task.getTasks().size(), clusterNames.get(0));
+        if (task.getTasks().size() == 0)
+          ODistributedServerLog.debug(this, dManager.getLocalNodeName(), null, ODistributedServerLog.DIRECTION.NONE,
+              "Auto repair aligned %d records of cluster '%s'", task.getTasks().size(), clusterNames.get(0));
+        else
+          ODistributedServerLog.info(this, dManager.getLocalNodeName(), null, ODistributedServerLog.DIRECTION.NONE,
+              "Auto repair aligned %d records of cluster '%s'", task.getTasks().size(), clusterNames.get(0));
       }
     }
 
@@ -505,13 +509,13 @@ public class OConflictResolverDatabaseRepairer implements ODistributedDatabaseRe
                         // UPDATE THE RECORD
                         final ORawBuffer winnerRecord = (ORawBuffer) winner;
 
-                        completedTask.addFixTask(new OUpdateRecordTask(rid, winnerRecord.buffer,
+                        completedTask.addFixTask(new OFixUpdateRecordTask(rid, winnerRecord.buffer,
                             ORecordVersionHelper.setRollbackMode(winnerRecord.version), winnerRecord.recordType));
 
                       } else if (winner instanceof ORecordNotFoundException && value instanceof ORawBuffer) {
                         // DELETE THE RECORD
 
-                        completedTask.addFixTask(new ODeleteRecordTask(rid, -1));
+                        completedTask.addFixTask(new OFixCreateRecordTask(rid, -1));
 
                       } else if (value instanceof Throwable) {
                         // MANAGE EXCEPTION

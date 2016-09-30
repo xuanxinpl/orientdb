@@ -194,7 +194,20 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
           return -1;
         }
       }
+      String classNameOne = definitionOne.getClassName();
+      String classNameTwo = definitionTwo.getClassName();
+      if (classNameOne != null && classNameTwo != null) {
+        ODatabaseDocumentInternal db = getDatabase();
+        OClass classOne = db.getMetadata().getSchema().getClass(classNameOne);
+        OClass classTwo = db.getMetadata().getSchema().getClass(classNameTwo);
 
+        if (classOne.isSubClassOf(classTwo) && !classOne.equals(classTwo)) {
+          return -1;
+        }
+        if (classTwo.isSubClassOf(classOne) && !classOne.equals(classTwo)) {
+          return 1;
+        }
+      }
       return result;
     }
   }
@@ -440,6 +453,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
       handleNoTarget();
       handleGroupBy(context);
       applyOrderBy(true);
+      applyLimitAndSkip();
 
       subIterator = new ArrayList<OIdentifiable>((List<OIdentifiable>) getResult()).iterator();
       lastRecord = null;
@@ -2121,7 +2135,8 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
     // try indexed functions
     Iterator<OIdentifiable> fetchedFromFunction = tryIndexedFunctions(iSchemaClass);
     if (fetchedFromFunction != null) {
-      return fetchFromTarget(fetchedFromFunction);
+      fetchFromTarget(fetchedFromFunction);
+      return true;
     }
 
     // the main condition is a set of sub-conditions separated by OR operators
@@ -2136,6 +2151,8 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
     List<IndexUsageLog> indexUseAttempts = new ArrayList<IndexUsageLog>();
     try {
 
+      boolean indexOnExactClass = true;//to track if the index used is specific for this class or if it's defined on a super/sub class
+
       OIndexSearchResult lastSearchResult = null;
       for (List<OIndexSearchResult> indexSearchResults : conditionHierarchy) {
         // go through all variants to choose which one can be used for index search.
@@ -2145,6 +2162,8 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
           final List<OIndex<?>> involvedIndexes = filterAnalyzer.getInvolvedIndexes(iSchemaClass, searchResult);
 
           Collections.sort(involvedIndexes, new IndexComparator());
+
+          indexOnExactClass = true;
 
           // go through all possible index for given set of fields.
           for (final OIndex index : involvedIndexes) {
@@ -2210,6 +2229,9 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
 
               cursor = operator.executeIndexQuery(context, index, keyParams, ascSortOrder);
 
+              if(!iSchemaClass.getName().equals(index.getDefinition().getClassName())){
+                indexOnExactClass = false;
+              }
             } catch (OIndexEngineException e) {
               throw e;
             } catch (Exception e) {
@@ -2264,7 +2286,7 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
 
             final boolean restrictedClasses = isUsingRestrictedClasses();
 
-            if (!restrictedClasses) {
+            if (!restrictedClasses && indexOnExactClass) {
               final OIndexCursor cursor = cursors.get(0);
               long count = 0;
               if (cursor instanceof OSizeable)
@@ -2398,6 +2420,9 @@ public class OCommandExecutorSQLSelect extends OCommandExecutorSQLResultsetAbstr
       if (orderByOptimizer.canBeUsedByOrderBy(index, orderedFields)) {
         final long indexRebuildVersion = index.getRebuildVersion();
 
+        if(index.getDefinition().isNullValuesIgnored()){
+          return null;
+        }
         if (index.isRebuilding())
           return null;
 

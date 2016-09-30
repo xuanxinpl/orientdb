@@ -56,8 +56,8 @@ public class FaultDuringWritingWithOperationRedirectScenarioTest extends Abstrac
   volatile int     serverStarted    = 0;
   volatile boolean backupInProgress = false;
 
-  @Ignore
   @Test
+  @Ignore
   public void test() throws Exception {
 
     maxRetries = 10;
