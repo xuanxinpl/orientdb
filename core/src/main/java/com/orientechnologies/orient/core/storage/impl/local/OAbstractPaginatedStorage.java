@@ -146,6 +146,8 @@ public abstract class OAbstractPaginatedStorage extends OStorageAbstract
 
   private volatile long fullCheckpointCount;
 
+  private final OClusterCache clusterCache = new OClusterCache();
+
   private final AtomicLong recordCreated = new AtomicLong(0);
   private final AtomicLong recordUpdated = new AtomicLong(0);
   private final AtomicLong recordRead    = new AtomicLong(0);
@@ -2070,6 +2072,10 @@ public abstract class OAbstractPaginatedStorage extends OStorageAbstract
     } finally {
       stateLock.releaseReadLock();
     }
+  }
+  
+  public OClusterCache getClusterCache() {
+    return clusterCache;
   }
 
   private Object doGetIndexFirstKey(int indexId) {

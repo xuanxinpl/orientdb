@@ -21,7 +21,6 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OByteSerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
-import com.orientechnologies.common.util.OCallable;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.compression.OCompression;
 import com.orientechnologies.orient.core.compression.OCompressionFactory;
@@ -38,8 +37,6 @@ import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.metadata.OMetadata;
-import com.orientechnologies.orient.core.record.ORecord;
-import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.storage.*;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
@@ -484,6 +481,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
             } else
               clusterPosition = clusterPositionMap.add(addEntryResult.pageIndex, addEntryResult.pagePosition);
 
+            storageLocal.getClusterCache().setRecord(id, clusterPosition, content, recordVersion, recordType);
+
             addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
 
             endAtomicOperation(false, null);
@@ -619,7 +618,7 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
   }
 
   @SuppressFBWarnings(value = "PZLA_PREFER_ZERO_LENGTH_ARRAYS")
-  public ORawBuffer readRecord(final long clusterPosition, boolean prefetchRecords) throws IOException {
+  public ORawBuffer readRecord(final long clusterPosition, final boolean prefetchRecords) throws IOException {
     int pagesCount = 1;
     if (prefetchRecords) {
       pagesCount = OGlobalConfiguration.QUERY_SCAN_PREFETCH_PAGES.getValueAsInteger();
@@ -629,6 +628,10 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
   }
 
   private ORawBuffer readRecord(final long clusterPosition, final int pageCount) throws IOException {
+    final ORawBuffer cachedRecord = storageLocal.getClusterCache().getRecord(id, clusterPosition);
+    if( cachedRecord != null )
+      return cachedRecord;
+
     startOperation();
     OSessionStoragePerformanceStatistic statistic = performanceStatisticManager.getSessionPerformanceStatistic();
     if (statistic != null)
@@ -678,7 +681,12 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
           byte[] recordContent = compression.uncompress(fullContent, fullContentPosition, readContentSize);
           recordContent = encryption.decrypt(recordContent);
 
-          return new ORawBuffer(recordContent, recordVersion, recordType);
+          final ORawBuffer buffer = new ORawBuffer(recordContent, recordVersion, recordType);
+
+          storageLocal.getClusterCache().setRecord(id, clusterPosition, buffer.buffer, buffer.version, buffer.recordType);
+
+          return buffer;
+
         } finally {
           releaseSharedLock();
         }
@@ -752,6 +760,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
     if (statistic != null)
       statistic.startRecordDeletionTimer();
     try {
+      storageLocal.getClusterCache().freeRecord(id, clusterPosition);
+
       OAtomicOperation atomicOperation = startAtomicOperation(true);
       acquireExclusiveLock();
       try {
@@ -1102,6 +1112,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
         }
 
         updateClusterState(0, sizeDiff, atomicOperation);
+
+        storageLocal.getClusterCache().setRecord(id, clusterPosition, content, recordVersion, recordType);
 
         addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
         endAtomicOperation(false, null);
