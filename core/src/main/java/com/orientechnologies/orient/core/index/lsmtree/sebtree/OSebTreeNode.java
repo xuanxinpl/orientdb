@@ -34,6 +34,13 @@ import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
  */
 public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
+  private static final OEncoder.Provider<Integer> POSITION_ENCODER_PROVIDER     = OEncoder.runtime()
+      .getProvider(OPagePositionEncoder.class, OEncoder.Size.PreferFixed);
+  private static final OEncoder.Provider<Long>    POINTER_ENCODER_PROVIDER      = OEncoder.runtime()
+      .getProvider(OPageIndexEncoder.class, OEncoder.Size.PreferFixed);
+  private static final OEncoder.Provider<Byte>    RECORD_FLAGS_ENCODER_PROVIDER = OEncoder.runtime()
+      .getProvider(OByteEncoder.class, OEncoder.Size.PreferFixed);
+
   private static final int FREE_DATA_POSITION_OFFSET = NEXT_FREE_POSITION;
   private static final int FLAGS_OFFSET              = FREE_DATA_POSITION_OFFSET + OIntegerSerializer.INT_SIZE;
   private static final int SIZE_OFFSET               = FLAGS_OFFSET + OIntegerSerializer.INT_SIZE;
@@ -222,7 +229,8 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   public V valueAt(int index) {
-    return getValue(index);
+    navigateToValue(index);
+    return valueEncoder.decode(this);
   }
 
   public K keyAt(int index) {
@@ -287,11 +295,21 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   public int keySizeAt(int index) {
-    return getKeySize(index);
+    if (keysInlined)
+      return keyEncoder.maximumSize();
+    else {
+      navigateToKey(index);
+      return keyEncoder.exactSizeInStream(this);
+    }
   }
 
   public int valueSizeAt(int index) {
-    return getValueSize(index);
+    if (valuesInlined)
+      return valueEncoder.maximumSize();
+    else {
+      navigateToValue(index);
+      return valueEncoder.exactSizeInStream(this);
+    }
   }
 
   public int fullEntrySize(int keySize, int valueSize) {
@@ -613,11 +631,6 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       setPosition(positionEncoder.decodeInteger(this));
   }
 
-  private V getValue(int index) {
-    navigateToValue(index);
-    return valueEncoder.decode(this);
-  }
-
   private void navigateToValue(int index) {
     setPosition(recordValuePosition(index));
 
@@ -632,24 +645,6 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   private long getPointer(int index) {
     setPosition(recordValuePosition(index));
     return pointerEncoder.decodeLong(this);
-  }
-
-  private int getKeySize(int index) {
-    if (keysInlined)
-      return keyEncoder.maximumSize();
-    else {
-      navigateToKey(index);
-      return keyEncoder.exactSizeInStream(this);
-    }
-  }
-
-  private int getValueSize(int index) {
-    if (valuesInlined)
-      return valueEncoder.maximumSize();
-    else {
-      navigateToValue(index);
-      return valueEncoder.exactSizeInStream(this);
-    }
   }
 
   private int getEntrySize(int keySize, int valueSize) {
@@ -956,10 +951,8 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     keyEncoder = keyProvider.getEncoder(getEncodersVersion());
     valueEncoder = valueProvider.getEncoder(getEncodersVersion());
 
-    positionEncoder = OEncoder.runtime().getProvider(OPagePositionEncoder.class, OEncoder.Size.PreferFixed)
-        .getEncoder(getEncodersVersion());
-    pointerEncoder = OEncoder.runtime().getProvider(OPageIndexEncoder.class, OEncoder.Size.PreferFixed)
-        .getEncoder(getEncodersVersion());
+    positionEncoder = POSITION_ENCODER_PROVIDER.getEncoder(getEncodersVersion());
+    pointerEncoder = POINTER_ENCODER_PROVIDER.getEncoder(getEncodersVersion());
 
     keysInlined = keyEncoder.isOfBoundSize() && keyEncoder.maximumSize() <= OSebTree.INLINE_KEYS_SIZE_THRESHOLD;
     valuesInlined = valueEncoder.isOfBoundSize() && valueEncoder.maximumSize() <= OSebTree.INLINE_VALUES_SIZE_THRESHOLD;
@@ -973,8 +966,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     }
 
     if (hasRecordFlags()) {
-      recordFlagsEncoder = OEncoder.runtime().getProvider(OByteEncoder.class, OEncoder.Size.PreferFixed)
-          .getEncoder(getEncodersVersion());
+      recordFlagsEncoder = RECORD_FLAGS_ENCODER_PROVIDER.getEncoder(getEncodersVersion());
       recordSize += recordFlagsEncoder.maximumSize();
     }
   }
