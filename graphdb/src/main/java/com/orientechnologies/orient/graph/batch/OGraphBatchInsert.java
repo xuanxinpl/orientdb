@@ -1,3 +1,22 @@
+/*
+ *
+ *  *  Copyright 2014 Orient Technologies LTD (info(at)orientechnologies.com)
+ *  *
+ *  *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  *  you may not use this file except in compliance with the License.
+ *  *  You may obtain a copy of the License at
+ *  *
+ *  *       http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  *  Unless required by applicable law or agreed to in writing, software
+ *  *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  *  See the License for the specific language governing permissions and
+ *  *  limitations under the License.
+ *  *
+ *  * For more information: http://www.orientechnologies.com
+ *
+ */
 package com.orientechnologies.orient.graph.batch;
 
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
@@ -89,7 +108,7 @@ public class OGraphBatchInsert {
   private String              edgeClass                = OrientEdgeType.CLASS_NAME;
   private String              vertexClass              = OrientVertexType.CLASS_NAME;
   private OClass              oVertexClass;
-  private ODatabaseDocument db;
+  private ODatabaseDocument   db;
   private int                 averageEdgeNumberPerNode = -1;
   private int                 estimatedEntries         = -1;
   private int                 bonsaiThreshold          = 1000;
@@ -103,7 +122,7 @@ public class OGraphBatchInsert {
   private final AtomicInteger runningThreads           = new AtomicInteger(0);
 
   boolean                     settingProperties        = false;
-  private Boolean             useLightWeigthEdges      = null;
+  private Boolean             useLightWeightEdges      = null;
 
   class BatchImporterJob extends Thread {
 
@@ -252,16 +271,16 @@ public class OGraphBatchInsert {
     } else {
       db.create();
     }
-    if (this.useLightWeigthEdges == null) {
+    if (this.useLightWeightEdges == null) {
       final List<OStorageEntryConfiguration> custom = (List<OStorageEntryConfiguration>) db.get(ODatabase.ATTRIBUTES.CUSTOM);
       for (OStorageEntryConfiguration c : custom) {
         if (c.name.equalsIgnoreCase("useLightweightEdges")) {
-          this.useLightWeigthEdges = Boolean.parseBoolean(c.value);
+          this.useLightWeightEdges = Boolean.parseBoolean(c.value);
           break;
         }
       }
-      if (this.useLightWeigthEdges == null) {
-        this.useLightWeigthEdges = true;
+      if (this.useLightWeightEdges == null) {
+        this.useLightWeightEdges = true;
       }
     }
     createBaseSchema();
@@ -283,8 +302,8 @@ public class OGraphBatchInsert {
       int clusterId = clusterIds[i];
       try {
         nextVerticesToCreate[i] = i;
-        //THERE IS NO PUBLIC API FOR RETRIEVE THE LAST CLUSTER POSITION
-        lastClusterPositions[i] = ((ODatabaseDocumentInternal)db).getStorage().getClusterById(clusterId).getLastPosition();
+        // THERE IS NO PUBLIC API FOR RETRIEVE THE LAST CLUSTER POSITION
+        lastClusterPositions[i] = ((ODatabaseDocumentInternal) db).getStorage().getClusterById(clusterId).getLastPosition();
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -362,7 +381,7 @@ public class OGraphBatchInsert {
     if (to < 0) {
       throw new IllegalArgumentException(" Invalid vertex id: " + to);
     }
-    if (useLightWeigthEdges && (properties == null || properties.size() == 0)) {
+    if (useLightWeightEdges && (properties == null || properties.size() == 0)) {
       last = last < from ? from : last;
       last = last < to ? to : last;
       putInList(from, out, to);
@@ -551,9 +570,7 @@ public class OGraphBatchInsert {
       }
     }
     if (!schema.existsClass(this.edgeClass)) {
-      if (!schema.existsClass(this.edgeClass)) {
-        schema.createClass(this.edgeClass, e);
-      }
+      schema.createClass(this.edgeClass, e);
     }
   }
 
