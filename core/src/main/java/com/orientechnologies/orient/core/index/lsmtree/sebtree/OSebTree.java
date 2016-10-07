@@ -1223,12 +1223,13 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
 
         long siblingPointer;
-        while (leaf.getSize() == 0 && (siblingPointer = leaf.getRightSibling()) != 0) {
+        int keyIndex;
+        while ((keyIndex = firstNonTombstoneIndex(leaf)) == -1 && (siblingPointer = leaf.getRightSibling()) != 0) {
           releaseNode(atomicOperation, leaf.endRead());
           leaf = getNode(atomicOperation, siblingPointer).beginRead();
         }
 
-        return leaf.getSize() == 0 ? null : leaf.keyAt(0);
+        return keyIndex == -1 ? null : leaf.keyAt(keyIndex);
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1237,24 +1238,40 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
   }
 
+  private int firstNonTombstoneIndex(OSebTreeNode<K, V> leaf) {
+    final int size = leaf.getSize();
+    for (int i = 0; i < size; ++i)
+      if (!leaf.isTombstoneRecord(i))
+        return i;
+    return -1;
+  }
+
   private K lastKey(OAtomicOperation atomicOperation) {
     try {
       OSebTreeNode<K, V> leaf = rightMostLeaf(atomicOperation).beginRead();
       try {
 
         long siblingPointer;
-        while (leaf.getSize() == 0 && (siblingPointer = leaf.getLeftSibling()) != 0) {
+        int keyIndex;
+        while ((keyIndex = lastNonTombstoneIndex(leaf)) == -1 && (siblingPointer = leaf.getLeftSibling()) != 0) {
           releaseNode(atomicOperation, leaf.endRead());
           leaf = getNode(atomicOperation, siblingPointer).beginRead();
         }
 
-        return leaf.getSize() == 0 ? null : leaf.keyAt(leaf.getSize() - 1);
+        return keyIndex == -1 ? null : leaf.keyAt(keyIndex);
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
     } catch (IOException e) {
       throw error("Error while retrieving the last key of SebTree " + getName(), e);
     }
+  }
+
+  private int lastNonTombstoneIndex(OSebTreeNode<K, V> leaf) {
+    for (int i = leaf.getSize() - 1; i >= 0; --i)
+      if (!leaf.isTombstoneRecord(i))
+        return i;
+    return -1;
   }
 
   private boolean contains(OAtomicOperation atomicOperation, K key) {
@@ -1267,7 +1284,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
       leaf.beginRead();
       try {
-        return nullKey ? leaf.getSize() == 1 : leaf.indexOf(key) >= 0;
+        final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
+        final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
+        return keyFound && !leaf.isTombstoneRecord(keyIndex);
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1288,7 +1307,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
         final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
         final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
-        return keyFound ? leaf.valueAt(keyIndex) : null;
+        return keyFound && !leaf.isTombstoneRecord(keyIndex) ? leaf.valueAt(keyIndex) : null;
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1309,8 +1328,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
         final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
         final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
-        found.setValue(keyFound);
-        return keyFound ? leaf.valueAt(keyIndex) : null;
+        final boolean visible = keyFound && !leaf.isTombstoneRecord(keyIndex);
+        found.setValue(visible);
+        return visible ? leaf.valueAt(keyIndex) : null;
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1329,17 +1349,19 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       OSebTreeNode<K, V> leaf = findLeafWithPath(atomicOperation, key, path).beginWrite();
       try {
         int keyIndex = indexOfKeyInLeaf(leaf, key);
+        final boolean isNew = OSebTreeNode.isInsertionPoint(keyIndex);
+        final boolean tombstone = !isNew && leaf.isTombstoneRecord(keyIndex);
 
-        if (!tryPutValue(atomicOperation, leaf, keyIndex, key, value)) {
+        if (!tryPutValue(atomicOperation, leaf, keyIndex, key, value, tombstone)) {
           final Splitting<K, V> splitting = split(atomicOperation, leaf, key, keyIndex, path, 0, null, null);
           leaf = splitting.node;
           keyIndex = splitting.keyIndex;
 
-          if (!tryPutValue(atomicOperation, leaf, keyIndex, key, value))
+          if (!tryPutValue(atomicOperation, leaf, keyIndex, key, value, tombstone))
             throw new OSebTreeException("Split failed.", this);
         }
 
-        return OSebTreeNode.isInsertionPoint(keyIndex);
+        return isNew || tombstone;
       } finally {
         leaf.endWrite();
 
@@ -1352,8 +1374,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
   }
 
-  private boolean tryPutValue(OAtomicOperation atomicOperation, OSebTreeNode<K, V> leaf, int keyIndex, K key, V value)
-      throws IOException {
+  private boolean tryPutValue(OAtomicOperation atomicOperation, OSebTreeNode<K, V> leaf, int keyIndex, K key, V value,
+      boolean tombstone) throws IOException {
     final boolean keyExists = !OSebTreeNode.isInsertionPoint(keyIndex);
 
     final int keySize = leaf.getKeyEncoder().exactSize(key);
@@ -1362,21 +1384,55 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     leaf.checkEntrySize(fullEntrySize, this);
 
     final int currentKeySize = keyExists ? leaf.keySizeAt(keyIndex) : 0;
-    final int currentValueSize = keyExists ? leaf.valueSizeAt(keyIndex) : 0;
+    final int currentValueSize = keyExists ? leaf.valueSizeAt(keyIndex, tombstone) : 0;
     final int currentFullEntrySize = keyExists ? leaf.fullEntrySize(currentKeySize, currentValueSize) : 0;
     final int sizeDelta = fullEntrySize - currentFullEntrySize;
     final boolean entryFits = leaf.deltaFits(sizeDelta);
 
     if (entryFits) {
-      if (keyExists)
-        leaf.updateValue(keyIndex, value, valueSize, currentValueSize);
-      else {
+      if (keyExists) {
+        leaf.updateValue(keyIndex, value, valueSize, currentValueSize, tombstone);
+        if (tombstone)
+          updateTreeSize(atomicOperation, +1);
+      } else {
         leaf.insertValue(keyIndex, key, keySize, value, valueSize);
         updateTreeSize(atomicOperation, +1);
       }
     }
 
     return entryFits;
+  }
+
+  private void insertTombstone(OAtomicOperation atomicOperation, int keyIndex, K key, OSebTreeNode<K, V> leaf,
+      List<OSebTreeNode<K, V>> path) throws IOException {
+    assert OSebTreeNode.isInsertionPoint(keyIndex);
+
+    try {
+      if (!tryInsertTombstone(leaf, keyIndex, key)) {
+        final Splitting<K, V> splitting = split(atomicOperation, leaf, key, keyIndex, path, 0, null, null);
+        leaf = splitting.node;
+        keyIndex = splitting.keyIndex;
+
+        if (!tryInsertTombstone(leaf, keyIndex, key))
+          throw new OSebTreeException("Split failed.", this);
+      }
+    } finally {
+      leaf.endWrite();
+    }
+  }
+
+  private boolean tryInsertTombstone(OSebTreeNode<K, V> leaf, int keyIndex, K key) throws IOException {
+    assert OSebTreeNode.isInsertionPoint(keyIndex);
+
+    final int keySize = leaf.getKeyEncoder().exactSize(key);
+    final int fullSize = leaf.fullTombstoneSize(keySize);
+    leaf.checkEntrySize(fullSize, this);
+    final boolean fits = leaf.deltaFits(fullSize);
+
+    if (fits)
+      leaf.insertTombstone(keyIndex, key, keySize);
+
+    return fits;
   }
 
   private Splitting<K, V> split(OAtomicOperation atomicOperation, OSebTreeNode<K, V> node, K key, int keyIndex,
@@ -1799,30 +1855,46 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   private boolean remove(OAtomicOperation atomicOperation, K key) {
-    final boolean nullKey = key == null;
-    if (nullKey)
+    if (key == null)
       checkNullKeyAllowed();
 
     try {
-      final OSebTreeNode<K, V> leaf = findLeaf(atomicOperation, key);
+      final boolean tombstones = areTombstonesEnabled();
+      final List<OSebTreeNode<K, V>> path = tombstones ? new ArrayList<>(16) : null;
+      final OSebTreeNode<K, V> leaf = tombstones ? findLeafWithPath(atomicOperation, key, path) : findLeaf(atomicOperation, key);
 
+      boolean tombstoneInserted = false;
       leaf.beginWrite();
       try {
-        final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
-        final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
+        final int keyIndex = indexOfKeyInLeaf(leaf, key);
+        final boolean keyFound = keyIndex >= 0;
 
-        if (!keyFound)
+        if (!keyFound) {
+          if (tombstones) {
+            insertTombstone(atomicOperation, keyIndex, key, leaf, path);
+            tombstoneInserted = true;
+          }
+          return false;
+        }
+
+        if (leaf.isTombstoneRecord(keyIndex))
           return false;
 
         final int keySize = leaf.keySizeAt(keyIndex);
-        final int valueSize = leaf.valueSizeAt(keyIndex);
+        final int valueSize = leaf.valueSizeAt(keyIndex, false);
 
         leaf.delete(keyIndex, keySize, valueSize);
         updateTreeSize(atomicOperation, -1);
 
         return true;
       } finally {
-        releaseNode(atomicOperation, leaf.endWrite());
+        if (!tombstoneInserted)
+          releaseNode(atomicOperation, leaf.endWrite());
+
+        if (tombstones)
+          for (OSebTreeNode<K, V> node : path)
+            if (node != leaf || tombstoneInserted)
+              releaseNode(atomicOperation, node);
       }
     } catch (IOException e) {
       throw error("Error during key removal in SebTree " + getName(), e);
@@ -1939,6 +2011,10 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       releaseNode(atomicOperation, createNode(atomicOperation).beginCreate().createDummy().endWrite());
 
     return firstPage;
+  }
+
+  private boolean areTombstonesEnabled() {
+    return mode != Mode.Standalone;
   }
 
   private void dump(OSebTreeNode<K, V> node, int level) throws IOException {
@@ -2100,33 +2176,51 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
         hasRecord = false;
 
+        node_loop:
         while (leafPointer >= 0) {
           final OSebTreeNode<K, V> leaf = tree.getNode(atomicOperation, leafPointer).beginRead();
           try {
+            final int size = leaf.getSize();
+
             if (recordIndex == Integer.MAX_VALUE)
-              recordIndex = leaf.getSize() - 1;
+              recordIndex = size - 1;
 
-            if (recordIndex >= 0 && recordIndex < leaf.getSize()) {
-              key = leaf.keyAt(recordIndex);
+            if (recordIndex >= 0 && recordIndex < size) {
+              do {
+                key = leaf.keyAt(recordIndex);
 
-              if (end != End.Open) {
-                final int order = OSebTreeNode.compareKeys(key, endKey);
+                if (end != End.Open) {
+                  final int order = OSebTreeNode.compareKeys(key, endKey);
 
-                if (direction == Direction.Forward)
-                  hasRecord = end == End.Inclusive ? order <= 0 : order < 0;
-                else
-                  hasRecord = end == End.Inclusive ? order >= 0 : order > 0;
+                  if (direction == Direction.Forward)
+                    hasRecord = end == End.Inclusive ? order <= 0 : order < 0;
+                  else
+                    hasRecord = end == End.Inclusive ? order >= 0 : order > 0;
 
-                if (!hasRecord) {
-                  leafPointer = -1;
-                  break;
+                  if (!hasRecord) {
+                    leafPointer = -1;
+                    break node_loop;
+                  }
                 }
-              }
 
-              if (fetchValues)
-                value = leaf.valueAt(recordIndex);
+                final boolean tombstone = leaf.isTombstoneRecord(recordIndex);
+                if (fetchValues && !tombstone)
+                  value = leaf.valueAt(recordIndex);
 
-              recordIndex += direction == Direction.Forward ? +1 : -1;
+                recordIndex += direction == Direction.Forward ? +1 : -1;
+
+                if (tombstone) {
+                  if (recordIndex < 0 || recordIndex >= size) {
+                    leafPointer = direction == Direction.Forward ? leaf.getRightSibling() : leaf.getLeftSibling();
+                    recordIndex = direction == Direction.Forward ? 0 : Integer.MAX_VALUE;
+
+                    if (leafPointer == 0)
+                      leafPointer = -1;
+                    continue node_loop;
+                  }
+                } else
+                  break;
+              } while (true);
 
               hasRecord = true;
               break;

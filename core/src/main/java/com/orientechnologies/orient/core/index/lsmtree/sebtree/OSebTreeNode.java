@@ -130,7 +130,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
     cacheEntry.acquireSharedLock();
 
-    flags = getByteValue(FLAGS_OFFSET);
+    flags = getIntValue(FLAGS_OFFSET);
     size = getIntValue(SIZE_OFFSET);
 
     initialize(false);
@@ -153,7 +153,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
     cacheEntry.acquireExclusiveLock();
 
-    flags = getByteValue(FLAGS_OFFSET);
+    flags = getIntValue(FLAGS_OFFSET);
     size = getIntValue(SIZE_OFFSET);
 
     initialize(false);
@@ -237,6 +237,14 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     return getKey(index);
   }
 
+  public boolean isTombstoneRecord(int index) {
+    return tombstoneDelete && getRecordFlag(index, TOMBSTONE_RECORD_FLAG_MASK);
+  }
+
+  public void insertTombstone(int index, K key, int keySize) {
+    addTombstone(toIndex(index), key, keySize);
+  }
+
   public Marker markerAt(int index) {
     navigateToMarker(index);
     return new Marker(index, positionEncoder.decodeInteger(this), pointerEncoder.decodeLong(this),
@@ -303,9 +311,11 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     }
   }
 
-  public int valueSizeAt(int index) {
+  public int valueSizeAt(int index, boolean tombstone) {
     if (valuesInlined)
       return valueEncoder.maximumSize();
+    else if (tombstone)
+      return 0;
     else {
       navigateToValue(index);
       return valueEncoder.exactSizeInStream(this);
@@ -313,7 +323,31 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   public int fullEntrySize(int keySize, int valueSize) {
-    return getEntrySize(keySize, valueSize);
+    int size = keySize + valueSize;
+
+    if (!keysInlined)
+      size += positionEncoder.maximumSize();
+
+    if (isLeaf()) {
+      if (!valuesInlined)
+        size += positionEncoder.maximumSize();
+
+      if (hasRecordFlags())
+        size += recordFlagsEncoder.maximumSize();
+    }
+
+    return size;
+  }
+
+  public int fullTombstoneSize(int keySize) {
+    assert isLeaf();
+
+    int size = recordSize;
+
+    if (!keysInlined)
+      size += keySize;
+
+    return size;
   }
 
   public void checkEntrySize(int entrySize, OSebTree<K, V> tree) {
@@ -329,8 +363,27 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     return deltaFits(markerSize);
   }
 
-  public void updateValue(int index, V value, int valueSize, int currentValueSize) {
-    setValue(index, value, valueSize, currentValueSize);
+  public void updateValue(int index, V value, int valueSize, int currentValueSize, boolean tombstone) {
+    navigateToValue(index);
+
+    if (!valuesInlined && (currentValueSize != valueSize || tombstone)) {
+      int dataPosition = getFreeDataPosition();
+
+      if (!tombstone)
+        dataPosition = deleteData(dataPosition, getPosition(), currentValueSize);
+      dataPosition = allocateData(dataPosition, valueSize);
+
+      setPosition(recordValuePosition(index));
+      positionEncoder.encodeInteger(dataPosition, this);
+
+      setFreeDataPosition(dataPosition);
+      setPosition(dataPosition);
+    }
+
+    valueEncoder.encode(value, this);
+
+    if (tombstone)
+      markRecordAsNonTombstone(index);
   }
 
   public void insertValue(int index, K key, int keySize, V value, int valueSize) {
@@ -381,8 +434,12 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
 
       final int valueSize;
       if (leaf) {
-        navigateToValue(i);
-        valueSize = valueEncoder.exactSizeInStream(this);
+        if (isTombstoneRecord(i))
+          valueSize = valuesInlined ? valueEncoder.maximumSize() : 0;
+        else {
+          navigateToValue(i);
+          valueSize = valueEncoder.exactSizeInStream(this);
+        }
       } else
         valueSize = pointerEncoder.maximumSize();
 
@@ -418,7 +475,10 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   public void delete(int index, int keySize, int valueSize) {
-    removeKey(index, keySize, valueSize);
+    if (tombstoneDelete && isLeaf())
+      convertToTombstone(index, valueSize);
+    else
+      removeKey(index, keySize, valueSize);
   }
 
   public int getFreeDataPosition() {
@@ -624,6 +684,10 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     return keyEncoder.decode(this);
   }
 
+  private void navigateToFlags(int index) {
+    setPosition(recordFlagsPosition(index));
+  }
+
   private void navigateToKey(int index) {
     setPosition(recordKeyPosition(index));
 
@@ -645,37 +709,6 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   private long getPointer(int index) {
     setPosition(recordValuePosition(index));
     return pointerEncoder.decodeLong(this);
-  }
-
-  private int getEntrySize(int keySize, int valueSize) {
-    int size = keySize + valueSize;
-
-    if (!keysInlined)
-      size += positionEncoder.maximumSize();
-
-    if (isLeaf() && !valuesInlined)
-      size += positionEncoder.maximumSize();
-
-    return size;
-  }
-
-  private void setValue(int index, V value, int valueSize, int currentValueSize) {
-    navigateToValue(index);
-
-    if (!valuesInlined) {
-      if (currentValueSize != valueSize) {
-        int dataPosition = deleteData(getFreeDataPosition(), getPosition(), currentValueSize);
-        dataPosition = allocateData(dataPosition, valueSize);
-
-        setPosition(recordValuePosition(index));
-        positionEncoder.encodeInteger(dataPosition, this);
-
-        setFreeDataPosition(dataPosition);
-        setPosition(dataPosition);
-      }
-    }
-
-    valueEncoder.encode(value, this);
   }
 
   private void addKey(int index, K key, int keySize, V value, int valueSize) {
@@ -705,6 +738,26 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       setFreeDataPosition(dataPosition);
     }
 
+    if (hasRecordFlags())
+      setRecordFlags(index, (byte) 0);
+
+    setSize(getSize() + 1);
+  }
+
+  private void addTombstone(int index, K key, int keySize) {
+    allocateRecord(index);
+    if (keysInlined)
+      keyEncoder.encode(key, this);
+    else {
+      final int dataPosition = allocateData(getFreeDataPosition(), keySize);
+      positionEncoder.encodeInteger(dataPosition, this);
+
+      setPosition(dataPosition);
+      keyEncoder.encode(key, this);
+
+      setFreeDataPosition(dataPosition);
+    }
+    markRecordAsTombstone(index);
     setSize(getSize() + 1);
   }
 
@@ -747,6 +800,18 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     setSize(getSize() - 1);
   }
 
+  private void convertToTombstone(int index, int valueSize) {
+    assert isLeaf();
+
+    markRecordAsTombstone(index);
+
+    if (!valuesInlined) {
+      setPosition(recordValuePosition(index));
+      final int valueDataPosition = positionEncoder.decodeInteger(this);
+      setFreeDataPosition(deleteData(getFreeDataPosition(), valueDataPosition, valueSize));
+    }
+  }
+
   private int allocateData(int freePosition, int length) {
     return freePosition - length;
   }
@@ -756,6 +821,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       moveData(freePosition, freePosition + length, position - freePosition);
 
       final boolean leaf = isLeaf();
+      final boolean hasRecordFlags = hasRecordFlags();
 
       setPosition(RECORDS_OFFSET);
       final int size = getSize();
@@ -783,6 +849,9 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
             positionEncoder.encodeInteger(valueDataPosition + length, this);
           }
         }
+
+        if (hasRecordFlags)
+          seek(recordFlagsEncoder.maximumSize());
       }
     }
 
@@ -790,7 +859,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   private void allocateRecord(int index) {
-    final int recordPosition = recordKeyPosition(index);
+    final int recordPosition = recordPosition(index);
 
     if (index < getSize() || getMarkerCount() > 0)
       moveData(recordPosition, recordPosition + recordSize, (getSize() - index) * recordSize + getMarkerCount() * markerSize);
@@ -799,7 +868,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
   }
 
   private void deleteRecord(int index) {
-    final int recordPosition = recordKeyPosition(index);
+    final int recordPosition = recordPosition(index);
 
     if (index < getSize() - 1 || getMarkerCount() > 0)
       moveData(recordPosition + recordSize, recordPosition, (getSize() - index - 1) * recordSize + getMarkerCount() * markerSize);
@@ -814,10 +883,36 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     setPosition(markerPosition);
   }
 
+  private byte getRecordFlags(int index) {
+    assert hasRecordFlags();
+    navigateToFlags(index);
+    return recordFlagsEncoder.decodeByte(this);
+  }
+
+  private void setRecordFlags(int index, byte flags) {
+    assert hasRecordFlags();
+    navigateToFlags(index);
+    recordFlagsEncoder.encodeByte(flags, this);
+  }
+
+  private boolean getRecordFlag(int index, byte mask) {
+    return (getRecordFlags(index) & mask) != 0;
+  }
+
+  private void setRecordFlag(int index, byte mask, boolean value) {
+    if (value)
+      setRecordFlags(index, (byte) (getRecordFlags(index) | mask));
+    else
+      setRecordFlags(index, (byte) (getRecordFlags(index) & ~mask));
+  }
+
   @SuppressWarnings("unchecked")
   private void leafMoveTailTo(OSebTreeNode<K, V> destination, int length) {
     final int size = getSize();
     final int remaining = size - length;
+
+    final boolean hasRecordFlags = hasRecordFlags();
+    final boolean destinationHasRecordFlags = destination.hasRecordFlags();
 
     for (int i = 0; i < length; ++i) {
       final int index = remaining + i;
@@ -827,18 +922,27 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       final K key = keyEncoder.decode(this);
       final int keySize = getPosition() - keyStart;
 
-      navigateToValue(index);
-      final int valueStart = getPosition();
-      final V value = valueEncoder.decode(this);
-      final int valueSize = getPosition() - valueStart;
+      if (isTombstoneRecord(index))
+        destination.addTombstone(i, key, keySize);
+      else {
+        navigateToValue(index);
+        final int valueStart = getPosition();
+        final V value = valueEncoder.decode(this);
+        final int valueSize = getPosition() - valueStart;
 
-      destination.addKey(i, key, keySize, value, valueSize);
+        destination.addKey(i, key, keySize, value, valueSize);
+      }
+
+      if (destinationHasRecordFlags)
+        destination.setRecordFlags(i, hasRecordFlags ? getRecordFlags(index) : 0);
     }
 
     final int[] keySizes = new int[remaining];
     final int[] valueSizes = new int[remaining];
     final K[] keys = (K[]) new Object[remaining];
     final V[] values = (V[]) new Object[remaining];
+    final byte[] flags = hasRecordFlags ? new byte[remaining] : null;
+    final boolean[] tombstones = tombstoneDelete ? new boolean[remaining] : null;
 
     for (int i = 0; i < remaining; ++i) {
       navigateToKey(i);
@@ -847,16 +951,32 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
       keys[i] = key;
       keySizes[i] = getPosition() - keyStart;
 
-      navigateToValue(i);
-      final int valueStart = getPosition();
-      final V value = valueEncoder.decode(this);
-      values[i] = value;
-      valueSizes[i] = getPosition() - valueStart;
+      final boolean tombstone = isTombstoneRecord(i);
+      if (tombstoneDelete)
+        tombstones[i] = tombstone;
+
+      if (!tombstone) {
+        navigateToValue(i);
+        final int valueStart = getPosition();
+        final V value = valueEncoder.decode(this);
+        values[i] = value;
+        valueSizes[i] = getPosition() - valueStart;
+      }
+
+      if (hasRecordFlags)
+        flags[i] = getRecordFlags(i);
     }
 
     clear();
-    for (int i = 0; i < remaining; ++i)
-      addKey(i, keys[i], keySizes[i], values[i], valueSizes[i]);
+    for (int i = 0; i < remaining; ++i) {
+      if (tombstoneDelete && tombstones[i])
+        addTombstone(i, keys[i], keySizes[i]);
+      else
+        addKey(i, keys[i], keySizes[i], values[i], valueSizes[i]);
+
+      if (hasRecordFlags)
+        setRecordFlags(i, flags[i]);
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -931,17 +1051,36 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
     return getFreeDataPosition() - getSize() * recordSize - RECORDS_OFFSET - (isLeaf() ? 0 : getMarkerCount() * markerSize);
   }
 
-  private int recordKeyPosition(int index) {
+  private int recordPosition(int index) {
     return RECORDS_OFFSET + index * recordSize;
+  }
+
+  private int recordKeyPosition(int index) {
+    return recordPosition(index);
   }
 
   private int recordValuePosition(int index) {
     return recordKeyPosition(index) + (keysInlined ? keyEncoder.maximumSize() : positionEncoder.maximumSize());
   }
 
+  private int recordFlagsPosition(int index) {
+    assert hasRecordFlags();
+    return recordValuePosition(index) + (valuesInlined ? valueEncoder.maximumSize() : positionEncoder.maximumSize());
+  }
+
   private int markerPosition(int index) {
     assert !isLeaf();
     return RECORDS_OFFSET + getSize() * recordSize + index * markerSize;
+  }
+
+  private void markRecordAsTombstone(int index) {
+    assert tombstoneDelete;
+    setRecordFlag(index, TOMBSTONE_RECORD_FLAG_MASK, true);
+  }
+
+  private void markRecordAsNonTombstone(int index) {
+    assert tombstoneDelete;
+    setRecordFlag(index, TOMBSTONE_RECORD_FLAG_MASK, false);
   }
 
   private void initialize(boolean force) {
@@ -1022,7 +1161,7 @@ public class OSebTreeNode<K, V> extends OEncoderDurablePage {
           K key = keyAt(i);
           if (key instanceof String && ((String) key).length() > 3)
             key = (K) ((String) key).substring(0, 3);
-          V value = valueAt(i);
+          V value = isTombstoneRecord(i) ? (V) "⚰⚰⚰" : valueAt(i);
           if (value instanceof String && ((String) value).length() > 3)
             value = (V) ((String) value).substring(0, 3);
           System.out.print(key + " " + value + ", ");

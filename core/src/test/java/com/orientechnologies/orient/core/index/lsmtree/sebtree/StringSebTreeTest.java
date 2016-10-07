@@ -29,8 +29,9 @@ import com.orientechnologies.orient.core.index.lsmtree.OKeyValueCursor;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
 import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.util.Map;
@@ -42,12 +43,13 @@ import static org.junit.Assert.*;
 /**
  * @author Sergey Sitnikov
  */
+@RunWith(Parameterized.class)
 public class StringSebTreeTest {
 
   private static final boolean DEBUG = false;
   private static final boolean DUMP  = false;
 
-  private static final int RANDOMIZED_TESTS_ITERATIONS = 1000;
+  private static final int RANDOMIZED_TESTS_ITERATIONS = 2000;
 
   private static final int LARGE = OSebTreeNode.MAX_ENTRY_SIZE / 2 - 50;
   private static final int SMALL = LARGE / 2;
@@ -55,14 +57,17 @@ public class StringSebTreeTest {
   private static ODatabaseDocumentTx      db;
   private static OSebTree<String, String> tree;
 
-  @BeforeClass
-  public static void beforeClass() {
+  @Parameterized.Parameters
+  public static Object[] modes() {
+    return new Object[] { OSebTree.Mode.Standalone, OSebTree.Mode.GrowingShard, OSebTree.Mode.FullShard };
+  }
+
+  public StringSebTreeTest(OSebTree.Mode mode) {
     String buildDirectory = System.getProperty("buildDirectory");
     if (buildDirectory == null)
       buildDirectory = ".";
 
     db = new ODatabaseDocumentTx("memory:" + buildDirectory + "/StringSebTreeTest");
-    System.out.println(db.getURL());
     if (db.exists()) {
       db.open("admin", "admin");
       db.drop();
@@ -70,7 +75,7 @@ public class StringSebTreeTest {
 
     db.create();
 
-    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "tree", ".seb", OSebTree.Mode.Standalone);
+    tree = new OSebTree<>((OAbstractPaginatedStorage) db.getStorage(), "tree", ".seb", mode);
     tree.create(OStringSerializer.INSTANCE, null, 1, false, OStringSerializer.INSTANCE);
   }
 
@@ -101,8 +106,8 @@ public class StringSebTreeTest {
     assertEquals(1, tree.size());
     assertTrue(tree.contains("key1"));
     assertEquals("value1", tree.get("key1"));
-    assertEquals(tree.firstKey(), "key1");
-    assertEquals(tree.lastKey(), "key1");
+    assertEquals("key1", tree.firstKey());
+    assertEquals("key1", tree.lastKey());
 
     found.setValue(false);
     assertEquals("value1", tree.get("key1", found));
@@ -118,16 +123,22 @@ public class StringSebTreeTest {
     assertEquals(2, tree.size());
     assertEquals("value2", tree.get("key2"));
     assertEquals("new value1", tree.get("key1"));
-    assertEquals(tree.firstKey(), "key1");
-    assertEquals(tree.lastKey(), "key2");
+    assertEquals("key1", tree.firstKey());
+    assertEquals("key2", tree.lastKey());
 
     assertFalse(tree.remove("nonexistent key"));
+    assertFalse(tree.contains("nonexistent key"));
+    assertNull(tree.get("nonexistent key"));
+    found.setValue(true);
+    assertNull(tree.get("nonexistent key", found));
+    assertFalse(found.getValue());
 
     assertTrue(tree.remove("key1"));
     assertEquals(1, tree.size());
+    assertFalse(tree.contains("key1"));
     assertEquals("value2", tree.get("key2"));
-    assertEquals(tree.firstKey(), "key2");
-    assertEquals(tree.lastKey(), "key2");
+    assertEquals("key2", tree.firstKey());
+    assertEquals("key2", tree.lastKey());
   }
 
   @Test
