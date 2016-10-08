@@ -19,11 +19,17 @@
  */
 package com.orientechnologies.orient.graph.importer;
 
+import com.orientechnologies.common.log.OLogManager;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientVertex;
 
 import java.util.Map;
 
+/**
+ * Creates an edge between two vertices.
+ *
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
+ */
 public class OCreateEdgeOperation extends OAbstractBaseOperation {
   private final String              edgeClassName;
   private final String              sourceVertexClassName;
@@ -42,28 +48,81 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
-  public void execute(final OGraphImporter importer, final OrientBaseGraph graph, final int sourceClusterIndex,
-      final int destinationClusterIndex) {
+  public void execute(final OGraphImporter importer, final OImporterWorkerThread workerThread, final OrientBaseGraph graph,
+      final int sourceClusterIndex, final int destinationClusterIndex) {
 
-    OrientVertex sourceVertex = lookupVertex(importer, graph, sourceVertexClassName, sourceVertexId);
-    if (sourceVertex == null) {
-      // CREATE SOURCE VERTEX
-      importer.lockVertexCreationByKey(sourceVertexClassName, sourceVertexId);
+    OrientVertex sourceVertex = null;
+    OrientVertex destinationVertex = null;
 
-      sourceVertex = graph.addTemporaryVertex(sourceVertexClassName, properties);
-      sourceVertex.getRecord().field(importer.getRegisteredVertexClass(sourceVertexClassName).getKey(), sourceVertexId);
-      sourceVertex.save(getThreadClusterName(graph, sourceVertexClassName, sourceClusterIndex));
+    boolean needReload = false;
+
+    // LOCK RESOURCES FIRST
+    while (true) {
+      if (importer.lockVertexCreationByKey(workerThread.getThreadId(), sourceVertexClassName, sourceVertexId)) {
+        if (importer.lockVertexCreationByKey(workerThread.getThreadId(), destinationVertexClassName, destinationVertexId)) {
+          // BOTH LOCKED
+          break;
+        } else {
+          // UNLOCK SOURCE
+          importer.unlockVertexCreationByKey(workerThread.getThreadId(), sourceVertexClassName, sourceVertexId);
+        }
+      }
+
+      // CANNOT LOCK: COMMIT PENDING TX TO FREE ALL ACQUIRED LOCKS
+      workerThread.commit(graph);
+      needReload = true;
+
+      try {
+        Thread.sleep(50);
+      } catch (InterruptedException e) {
+        return;
+      }
     }
 
-    OrientVertex destinationVertex = lookupVertex(importer, graph, destinationVertexClassName, destinationVertexId);
+    sourceVertex = lookupVertex(importer, graph, sourceVertexClassName, sourceVertexId);
+    if (sourceVertex == null) {
+      // CREATE SOURCE VERTEX
+      sourceVertex = graph.addTemporaryVertex(sourceVertexClassName);
+      sourceVertex.getRecord().field(importer.getRegisteredVertexClass(sourceVertexClassName).getKey(), sourceVertexId);
+      sourceVertex.save(getThreadClusterName(graph, sourceVertexClassName, sourceClusterIndex));
+      if (importer.getVerboseLevel() > 2)
+        OLogManager.instance().info(this, "%s created source vertex for key %s", workerThread.getThreadId(), sourceVertexId);
+    } else {
+      if (importer.getVerboseLevel() > 2)
+        OLogManager.instance().info(this, "%s found record %s v%d for source key %s", workerThread.getThreadId(),
+            sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
+
+      if (needReload) {
+        sourceVertex.getRecord().reload(null, false);
+
+        if (importer.getVerboseLevel() > 2)
+          OLogManager.instance().info(this, "%s reloaded record %s v%d for source key %s", workerThread.getThreadId(),
+              sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
+      }
+    }
+
+    destinationVertex = lookupVertex(importer, graph, destinationVertexClassName, destinationVertexId);
     if (destinationVertex == null) {
       // CREATE DESTINATION VERTEX
-      importer.lockVertexCreationByKey(destinationVertexClassName, destinationVertexId);
-
-      destinationVertex = graph.addTemporaryVertex(destinationVertexClassName, properties);
+      destinationVertex = graph.addTemporaryVertex(destinationVertexClassName);
       destinationVertex.getRecord().field(importer.getRegisteredVertexClass(destinationVertexClassName).getKey(),
           destinationVertexId);
       destinationVertex.save(getThreadClusterName(graph, destinationVertexClassName, destinationClusterIndex));
+      if (importer.getVerboseLevel() > 2)
+        OLogManager.instance().info(this, "%s created destination vertex for key %s", workerThread.getThreadId(),
+            destinationVertexId);
+    } else {
+      if (importer.getVerboseLevel() > 2)
+        OLogManager.instance().info(this, "%s found record %s v%d for destination key %s", workerThread.getThreadId(),
+            destinationVertex.getIdentity(), destinationVertex.getRecord().getVersion(), destinationVertexId);
+
+      if (needReload) {
+        destinationVertex.getRecord().reload(null, false);
+
+        if (importer.getVerboseLevel() > 2)
+          OLogManager.instance().info(this, "%s reloaded record %s v%d for source key %s", workerThread.getThreadId(),
+              sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
+      }
     }
 
     sourceVertex.addEdge(null, destinationVertex, edgeClassName, getThreadClusterName(graph, edgeClassName, sourceClusterIndex),

@@ -24,6 +24,10 @@ import com.tinkerpop.blueprints.impls.orient.OrientVertex;
 
 import java.util.Map;
 
+/**
+ *
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
+ */
 public class OCreateVertexOperation extends OAbstractBaseOperation {
   private final String              className;
   private final Object              id;
@@ -35,7 +39,7 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
-  public void execute(final OGraphImporter importer, final OrientBaseGraph graph, final int sourceClusterIndex,
+  public void execute(final OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph, final int sourceClusterIndex,
       int destinationClusterIndex) {
     OrientVertex v = lookupVertex(importer, graph, className, id);
 
@@ -43,8 +47,15 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
       // JUST MERGE PROPERTIES
       v.setProperties(properties);
     else {
-      importer.lockVertexCreationByKey(className, id);
-      
+      // WAIT TO LOCK THE KEY
+      while (!importer.lockVertexCreationByKey(workerThread.getThreadId(), className, id)) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          break;
+        }
+      }
+
       v = graph.addTemporaryVertex(className, properties);
       v.getRecord().field(importer.getRegisteredVertexClass(className).getKey(), id);
       v.save(getThreadClusterName(graph, className, sourceClusterIndex));

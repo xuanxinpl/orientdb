@@ -19,51 +19,79 @@
  */
 package com.orientechnologies.orient.graph.importer;
 
+import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
+import java.util.ArrayList;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+/**
+ * Worker thread that is run in parallel. There is one working thread per combination ov vertex-edge->vertex.
+ *
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
+ */
 public class OImporterWorkerThread extends Thread {
-  private final OGraphImporter                importer;
-  private final String                        sourceClassName;
-  private final int                           sourceClusterIndex;
-  private final String                        destinationClassName;
-  private final int                           destinationClusterIndex;
-  private final String                        edgeClassName;
+  private final OGraphImporter                    importer;
+  private final String                            sourceClassName;
+  private final int                               sourceClusterIndex;
+  private final String                            destinationClassName;
+  private final int                               destinationClusterIndex;
+  private final String                            edgeClassName;
 
-  private final ArrayBlockingQueue<Operation> queue;
+  private final ArrayBlockingQueue<OOperation>    queue;
+  private final ConcurrentLinkedQueue<OOperation> priorityQueue;
+  private final ArrayList<OOperation>             executedOperationInTx;
 
-  private long                                localTotalRetry     = 0;
-  private long                                localOperationCount = 0;
+  private long                                    localTotalRetry       = 0;
+  private long                                    localOperationCount   = 0;
+  private long                                    localOperationInBatch = 0;
 
-  private String                              sourceClusterName;
-  private String                              destinationClusterName;
-  private String                              edgeClusterName;
+  private String                                  sourceClusterName;
+  private String                                  destinationClusterName;
+  private String                                  edgeClusterName;
+  private String                                  id;
+  private boolean                                 retryInProgress       = false;
 
-  public OImporterWorkerThread(final OGraphImporter importer, final String sourceClassName, final int sourceClusterIndex,
-      final String destinationClassName, final int destinationClusterIndex, final String edgeClassName) {
+  public OImporterWorkerThread(final String id, final OGraphImporter importer, final String sourceClassName,
+      final int sourceClusterIndex, final String destinationClassName, final int destinationClusterIndex,
+      final String edgeClassName) {
+    setName("OGraphImporter-WT-" + id);
+    this.id = id;
     this.importer = importer;
     this.sourceClassName = sourceClassName;
     this.sourceClusterIndex = sourceClusterIndex;
     this.destinationClassName = destinationClassName;
     this.destinationClusterIndex = destinationClusterIndex;
     this.edgeClassName = edgeClassName;
-    this.queue = new ArrayBlockingQueue<Operation>(importer.getQueueSize());
+    this.queue = new ArrayBlockingQueue<OOperation>(importer.getQueueSize());
+    this.priorityQueue = new ConcurrentLinkedQueue<OOperation>();
+    this.executedOperationInTx = new ArrayList<OOperation>(importer.getBatchSize());
   }
 
-  public OImporterWorkerThread(final OGraphImporter importer, final String vertexClassName, final int vertexClusterIndex) {
+  public OImporterWorkerThread(final String id, final OGraphImporter importer, final String vertexClassName,
+      final int vertexClusterIndex) {
+    setName("OGraphImporter-WT-" + id);
+    this.id = id;
     this.importer = importer;
     this.sourceClassName = vertexClassName;
     this.sourceClusterIndex = vertexClusterIndex;
     this.destinationClassName = null;
     this.destinationClusterIndex = 0;
     this.edgeClassName = null;
-    this.queue = new ArrayBlockingQueue<Operation>(importer.getQueueSize());
+    this.queue = new ArrayBlockingQueue<OOperation>(importer.getQueueSize());
+    this.priorityQueue = new ConcurrentLinkedQueue<OOperation>();
+    this.executedOperationInTx = new ArrayList<OOperation>(importer.getBatchSize());
   }
 
-  public void sendOperation(final Operation operation) throws InterruptedException {
+  public void sendOperation(final OOperation operation) throws InterruptedException {
     queue.put(operation);
+  }
+
+  public void sendPriorityOperation(final OOperation operation) {
+    priorityQueue.offer(operation);
   }
 
   @Override
@@ -78,25 +106,56 @@ public class OImporterWorkerThread extends Thread {
 
       final int batchSize = importer.getBatchSize();
 
+      final ArrayBlockingQueue<OOperation> operationToReExecute = new ArrayBlockingQueue<OOperation>(importer.getBatchSize());
+
       while (true) {
         try {
-          final Operation operation = queue.take();
+          OOperation operation = null;
+
+          if (retryInProgress) {
+            operation = operationToReExecute.poll();
+            if (operation == null)
+              // RETRY FINISHED
+              retryInProgress = false;
+          }
+
+          if (operation == null) {
+            operation = priorityQueue.poll();
+            if (operation == null) {
+              operation = queue.poll();
+              if (operation == null) {
+                Thread.sleep(1);
+                continue;
+              }
+            }
+          }
 
           if (operation instanceof OEndOperation)
             // END
             break;
 
-          operation.execute(importer, graph, sourceClusterIndex, destinationClusterIndex);
+          if (!(operation instanceof OCommitOperation))
+            executedOperationInTx.add(operation);
 
-          localOperationCount++;
+          operation.execute(importer, this, graph, sourceClusterIndex, destinationClusterIndex);
 
-          if (batchSize > 0 && localOperationCount % batchSize == 0) {
-            // COMMIT THE BATCH
-            commit(graph);
+          if (!(operation instanceof OCommitOperation)) {
+            localOperationCount++;
+            localOperationInBatch++;
+
+            if (batchSize > 0 && localOperationInBatch >= batchSize) {
+              // COMMIT THE BATCH
+              commit(graph);
+            }
           }
 
-        } catch (InterruptedException e) {
-          e.printStackTrace();
+        } catch (ONeedRetryException e) {
+
+          prepareRedoOperations(operationToReExecute);
+
+        } catch (ORecordDuplicatedException e) {
+
+          prepareRedoOperations(operationToReExecute);
         }
       }
 
@@ -109,17 +168,44 @@ public class OImporterWorkerThread extends Thread {
     }
   }
 
-  protected void commit(final OrientBaseGraph graph) {
-    importer.lockClusters(sourceClusterName, destinationClusterName, edgeClusterName);
+  public void commit(final OrientBaseGraph graph) {
+    if (localOperationInBatch == 0)
+      return;
+
+    importer.lockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
     try {
+
+      localOperationInBatch = 0;
       graph.commit();
+      executedOperationInTx.clear();
+
     } finally {
-      importer.unlockClusters(sourceClusterName, destinationClusterName, edgeClusterName);
-      importer.unlockCreationCurrentThread();
+
+      importer.unlockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
+      importer.unlockCreationCurrentThread(id);
+      graph.getRawGraph().getLocalCache().clear();
+
     }
   }
 
-  public String getStats() {
-    return String.format("total=%d retry=%d", localOperationCount, localTotalRetry);
+  public String getThreadId() {
+    return id;
+  }
+
+  public int getOperationsInQueue() {
+    return queue.size();
+  }
+
+  public long getRetries() {
+    return localTotalRetry;
+  }
+
+  protected void prepareRedoOperations(final ArrayBlockingQueue<OOperation> operationToReExecute) {
+    // TRANSFER THE PENDING OPERATIONS IN THE QUEUE TO BE RE-EXECUTED
+    retryInProgress = true;
+    localTotalRetry++;
+    for (OOperation op : executedOperationInTx)
+      operationToReExecute.offer(op);
+    executedOperationInTx.clear();
   }
 }

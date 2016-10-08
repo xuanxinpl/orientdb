@@ -22,13 +22,14 @@ package com.orientechnologies.orient.graph.importer;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
 /**
- * Last operation. It closes the worker thread.
+ * Forces a commit releasing all the locks aquired on keys.
  * 
  * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
-public class OEndOperation implements OOperation {
+public class OCommitOperation implements OOperation {
   @Override
   public void execute(OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph, final int threadId,
       int destinationClusterIndex) {
+    workerThread.commit(graph);
   }
 }

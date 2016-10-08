@@ -19,8 +19,19 @@
  */
 package com.orientechnologies.orient.graph.importer;
 
-import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
+import com.orientechnologies.common.exception.OException;
 
-public interface Operation {
-  void execute(OGraphImporter importer, OrientBaseGraph graph, int threadId, int destinationClusterIndex);
+/**
+ * Exception raised by OGraphImporter set of classes.
+ * 
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
+ */
+public class OGraphImportException extends OException {
+  public OGraphImportException(final String message) {
+    super(message);
+  }
+
+  public OGraphImportException(final OException exception) {
+    super(exception);
+  }
 }

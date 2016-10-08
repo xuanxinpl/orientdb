@@ -22,13 +22,11 @@ package com.orientechnologies.orient.graph.importer;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
 /**
- * Last operation. It closes the worker thread.
+ * Basic interface for import operations.
  * 
  * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
-public class OEndOperation implements OOperation {
-  @Override
-  public void execute(OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph, final int threadId,
-      int destinationClusterIndex) {
-  }
+public interface OOperation {
+  void execute(OGraphImporter importer, OImporterWorkerThread workerThread, OrientBaseGraph graph, int threadId,
+      int destinationClusterIndex);
 }

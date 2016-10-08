@@ -1,5 +1,6 @@
 package com.orientechnologies.orient.graph.batch;
 
+import com.orientechnologies.common.io.OFileUtils;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.graph.importer.OGraphImporter;
 import junit.framework.TestCase;
@@ -18,16 +19,26 @@ public class OGraphImporterTest extends TestCase {
 
   @Test
   public void test1() throws IOException, InterruptedException {
-    String dbUrl = "memory:liveJournal";
+    // String dbUrl = "memory:liveJournal";
+    String dbUrl = "plocal:/temp/databases/liveJournal";
+
+    final File f = new File("/temp/databases/liveJournal");
+    if (f.exists())
+      OFileUtils.deleteRecursively(f);
+
     OGraphImporter batch = new OGraphImporter(dbUrl, "admin", "admin");
+    batch.setParallel(4);
+    batch.setBatchSize(100);
 
     batch.registerVertexClass("User", "id", OType.INTEGER);
     batch.registerEdgeClass("Friend", "User", "User");
 
     batch.begin();
 
-    File file = new File("/Users/luca/Downloads/soc-LiveJournal1.txt");
-    try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+    final File file = new File("/Users/luca/Downloads/soc-LiveJournal1.txt");
+    final BufferedReader br = new BufferedReader(new FileReader(file));
+
+    try {
       int row = 0;
       for (String line; (line = br.readLine()) != null;) {
         row++;
@@ -40,6 +51,8 @@ public class OGraphImporterTest extends TestCase {
 
         batch.createEdge("Friend", "User", from, "User", to, null);
       }
+    } finally {
+      br.close();
     }
 
     batch.end();

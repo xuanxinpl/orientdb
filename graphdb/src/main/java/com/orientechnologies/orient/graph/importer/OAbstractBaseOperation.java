@@ -23,7 +23,11 @@ import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientVertex;
 
-public abstract class OAbstractBaseOperation implements Operation {
+/**
+ *
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
+ */
+public abstract class OAbstractBaseOperation implements OOperation {
   protected OrientVertex lookupVertex(final OGraphImporter importer, final OrientBaseGraph graph, final String vertexClassName,
       final Object id) {
     final OIdentifiable record = (OIdentifiable) importer.getVertexIndex(graph, vertexClassName).get(id);
@@ -38,5 +42,4 @@ public abstract class OAbstractBaseOperation implements Operation {
     final int[] clusterIds = graph.getRawGraph().getMetadata().getSchema().getClass(className).getClusterIds();
     return graph.getRawGraph().getClusterNameById(clusterIds[threadId]);
   }
-
 }

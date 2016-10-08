@@ -20,8 +20,10 @@
 package com.orientechnologies.orient.graph.importer;
 
 import com.orientechnologies.common.listener.OProgressListener;
+import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.common.util.OTriple;
+import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OStorageEntryConfiguration;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.index.OIndex;
@@ -36,6 +38,7 @@ import com.tinkerpop.blueprints.impls.orient.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -45,7 +48,7 @@ import static java.lang.Math.abs;
  * API to ingest a graph at the maximum speed possible.
  *
  * @since 2.2.12
- * @author Luca Garulli
+ * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
 public class OGraphImporter {
   private final String                                   userName;
@@ -58,7 +61,7 @@ public class OGraphImporter {
   private Map<String, OPair<String, OType>>              vertexClassesUsed     = new HashMap<String, OPair<String, OType>>();
   private List<OTriple<String, String, String>>          edgeClassesUsed       = new ArrayList<OTriple<String, String, String>>();
 
-  private int                                            batchSize             = 50;
+  private int                                            batchSize             = 10;
   private int                                            queueSize             = 1000;
   private int                                            maxRetry              = 10;
 
@@ -67,7 +70,12 @@ public class OGraphImporter {
   private Map<String, OImporterWorkerThread>             threads               = new HashMap<String, OImporterWorkerThread>();
   private Map<String, Lock>                              locks                 = new HashMap<String, Lock>();
   private Map<String, String>                            vertexIndexNames      = new HashMap<String, String>();
-  private Map<String, ConcurrentHashMap<Object, Thread>> pendingVertexCreation = new HashMap<String, ConcurrentHashMap<Object, Thread>>();
+  private Map<String, ConcurrentHashMap<Object, String>> pendingVertexCreation = new HashMap<String, ConcurrentHashMap<Object, String>>();
+  private TimerTask                                      progressTask;
+  private int                                            verboseLevel          = 1;
+  private AtomicLong                                     conflicts             = new AtomicLong(0);
+  private long                                           lastTotalVertices     = 0;
+  private long                                           lastTotalEdges        = 0;
 
   /**
    * Creates a new batch insert procedure by using admin user. It's intended to be used only for a single batch cycle (begin,
@@ -131,21 +139,24 @@ public class OGraphImporter {
 
       for (int sourceClusterIndex = 0; sourceClusterIndex < parallel; ++sourceClusterIndex) {
         for (int destinationClusterIndex = 0; destinationClusterIndex < parallel; ++destinationClusterIndex) {
-          final OImporterWorkerThread t = new OImporterWorkerThread(this, sourceClassName, sourceClusterIndex, destinationClassName,
-              destinationClusterIndex, edgeClassName);
+          final String workerId = sourceClassName + "_" + sourceClusterIndex + "-[" + edgeClassName + "]-" + destinationClassName
+              + "_" + destinationClusterIndex;
+
+          final OImporterWorkerThread t = new OImporterWorkerThread(workerId, this, sourceClassName, sourceClusterIndex,
+              destinationClassName, destinationClusterIndex, edgeClassName);
           t.start();
 
-          threads.put(sourceClassName + "_" + sourceClusterIndex + "-[" + edgeClassName + "]-" + destinationClassName + "_"
-              + destinationClusterIndex, t);
+          threads.put(workerId, t);
         }
       }
     }
 
     for (Map.Entry<String, OPair<String, OType>> vertexClass : vertexClassesUsed.entrySet()) {
       for (int vertexClusterIndex = 0; vertexClusterIndex < parallel; ++vertexClusterIndex) {
-        final OImporterWorkerThread t = new OImporterWorkerThread(this, vertexClass.getKey(), vertexClusterIndex);
+        final String workerId = vertexClass.getKey() + "_" + vertexClusterIndex;
+        final OImporterWorkerThread t = new OImporterWorkerThread(workerId, this, vertexClass.getKey(), vertexClusterIndex);
         t.start();
-        threads.put(vertexClass.getKey() + "_" + vertexClusterIndex, t);
+        threads.put(workerId, t);
       }
     }
 
@@ -168,15 +179,34 @@ public class OGraphImporter {
     }
 
     baseGraph.makeActive();
+
+    if (verboseLevel > 0) {
+      progressTask = new TimerTask() {
+        @Override
+        public void run() {
+          dumpStatus();
+        }
+      };
+      Orient.instance().scheduleTask(progressTask, 1000, 1000);
+    }
+
+    if (verboseLevel > 0)
+      System.out.println("GRAPH IMPORTER STARTED");
   }
 
   /**
    * Flushes data to db and closes the db. Call this once, after vertices and edges creation.
    */
   public void end() {
+    if (progressTask != null)
+      progressTask.cancel();
+
     baseGraph.shutdown();
 
     factory.close();
+
+    if (verboseLevel > 0)
+      System.out.println("GRAPH IMPORTER TERMINATED");
   }
 
   /**
@@ -249,7 +279,7 @@ public class OGraphImporter {
     if (factory != null)
       throw new IllegalStateException("Cannot register vertex classes after the import begun");
     vertexClassesUsed.put(vertexClassName, new OPair<String, OType>(idPropertyName, idPropertyType));
-    pendingVertexCreation.put(vertexClassName, new ConcurrentHashMap<Object, Thread>());
+    pendingVertexCreation.put(vertexClassName, new ConcurrentHashMap<Object, String>());
   }
 
   public OPair<String, OType> getRegisteredVertexClass(final String name) {
@@ -296,8 +326,16 @@ public class OGraphImporter {
    * @param parallel
    *          number of threads (default 4)
    */
-  public void setParallel(int parallel) {
+  public void setParallel(final int parallel) {
     this.parallel = parallel;
+  }
+
+  public int getVerboseLevel() {
+    return verboseLevel;
+  }
+
+  public void setVerboseLevel(final int verboseLevel) {
+    this.verboseLevel = verboseLevel;
   }
 
   public int getQueueSize() {
@@ -332,62 +370,80 @@ public class OGraphImporter {
     this.batchSize = batchSize;
   }
 
-  public void lockClusters(final String source, final String destination, final String edge) {
-    final List<String> list = new ArrayList<String>(3);
-    list.add(source);
+  public void lockClustersForCommit(final String source, final String destination, final String edge) {
+//    final List<String> list = new ArrayList<String>(3);
+//    list.add(source);
+//
+//    if (destination != null)
+//      list.add(destination);
+//
+//    if (edge != null)
+//      list.add(edge);
+//
+//    if (list.size() > 1)
+//      Collections.sort(list);
+//
+//    // LOCK ORDERED CLUSTERS
+//    for (String c : list) {
+//      locks.get(c).lock();
+//    }
+  }
 
-    if (destination != null)
-      list.add(destination);
+  public void unlockClustersForCommit(final String source, final String destination, final String edge) {
+//    locks.get(source).unlock();
+//
+//    if (destination != null)
+//      locks.get(destination).unlock();
+//
+//    if (edge != null)
+//      locks.get(edge).unlock();
+  }
 
-    if (edge != null)
-      list.add(edge);
-
-    if (list.size() > 1)
-      Collections.sort(list);
-
-    // LOCK ORDERED CLUSTERS
-    for (String c : list) {
-      locks.get(c).lock();
+  public boolean lockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
+    final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
+    final String existent = lockManager.putIfAbsent(key, workerId);
+    if (existent == null || existent.equals(workerId)) {
+      if (verboseLevel > 1)
+        OLogManager.instance().info(this, "%s locked %s.%s (existent=%s)", workerId, vClassName, key, existent);
+      return true;
     }
+
+    conflicts.incrementAndGet();
+
+    // ASK TO THE WORKER THREAD THAT IS LOCKING THE KEY TO COMMIT IN ORDER TO RELEASE IT
+    final OCommitOperation syncCommitOperation = new OCommitOperation();
+    getThread(existent).sendPriorityOperation(syncCommitOperation);
+
+    if (verboseLevel > 1)
+      OLogManager.instance().info(this, "%s cannot lock %s.%s (existent=%s)", workerId, vClassName, key, existent);
+
+    return false;
   }
 
-  public void unlockClusters(final String source, final String destination, final String edge) {
-    locks.get(source).unlock();
+  public void unlockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
+    if (verboseLevel > 1)
+      OLogManager.instance().info(this, "%s unlocking %s.%s...", workerId, vClassName, key);
 
-    if (destination != null)
-      locks.get(destination).unlock();
-
-    if (edge != null)
-      locks.get(edge).unlock();
+    final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
+    lockManager.remove(key);
   }
 
-  public void lockVertexCreationByKey(final String vClassName, final Object key) {
-    final Thread currentThread = Thread.currentThread();
+  public void unlockCreationCurrentThread(final String workerId) {
+    if (verboseLevel > 2)
+      OLogManager.instance().info(this, "%s unlocking all...", workerId);
 
-    final ConcurrentHashMap<Object, Thread> lockManager = pendingVertexCreation.get(vClassName);
-    while (true) {
-      final Thread existent = lockManager.putIfAbsent(key, currentThread);
-      if (existent == null || existent.equals(currentThread))
-        break;
-
-      try {
-        Thread.sleep(100);
-      } catch (InterruptedException e) {
-        break;
-      }
-    }
-  }
-
-  public void unlockCreationCurrentThread() {
-    final Thread currentThread = Thread.currentThread();
-
-    for (ConcurrentHashMap<Object, Thread> lockManager : pendingVertexCreation.values()) {
-      for (Iterator<Map.Entry<Object, Thread>> it = lockManager.entrySet().iterator(); it.hasNext();) {
-        final Map.Entry<Object, Thread> entry = it.next();
-        if (entry.getValue().equals(currentThread))
+    for (ConcurrentHashMap<Object, String> lockManager : pendingVertexCreation.values()) {
+      for (Iterator<Map.Entry<Object, String>> it = lockManager.entrySet().iterator(); it.hasNext();) {
+        final Map.Entry<Object, String> entry = it.next();
+        if (entry.getValue().equals(workerId)) {
+          if (verboseLevel > 1)
+            OLogManager.instance().info(this, "- %s unlocking %s...", workerId, entry.getKey());
           it.remove();
+        }
       }
     }
+    if (verboseLevel > 2)
+      OLogManager.instance().info(this, "%s unlocking done", workerId);
   }
 
   private void createBaseSchema(final OrientGraphNoTx db) {
@@ -410,7 +466,7 @@ public class OGraphImporter {
 
       OClass cls = schema.getClass(className);
       if (cls == null)
-        cls = schema.createClass(className, v);
+        cls = schema.createClass(className, 32, v);
 
       OProperty prop = cls.getProperty(propertyName);
       if (prop == null) {
@@ -439,7 +495,7 @@ public class OGraphImporter {
 
       // ASSURE THERE ARE ENOUGH NUMBER OF CLUSTERS, OTHERWISE CREATE THE MISSING ONES
       int[] existingClusters = cls.getClusterIds();
-      for (int c = existingClusters.length; c <= parallel; c++) {
+      for (int c = existingClusters.length; c < parallel; c++) {
         cls.addCluster(cls.getName() + "_" + c);
       }
     }
@@ -449,11 +505,11 @@ public class OGraphImporter {
       OClass cls = schema.getClass(edgeClass.getKey());
 
       if (cls == null)
-        cls = schema.createClass(edgeClass.getKey(), e);
+        cls = schema.createClass(edgeClass.getKey(), 32, e);
 
       // ASSURE THERE ARE ENOUGH NUMBER OF CLUSTERS, OTHERWISE CREATE THE MISSING ONES
       int[] existingClusters = cls.getClusterIds();
-      for (int c = existingClusters.length; c <= parallel; c++) {
+      for (int c = existingClusters.length; c < parallel; c++) {
         cls.addCluster(cls.getName() + "_" + c);
       }
     }
@@ -485,6 +541,10 @@ public class OGraphImporter {
         .get(sourceClassName + "_" + sourceValue + "-[" + edgeClassName + "]-" + destinationClassName + "_" + destinationValue);
   }
 
+  private OImporterWorkerThread getThread(final String threadName) {
+    return threads.get(threadName);
+  }
+
   private OImporterWorkerThread getThread(final OrientBaseGraph graph, final String className, final Object key) {
     final OMurmurHash3HashFunction hash = new OMurmurHash3HashFunction();
     final OType keyType = getVertexIndex(graph, className).getKeyTypes()[0];
@@ -495,5 +555,54 @@ public class OGraphImporter {
     sourceValue = sourceValue % parallel;
 
     return threads.get(className + "_" + sourceValue + "->" + className + "_" + sourceValue);
+  }
+
+  private void dumpStatus() {
+    baseGraph.makeActive();
+
+    long totalVertices = 0l;
+    final StringBuilder vertices = new StringBuilder();
+    for (String cls : vertexClassesUsed.keySet()) {
+      if (vertices.length() > 0)
+        vertices.append(",");
+      final long count = baseGraph.countVertices(cls);
+      totalVertices += count;
+      vertices.append(String.format("%s:%d", cls, count));
+    }
+
+    long totalEdges = 0l;
+    final StringBuilder edges = new StringBuilder();
+    for (OTriple<String, String, String> entry : edgeClassesUsed) {
+      if (edges.length() > 0)
+        edges.append(",");
+
+      final long count = baseGraph.countEdges(entry.getKey());
+      totalEdges += count;
+      edges.append(String.format("%s:%d", entry.getKey(), count));
+    }
+
+    System.out
+        .print(String.format("\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts %d - retries %d - ops in queues %d\n",
+            vertices, totalVertices, (totalVertices - lastTotalVertices), edges, totalEdges, (totalEdges - lastTotalEdges),
+            conflicts.longValue(), getRetries(), getOperationsInQueue()));
+
+    lastTotalVertices = totalVertices;
+    lastTotalEdges = totalEdges;
+  }
+
+  private long getOperationsInQueue() {
+    long total = 0l;
+    for (OImporterWorkerThread thread : threads.values()) {
+      total += thread.getOperationsInQueue();
+    }
+    return total;
+  }
+
+  private long getRetries() {
+    long total = 0l;
+    for (OImporterWorkerThread thread : threads.values()) {
+      total += thread.getRetries();
+    }
+    return total;
   }
 }
