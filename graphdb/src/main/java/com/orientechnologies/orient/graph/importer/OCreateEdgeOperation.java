@@ -56,15 +56,40 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
 
     boolean needReload = false;
 
+    // LOCK IN ORDER TO AVOID DEADLOCKS
+    boolean sourceIsLower;
+    if (sourceVertexClassName.compareTo(destinationVertexClassName) == 0) {
+      sourceIsLower = ((Comparable) sourceVertexId).compareTo(destinationVertexId) <= 0;
+    } else if (sourceVertexClassName.compareTo(destinationVertexClassName) < 0) {
+      sourceIsLower = true;
+    } else {
+      sourceIsLower = false;
+    }
+
+    String[] vertexClassNames = new String[2];
+    Object[] vertexIds = new Object[2];
+
+    if (sourceIsLower) {
+      vertexClassNames[0] = sourceVertexClassName;
+      vertexClassNames[1] = destinationVertexClassName;
+      vertexIds[0] = sourceVertexId;
+      vertexIds[1] = destinationVertexId;
+    } else {
+      vertexClassNames[0] = destinationVertexClassName;
+      vertexClassNames[1] = sourceVertexClassName;
+      vertexIds[0] = destinationVertexId;
+      vertexIds[1] = sourceVertexId;
+    }
+
     // LOCK RESOURCES FIRST
     while (true) {
-      if (importer.lockVertexCreationByKey(workerThread.getThreadId(), sourceVertexClassName, sourceVertexId)) {
-        if (importer.lockVertexCreationByKey(workerThread.getThreadId(), destinationVertexClassName, destinationVertexId)) {
+      if (importer.lockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[0], vertexIds[0])) {
+        if (importer.lockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[1], vertexIds[1])) {
           // BOTH LOCKED
           break;
         } else {
           // UNLOCK SOURCE
-          importer.unlockVertexCreationByKey(workerThread.getThreadId(), sourceVertexClassName, sourceVertexId);
+          importer.unlockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[0], vertexIds[0]);
         }
       }
 
@@ -73,7 +98,7 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
       needReload = true;
 
       try {
-        Thread.sleep(50);
+        Thread.sleep(5);
       } catch (InterruptedException e) {
         return;
       }
@@ -85,6 +110,7 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
       sourceVertex = graph.addTemporaryVertex(sourceVertexClassName);
       sourceVertex.getRecord().field(importer.getRegisteredVertexClass(sourceVertexClassName).getKey(), sourceVertexId);
       sourceVertex.save(getThreadClusterName(graph, sourceVertexClassName, sourceClusterIndex));
+
       if (importer.getVerboseLevel() > 2)
         OLogManager.instance().info(this, "%s created source vertex for key %s", workerThread.getThreadId(), sourceVertexId);
     } else {
@@ -108,6 +134,7 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
       destinationVertex.getRecord().field(importer.getRegisteredVertexClass(destinationVertexClassName).getKey(),
           destinationVertexId);
       destinationVertex.save(getThreadClusterName(graph, destinationVertexClassName, destinationClusterIndex));
+
       if (importer.getVerboseLevel() > 2)
         OLogManager.instance().info(this, "%s created destination vertex for key %s", workerThread.getThreadId(),
             destinationVertexId);
@@ -127,5 +154,7 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
 
     sourceVertex.addEdge(null, destinationVertex, edgeClassName, getThreadClusterName(graph, edgeClassName, sourceClusterIndex),
         properties);
+
+    workerThread.incrementLocalEdgeCreatedInBatch();
   }
 }

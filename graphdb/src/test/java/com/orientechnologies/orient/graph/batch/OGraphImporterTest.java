@@ -27,6 +27,10 @@ public class OGraphImporterTest extends TestCase {
       OFileUtils.deleteRecursively(f);
 
     OGraphImporter batch = new OGraphImporter(dbUrl, "admin", "admin");
+    batch.setTotalEstimatedVertices(4847571);
+    batch.setTotalEstimatedEdges(68993773);
+    batch.setLightweightEdges(true);
+
     batch.setParallel(4);
     batch.setBatchSize(100);
 

@@ -19,6 +19,7 @@
  */
 package com.orientechnologies.orient.graph.importer;
 
+import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.listener.OProgressListener;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OPair;
@@ -54,28 +55,35 @@ public class OGraphImporter {
   private final String                                   userName;
   private final String                                   dbUrl;
   private final String                                   password;
-  private int                                            parallel              = Runtime.getRuntime().availableProcessors();
-  private Boolean                                        useLightWeightEdges   = null;
-  private boolean                                        transactional         = true;
+  private int                                            parallel               = Runtime.getRuntime().availableProcessors();
+  private Boolean                                        useLightWeightEdges    = null;
+  private boolean                                        transactional          = true;
 
-  private Map<String, OPair<String, OType>>              vertexClassesUsed     = new HashMap<String, OPair<String, OType>>();
-  private List<OTriple<String, String, String>>          edgeClassesUsed       = new ArrayList<OTriple<String, String, String>>();
+  private Map<String, OPair<String, OType>>              vertexClassesUsed      = new HashMap<String, OPair<String, OType>>();
+  private List<OTriple<String, String, String>>          edgeClassesUsed        = new ArrayList<OTriple<String, String, String>>();
 
-  private int                                            batchSize             = 10;
-  private int                                            queueSize             = 1000;
-  private int                                            maxRetry              = 10;
+  private int                                            batchSize              = 10;
+  private int                                            queueSize              = 1000;
+  private int                                            maxRetry               = 10;
 
   private OrientGraphFactory                             factory;
   private OrientGraphNoTx                                baseGraph;
-  private Map<String, OImporterWorkerThread>             threads               = new HashMap<String, OImporterWorkerThread>();
-  private Map<String, Lock>                              locks                 = new HashMap<String, Lock>();
-  private Map<String, String>                            vertexIndexNames      = new HashMap<String, String>();
-  private Map<String, ConcurrentHashMap<Object, String>> pendingVertexCreation = new HashMap<String, ConcurrentHashMap<Object, String>>();
+  private Map<String, OImporterWorkerThread>             threads                = new HashMap<String, OImporterWorkerThread>();
+  private Map<String, Lock>                              locks                  = new HashMap<String, Lock>();
+  private Map<String, String>                            vertexIndexNames       = new HashMap<String, String>();
+
+  private Map<String, ConcurrentHashMap<Object, String>> pendingVertexCreation  = new HashMap<String, ConcurrentHashMap<Object, String>>();
   private TimerTask                                      progressTask;
-  private int                                            verboseLevel          = 1;
-  private AtomicLong                                     conflicts             = new AtomicLong(0);
-  private long                                           lastTotalVertices     = 0;
-  private long                                           lastTotalEdges        = 0;
+  private int                                            verboseLevel           = 1;
+  private AtomicLong                                     conflicts              = new AtomicLong(0);
+  private long                                           lastTotalVertices      = 0;
+  private long                                           lastTotalEdges         = 0;
+  private AtomicLong                                     totalEdges             = new AtomicLong(0);
+  private long                                           startTime;
+  private int                                            totalEstimatedVertices = -1;
+  private int                                            totalEstimatedEdges    = -1;
+  private long                                           dumpStatsEvery         = 2000;
+  private boolean                                        lightweightEdges       = false;
 
   /**
    * Creates a new batch insert procedure by using admin user. It's intended to be used only for a single batch cycle (begin,
@@ -113,6 +121,7 @@ public class OGraphImporter {
    */
   public void begin() {
     factory = new OrientGraphFactory(dbUrl, userName, password, false);
+    factory.setUseLightweightEdges(lightweightEdges);
 
     baseGraph = factory.getNoTx();
 
@@ -184,29 +193,53 @@ public class OGraphImporter {
       progressTask = new TimerTask() {
         @Override
         public void run() {
-          dumpStatus();
+          dumpStatus(true);
         }
       };
-      Orient.instance().scheduleTask(progressTask, 1000, 1000);
+      Orient.instance().scheduleTask(progressTask, dumpStatsEvery, dumpStatsEvery);
     }
 
     if (verboseLevel > 0)
-      System.out.println("GRAPH IMPORTER STARTED");
+      System.out.println("GRAPH IMPORTER STARTED on " + new Date());
+
+    startTime = System.currentTimeMillis();
   }
 
   /**
    * Flushes data to db and closes the db. Call this once, after vertices and edges creation.
    */
   public void end() {
+    // SEND END MESSAGE TO THE WORKER THREADS
+    for (OImporterWorkerThread t : threads.values()) {
+      try {
+        t.sendOperation(new OEndOperation());
+      } catch (InterruptedException e) {
+        // IGNORE IT
+      }
+    }
+
+    // WAIT FOR ALL THE WORKER THREADS TO FINISH
+    for (OImporterWorkerThread t : threads.values()) {
+      try {
+        t.join();
+      } catch (InterruptedException e) {
+        // IGNORE IT
+      }
+    }
+
+    final long endTime = System.currentTimeMillis();
+
     if (progressTask != null)
       progressTask.cancel();
 
+    if (verboseLevel > 0) {
+      System.out.println("GRAPH IMPORTER TERMINATED on " + new Date() + ". Total processing time: "
+          + OIOUtils.getTimeAsString(endTime - startTime));
+      dumpStatus(false);
+    }
+
     baseGraph.shutdown();
-
     factory.close();
-
-    if (verboseLevel > 0)
-      System.out.println("GRAPH IMPORTER TERMINATED");
   }
 
   /**
@@ -300,6 +333,22 @@ public class OGraphImporter {
     edgeClassesUsed.add(new OTriple<String, String, String>(edgeClassName, sourceVertexClassName, destinationVertexClassName));
   }
 
+  public int getTotalEstimatedVertices() {
+    return totalEstimatedVertices;
+  }
+
+  public void setTotalEstimatedVertices(final int totalEstimatedVertices) {
+    this.totalEstimatedVertices = totalEstimatedVertices;
+  }
+
+  public int getTotalEstimatedEdges() {
+    return totalEstimatedEdges;
+  }
+
+  public void setTotalEstimatedEdges(final int totalEstimatedEdges) {
+    this.totalEstimatedEdges = totalEstimatedEdges;
+  }
+
   public boolean isRegisteredEdgeClass(final String name) {
     return vertexClassesUsed.containsKey(name);
   }
@@ -362,6 +411,14 @@ public class OGraphImporter {
     this.transactional = transactional;
   }
 
+  public long getDumpStatsEvery() {
+    return dumpStatsEvery;
+  }
+
+  public void setDumpStatsEvery(final long dumpStatsEvery) {
+    this.dumpStatsEvery = dumpStatsEvery;
+  }
+
   public int getBatchSize() {
     return batchSize;
   }
@@ -370,41 +427,54 @@ public class OGraphImporter {
     this.batchSize = batchSize;
   }
 
+  public Boolean getUseLightWeightEdges() {
+    return useLightWeightEdges;
+  }
+
+  public void setLightweightEdges(final boolean lightweightEdges) {
+    this.lightweightEdges = lightweightEdges;
+  }
+
+  public void addTotalEdges(final long tot) {
+    totalEdges.addAndGet(tot);
+  }
+
   public void lockClustersForCommit(final String source, final String destination, final String edge) {
-//    final List<String> list = new ArrayList<String>(3);
-//    list.add(source);
-//
-//    if (destination != null)
-//      list.add(destination);
-//
-//    if (edge != null)
-//      list.add(edge);
-//
-//    if (list.size() > 1)
-//      Collections.sort(list);
-//
-//    // LOCK ORDERED CLUSTERS
-//    for (String c : list) {
-//      locks.get(c).lock();
-//    }
+    final List<String> list = new ArrayList<String>(3);
+    list.add(source);
+
+    if (destination != null)
+      list.add(destination);
+
+    if (edge != null && !lightweightEdges)
+      list.add(edge);
+
+    if (list.size() > 1)
+      Collections.sort(list);
+
+    // LOCK ORDERED CLUSTERS
+    for (String c : list) {
+      locks.get(c).lock();
+    }
   }
 
   public void unlockClustersForCommit(final String source, final String destination, final String edge) {
-//    locks.get(source).unlock();
-//
-//    if (destination != null)
-//      locks.get(destination).unlock();
-//
-//    if (edge != null)
-//      locks.get(edge).unlock();
+    locks.get(source).unlock();
+
+    if (destination != null)
+      locks.get(destination).unlock();
+
+    if (edge != null && !lightweightEdges)
+      locks.get(edge).unlock();
   }
 
   public boolean lockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
     final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
-    final String existent = lockManager.putIfAbsent(key, workerId);
-    if (existent == null || existent.equals(workerId)) {
+
+    final String currentLock = lockManager.putIfAbsent(key, workerId);
+    if (currentLock == null || currentLock.equals(workerId)) {
       if (verboseLevel > 1)
-        OLogManager.instance().info(this, "%s locked %s.%s (existent=%s)", workerId, vClassName, key, existent);
+        OLogManager.instance().info(this, "%s locked %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
       return true;
     }
 
@@ -412,10 +482,10 @@ public class OGraphImporter {
 
     // ASK TO THE WORKER THREAD THAT IS LOCKING THE KEY TO COMMIT IN ORDER TO RELEASE IT
     final OCommitOperation syncCommitOperation = new OCommitOperation();
-    getThread(existent).sendPriorityOperation(syncCommitOperation);
+    getThread(currentLock).sendPriorityOperation(syncCommitOperation);
 
     if (verboseLevel > 1)
-      OLogManager.instance().info(this, "%s cannot lock %s.%s (existent=%s)", workerId, vClassName, key, existent);
+      OLogManager.instance().info(this, "%s cannot lock %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
 
     return false;
   }
@@ -557,7 +627,7 @@ public class OGraphImporter {
     return threads.get(className + "_" + sourceValue + "->" + className + "_" + sourceValue);
   }
 
-  private void dumpStatus() {
+  private void dumpStatus(final boolean printEstimated) {
     baseGraph.makeActive();
 
     long totalVertices = 0l;
@@ -572,19 +642,40 @@ public class OGraphImporter {
 
     long totalEdges = 0l;
     final StringBuilder edges = new StringBuilder();
-    for (OTriple<String, String, String> entry : edgeClassesUsed) {
-      if (edges.length() > 0)
-        edges.append(",");
+    if (lightweightEdges) {
+      totalEdges = this.totalEdges.get();
+      edges.append('?');
+    } else {
+      for (OTriple<String, String, String> entry : edgeClassesUsed) {
+        if (edges.length() > 0)
+          edges.append(",");
 
-      final long count = baseGraph.countEdges(entry.getKey());
-      totalEdges += count;
-      edges.append(String.format("%s:%d", entry.getKey(), count));
+        final long count = baseGraph.countEdges(entry.getKey());
+        totalEdges += count;
+        edges.append(String.format("%s:%d", entry.getKey(), count));
+      }
     }
 
-    System.out
-        .print(String.format("\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts %d - retries %d - ops in queues %d\n",
-            vertices, totalVertices, (totalVertices - lastTotalVertices), edges, totalEdges, (totalEdges - lastTotalEdges),
-            conflicts.longValue(), getRetries(), getOperationsInQueue()));
+    if (totalEdges == 0 || totalVertices == 0)
+      return;
+
+    String extra = "";
+    if (printEstimated) {
+      if (totalEstimatedEdges > 0) {
+        final long est = (System.currentTimeMillis() - startTime) * (totalEstimatedEdges - totalEdges) / totalEdges;
+        extra = " estRemainingTime=" + OIOUtils.getTimeAsString(est, "s");
+      }
+
+      if (extra == null && totalEstimatedVertices > 0) {
+        final long est = (System.currentTimeMillis() - startTime) * (totalEstimatedVertices - totalVertices) / totalVertices;
+        extra = " estRemainingTime=" + OIOUtils.getTimeAsString(est, "s");
+      }
+    }
+
+    System.out.print(String.format("\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts=%d retries=%d opsInQueues=%d%s\n",
+        vertices, totalVertices, (totalVertices - lastTotalVertices) / (dumpStatsEvery / 1000), edges, totalEdges,
+        (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), conflicts.longValue(), getRetries(), getOperationsInQueue(),
+        extra));
 
     lastTotalVertices = totalVertices;
     lastTotalEdges = totalEdges;

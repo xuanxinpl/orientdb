@@ -45,15 +45,16 @@ public class OImporterWorkerThread extends Thread {
   private final ConcurrentLinkedQueue<OOperation> priorityQueue;
   private final ArrayList<OOperation>             executedOperationInTx;
 
-  private long                                    localTotalRetry       = 0;
-  private long                                    localOperationCount   = 0;
-  private long                                    localOperationInBatch = 0;
+  private long                                    localTotalRetry         = 0;
+  private long                                    localOperationCount     = 0;
+  private long                                    localOperationInBatch   = 0;
+  private long                                    localEdgeCreatedInBatch = 0;
 
   private String                                  sourceClusterName;
   private String                                  destinationClusterName;
   private String                                  edgeClusterName;
   private String                                  id;
-  private boolean                                 retryInProgress       = false;
+  private boolean                                 retryInProgress         = false;
 
   public OImporterWorkerThread(final String id, final OGraphImporter importer, final String sourceClassName,
       final int sourceClusterIndex, final String destinationClassName, final int destinationClusterIndex,
@@ -169,22 +170,30 @@ public class OImporterWorkerThread extends Thread {
   }
 
   public void commit(final OrientBaseGraph graph) {
-    if (localOperationInBatch == 0)
-      return;
-
-    importer.lockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
     try {
+      if (localOperationInBatch == 0)
+        return;
 
-      localOperationInBatch = 0;
-      graph.commit();
-      executedOperationInTx.clear();
+      importer.lockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
+      try {
+
+        localOperationInBatch = 0;
+
+        graph.commit();
+
+        executedOperationInTx.clear();
+
+        importer.addTotalEdges(localEdgeCreatedInBatch);
+        localEdgeCreatedInBatch = 0;
+
+      } finally {
+
+        importer.unlockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
+        graph.getRawGraph().getLocalCache().clear();
+      }
 
     } finally {
-
-      importer.unlockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
       importer.unlockCreationCurrentThread(id);
-      graph.getRawGraph().getLocalCache().clear();
-
     }
   }
 
@@ -198,6 +207,10 @@ public class OImporterWorkerThread extends Thread {
 
   public long getRetries() {
     return localTotalRetry;
+  }
+
+  public void incrementLocalEdgeCreatedInBatch() {
+    localEdgeCreatedInBatch++;
   }
 
   protected void prepareRedoOperations(final ArrayBlockingQueue<OOperation> operationToReExecute) {

@@ -19,8 +19,6 @@
  */
 package com.orientechnologies.common.io;
 
-import com.orientechnologies.common.util.OPatternConst;
-
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +27,8 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
+
+import com.orientechnologies.common.util.OPatternConst;
 
 public class OIOUtils {
   public static final long   SECOND   = 1000;
@@ -98,21 +98,79 @@ public class OIOUtils {
   }
 
   public static String getTimeAsString(final long iTime) {
-    if (iTime > YEAR && iTime % YEAR == 0)
-      return String.format("%dy", iTime / YEAR);
-    if (iTime > WEEK && iTime % WEEK == 0)
-      return String.format("%dw", iTime / WEEK);
-    if (iTime > DAY && iTime % DAY == 0)
-      return String.format("%dd", iTime / DAY);
-    if (iTime > HOUR && iTime % HOUR == 0)
-      return String.format("%dh", iTime / HOUR);
-    if (iTime > MINUTE && iTime % MINUTE == 0)
-      return String.format("%dm", iTime / MINUTE);
-    if (iTime > SECOND && iTime % SECOND == 0)
-      return String.format("%ds", iTime / SECOND);
+    return getTimeAsString(iTime, "ms");
+  }
+
+  /**
+   * Return the formatted time in year (y), days (d), hours (h), minutes (m), seconds (s) and milliseconds (ms)
+   * 
+   * @param iTime
+   *          Unix Time in milliseconds
+   * @param maxPrecision
+   *          Maximum precision. If null is millisecond (ms). Accepted values are: y, d, h, m, s and ms.
+   * @return
+   */
+  public static String getTimeAsString(final long iTime, String maxPrecision) {
+    if (maxPrecision == null)
+      maxPrecision = "ms";
+
+    final StringBuilder buffer = new StringBuilder();
+
+    long remainingTime = iTime;
+    if (remainingTime > YEAR) {
+      buffer.append(String.format("%dy", remainingTime / YEAR));
+      remainingTime = remainingTime % YEAR;
+    }
+
+    if (maxPrecision.equalsIgnoreCase("y"))
+      return buffer.toString();
+
+    if (remainingTime > DAY) {
+      if (buffer.length() > 0)
+        buffer.append(' ');
+      buffer.append(String.format("%dd", remainingTime / DAY));
+      remainingTime = remainingTime % DAY;
+    }
+
+    if (maxPrecision.equalsIgnoreCase("d"))
+      return buffer.toString();
+
+    if (remainingTime > HOUR) {
+      if (buffer.length() > 0)
+        buffer.append(' ');
+      buffer.append(String.format("%dh", remainingTime / HOUR));
+      remainingTime = remainingTime % HOUR;
+    }
+
+    if (maxPrecision.equalsIgnoreCase("h"))
+      return buffer.toString();
+
+    if (remainingTime > MINUTE) {
+      if (buffer.length() > 0)
+        buffer.append(' ');
+      buffer.append(String.format("%dm", remainingTime / MINUTE));
+      remainingTime = remainingTime % MINUTE;
+    }
+
+    if (maxPrecision.equalsIgnoreCase("m"))
+      return buffer.toString();
+
+    if (remainingTime > SECOND) {
+      if (buffer.length() > 0)
+        buffer.append(' ');
+      buffer.append(String.format("%ds", remainingTime / SECOND));
+      remainingTime = remainingTime % SECOND;
+    }
+
+    if (maxPrecision.equalsIgnoreCase("s"))
+      return buffer.toString();
 
     // MILLISECONDS
-    return String.format("%dms", iTime);
+    if (buffer.length() > 0)
+      buffer.append(' ');
+    buffer.append(String.format("%dms", remainingTime));
+
+    return buffer.toString();
   }
 
   public static Date getTodayWithTime(final String iTime) throws ParseException {
