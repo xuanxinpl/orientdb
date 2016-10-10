@@ -17,13 +17,11 @@
  *  * For more information: http://orientdb.com
  *
  */
-package com.orientechnologies.orient.core.index.lsmtree;
+package com.orientechnologies.orient.core.index.lsmtree.tree;
 
 /**
  * @author Sergey Sitnikov
  */
-public interface OKeyCursor<K> extends OCursor {
-
-  K key();
+public interface OKeyValueCursor<K, V> extends OKeyCursor<K>, OValueCursor<V> {
 
 }

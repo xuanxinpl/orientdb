@@ -17,7 +17,7 @@
  *  * For more information: http://orientdb.com
  *
  */
-package com.orientechnologies.orient.core.index.lsmtree;
+package com.orientechnologies.orient.core.index.lsmtree.tree;
 
 /**
  * @author Sergey Sitnikov

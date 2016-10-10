@@ -21,12 +21,12 @@ package com.orientechnologies.orient.core.index.lsmtree.sebtree;
 
 import com.orientechnologies.common.serialization.types.OStringSerializer;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
-import com.orientechnologies.orient.core.index.lsmtree.OCursor.Beginning;
-import com.orientechnologies.orient.core.index.lsmtree.OCursor.Direction;
-import com.orientechnologies.orient.core.index.lsmtree.OCursor.End;
-import com.orientechnologies.orient.core.index.lsmtree.OKeyValueCursor;
-import com.orientechnologies.orient.core.index.lsmtree.OTree;
-import com.orientechnologies.orient.core.index.lsmtree.OTree.Containment;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OCursor.Beginning;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OCursor.Direction;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OCursor.End;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OKeyValueCursor;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OTree;
+import com.orientechnologies.orient.core.index.lsmtree.tree.OTree.Containment;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
 import org.junit.After;
 import org.junit.AfterClass;

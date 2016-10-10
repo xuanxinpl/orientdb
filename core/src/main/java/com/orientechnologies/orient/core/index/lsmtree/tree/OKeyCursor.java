@@ -17,27 +17,13 @@
  *  * For more information: http://orientdb.com
  *
  */
-package com.orientechnologies.orient.core.index.lsmtree;
+package com.orientechnologies.orient.core.index.lsmtree.tree;
 
 /**
  * @author Sergey Sitnikov
  */
-public interface OCursor {
+public interface OKeyCursor<K> extends OCursor {
 
-  boolean next();
-
-  boolean tombstone();
-
-  enum Direction {
-    Forward, Reverse
-  }
-
-  enum Beginning {
-    Inclusive, Exclusive, Open
-  }
-
-  enum End {
-    Inclusive, Exclusive, Open
-  }
+  K key();
 
 }
