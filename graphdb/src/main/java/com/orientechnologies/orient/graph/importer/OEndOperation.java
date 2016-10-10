@@ -26,9 +26,10 @@ import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
  * 
  * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
-public class OEndOperation implements OOperation {
+public class OEndOperation extends OAbstractBaseOperation {
   @Override
-  public void execute(OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph, final int threadId,
-      int destinationClusterIndex) {
+  public boolean execute(OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph,
+      final int threadId, int destinationClusterIndex) {
+    return true;
   }
 }

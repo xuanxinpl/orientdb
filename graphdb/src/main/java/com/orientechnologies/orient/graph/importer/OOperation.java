@@ -27,6 +27,12 @@ import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
  * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
 public interface OOperation {
-  void execute(OGraphImporter importer, OImporterWorkerThread workerThread, OrientBaseGraph graph, int threadId,
+  boolean execute(OGraphImporter importer, OImporterWorkerThread workerThread, OrientBaseGraph graph, int threadId,
       int destinationClusterIndex);
+
+  int incrementAttempts();
+
+  String getThreadId();
+
+  void setThreadId(String threadId);
 }

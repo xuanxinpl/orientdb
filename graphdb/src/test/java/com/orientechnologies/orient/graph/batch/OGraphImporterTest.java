@@ -10,6 +10,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Luca Garulli
@@ -19,41 +21,50 @@ public class OGraphImporterTest extends TestCase {
 
   @Test
   public void test1() throws IOException, InterruptedException {
-    // String dbUrl = "memory:liveJournal";
-    String dbUrl = "plocal:/temp/databases/liveJournal";
+    // String dbUrl = "memory:amazonReviews";
+    String dbUrl = "plocal:/temp/databases/amazonReviews";
 
-    final File f = new File("/temp/databases/liveJournal");
+    final File f = new File("/temp/databases/amazonReviews");
     if (f.exists())
       OFileUtils.deleteRecursively(f);
 
     OGraphImporter batch = new OGraphImporter(dbUrl, "admin", "admin");
-    batch.setTotalEstimatedVertices(4847571);
-    batch.setTotalEstimatedEdges(68993773);
-    batch.setLightweightEdges(true);
+    batch.setTotalEstimatedEdges(22507155);
+    batch.setLightweightEdges(false);
 
-    batch.setParallel(4);
-    batch.setBatchSize(100);
+    batch.setParallel(2);
+    batch.setBatchSize(50);
+    batch.setQueueSize(2000);
+    batch.setMaxAttemptsToFlushTransaction(2);
+    batch.setBackPressureThreshold(1000);
 
-    batch.registerVertexClass("User", "id", OType.INTEGER);
-    batch.registerEdgeClass("Friend", "User", "User");
+    batch.registerVertexClass("User", "id", OType.STRING);
+    batch.registerVertexClass("Product", "id", OType.STRING);
+    batch.registerEdgeClass("Reviewed", "User", "Product");
 
     batch.begin();
 
-    final File file = new File("/Users/luca/Downloads/soc-LiveJournal1.txt");
+    final File file = new File("/Users/luca/Downloads/ratings_Books.csv");
     final BufferedReader br = new BufferedReader(new FileReader(file));
 
     try {
       int row = 0;
       for (String line; (line = br.readLine()) != null;) {
         row++;
-        if (row < 5)
+
+        final String[] parts = line.split(",");
+
+        if (parts.length != 4) {
+          // SKIP IT
+          System.out.print("Skipped invalid line " + row + ": " + line);
           continue;
+        }
 
-        final int pos = line.indexOf('\t');
-        final Integer from = new Integer(line.substring(0, pos));
-        final Integer to = new Integer(line.substring(pos + 1));
+        Map<String, Object> properties = new HashMap<String, Object>();
+        properties.put("score", new Float(parts[2]).intValue());
+        properties.put("date", Long.parseLong(parts[3]));
 
-        batch.createEdge("Friend", "User", from, "User", to, null);
+        batch.createEdge("Reviewed", "User", parts[0], "Product", parts[1], properties);
       }
     } finally {
       br.close();

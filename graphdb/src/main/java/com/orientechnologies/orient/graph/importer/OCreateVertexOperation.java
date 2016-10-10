@@ -39,8 +39,8 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
-  public void execute(final OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph, final int sourceClusterIndex,
-      int destinationClusterIndex) {
+  public boolean execute(final OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph,
+      final int sourceClusterIndex, int destinationClusterIndex) {
     OrientVertex v = lookupVertex(importer, graph, className, id);
 
     if (v != null)
@@ -48,17 +48,15 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
       v.setProperties(properties);
     else {
       // WAIT TO LOCK THE KEY
-      while (!importer.lockVertexCreationByKey(workerThread.getThreadId(), className, id)) {
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {
-          break;
-        }
-      }
+      if (!importer.lockVertexCreationByKey(workerThread, graph, className, id,
+          attempts > importer.getMaxAttemptsToFlushTransaction()))
+        // POSTPONE EXECUTION
+        return false;
 
       v = graph.addTemporaryVertex(className, properties);
       v.getRecord().field(importer.getRegisteredVertexClass(className).getKey(), id);
       v.save(getThreadClusterName(graph, className, sourceClusterIndex));
     }
+    return true;
   }
 }

@@ -28,6 +28,24 @@ import com.tinkerpop.blueprints.impls.orient.OrientVertex;
  * @author Luca Garulli (l.garulli-(at)-orientdb.com)
  */
 public abstract class OAbstractBaseOperation implements OOperation {
+  protected String threadId;
+  protected int    attempts = 0;
+
+  @Override
+  public int incrementAttempts() {
+    return attempts++;
+  }
+
+  @Override
+  public String getThreadId() {
+    return threadId;
+  }
+
+  @Override
+  public void setThreadId(final String threadId) {
+    this.threadId = threadId;
+  }
+
   protected OrientVertex lookupVertex(final OGraphImporter importer, final OrientBaseGraph graph, final String vertexClassName,
       final Object id) {
     final OIdentifiable record = (OIdentifiable) importer.getVertexIndex(graph, vertexClassName).get(id);

@@ -39,6 +39,7 @@ import com.tinkerpop.blueprints.impls.orient.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -74,6 +75,7 @@ public class OGraphImporter {
 
   private Map<String, ConcurrentHashMap<Object, String>> pendingVertexCreation  = new HashMap<String, ConcurrentHashMap<Object, String>>();
   private TimerTask                                      progressTask;
+  private TimerTask                                      postponeTask;
   private int                                            verboseLevel           = 1;
   private AtomicLong                                     conflicts              = new AtomicLong(0);
   private long                                           lastTotalVertices      = 0;
@@ -84,6 +86,10 @@ public class OGraphImporter {
   private int                                            totalEstimatedEdges    = -1;
   private long                                           dumpStatsEvery         = 2000;
   private boolean                                        lightweightEdges       = false;
+  private int                                            backPressureThreshold  = 100;
+
+  private final ConcurrentLinkedQueue<OOperation>        postponeExecution      = new ConcurrentLinkedQueue<OOperation>();
+  private int                                            maxAttemptsToFlushTransaction;
 
   /**
    * Creates a new batch insert procedure by using admin user. It's intended to be used only for a single batch cycle (begin,
@@ -199,10 +205,40 @@ public class OGraphImporter {
       Orient.instance().scheduleTask(progressTask, dumpStatsEvery, dumpStatsEvery);
     }
 
+    postponeTask = new TimerTask() {
+      @Override
+      public void run() {
+        executePostponedOperations(-1);
+      }
+    };
+
+    Orient.instance().scheduleTask(postponeTask, 5000, 5000);
+
     if (verboseLevel > 0)
       System.out.println("GRAPH IMPORTER STARTED on " + new Date());
 
     startTime = System.currentTimeMillis();
+  }
+
+  protected boolean executePostponedOperations(final int maxOperations) {
+    for (int i = 0; i < maxOperations; ++i) {
+      OOperation operation = null;
+      try {
+        operation = postponeExecution.poll();
+        if (operation == null)
+          // QUEUE EMPTY, WAIT FOR THE NEXT RUN
+          return false;
+
+        // TRY TO RE-EXECUTE THE OPERATION
+        getThread(operation.getThreadId()).sendOperation(operation);
+
+      } catch (Throwable t) {
+        if (operation != null)
+          // FOR ANY ERROR, POSTPONE THE OPERATION AGAIN
+          postponeExecution.offer(operation);
+      }
+    }
+    return true;
   }
 
   /**
@@ -263,6 +299,8 @@ public class OGraphImporter {
 
     // MERGE THE EXISTENT VERTEX ON ITS QUEUE/THREAD
     getThread(baseGraph, className, id).sendOperation(new OCreateVertexOperation(className, id, properties));
+
+    checkForBackPressure();
   }
 
   /**
@@ -295,6 +333,8 @@ public class OGraphImporter {
     getThread(baseGraph, sourceVertexClassName, sourceVertexId, destinationVertexClassName, destinationVertexId, edgeClassName)
         .sendOperation(new OCreateEdgeOperation(edgeClassName, sourceVertexClassName, sourceVertexId, destinationVertexClassName,
             destinationVertexId, properties));
+
+    checkForBackPressure();
   }
 
   /**
@@ -387,6 +427,14 @@ public class OGraphImporter {
     this.verboseLevel = verboseLevel;
   }
 
+  public void setMaxAttemptsToFlushTransaction(final int maxAttemptsToFlushTransaction) {
+    this.maxAttemptsToFlushTransaction = maxAttemptsToFlushTransaction;
+  }
+
+  public int getMaxAttemptsToFlushTransaction() {
+    return maxAttemptsToFlushTransaction;
+  }
+
   public int getQueueSize() {
     return queueSize;
   }
@@ -435,6 +483,14 @@ public class OGraphImporter {
     this.lightweightEdges = lightweightEdges;
   }
 
+  public int getBackPressureThreshold() {
+    return backPressureThreshold;
+  }
+
+  public void setBackPressureThreshold(final int backPressureThreshold) {
+    this.backPressureThreshold = backPressureThreshold;
+  }
+
   public void addTotalEdges(final long tot) {
     totalEdges.addAndGet(tot);
   }
@@ -468,21 +524,40 @@ public class OGraphImporter {
       locks.get(edge).unlock();
   }
 
-  public boolean lockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
+  public boolean lockVertexCreationByKey(final OImporterWorkerThread worker, final OrientBaseGraph graph, final String vClassName,
+      final Object key, final boolean commitIfBusy) {
     final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
 
-    final String currentLock = lockManager.putIfAbsent(key, workerId);
-    if (currentLock == null || currentLock.equals(workerId)) {
-      if (verboseLevel > 1)
-        OLogManager.instance().info(this, "%s locked %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
-      return true;
+    final String workerId = worker.getThreadId();
+
+    String currentLock = null;
+    while (true) {
+      currentLock = lockManager.putIfAbsent(key, workerId);
+      if (currentLock == null || currentLock.equals(workerId)) {
+        if (verboseLevel > 1)
+          OLogManager.instance().info(this, "%s locked %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
+        return true;
+      }
+
+      conflicts.incrementAndGet();
+
+      if (commitIfBusy) {
+        // ASK TO THE WORKER THREAD THAT IS LOCKING THE KEY TO COMMIT IN ORDER TO RELEASE IT
+        final OCommitOperation syncCommitOperation = new OCommitOperation();
+        getThread(currentLock).sendPriorityOperation(syncCommitOperation);
+
+        // COMMIT LOCAL TX
+        worker.commit(graph);
+
+        // try {
+        // // WAIT A PROPORTIONAL TIME BASE ON THE NUMBER OF LOCKS
+        // Thread.sleep(1 + (lockManager.size() / 10));
+        // } catch (InterruptedException e) {
+        // // IGNORE IT
+        // }
+      } else
+        break;
     }
-
-    conflicts.incrementAndGet();
-
-    // ASK TO THE WORKER THREAD THAT IS LOCKING THE KEY TO COMMIT IN ORDER TO RELEASE IT
-    final OCommitOperation syncCommitOperation = new OCommitOperation();
-    getThread(currentLock).sendPriorityOperation(syncCommitOperation);
 
     if (verboseLevel > 1)
       OLogManager.instance().info(this, "%s cannot lock %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
@@ -498,22 +573,20 @@ public class OGraphImporter {
     lockManager.remove(key);
   }
 
-  public void unlockCreationCurrentThread(final String workerId) {
-    if (verboseLevel > 2)
-      OLogManager.instance().info(this, "%s unlocking all...", workerId);
-
-    for (ConcurrentHashMap<Object, String> lockManager : pendingVertexCreation.values()) {
-      for (Iterator<Map.Entry<Object, String>> it = lockManager.entrySet().iterator(); it.hasNext();) {
-        final Map.Entry<Object, String> entry = it.next();
-        if (entry.getValue().equals(workerId)) {
-          if (verboseLevel > 1)
-            OLogManager.instance().info(this, "- %s unlocking %s...", workerId, entry.getKey());
-          it.remove();
-        }
-      }
+  public void unlockCreationCurrentThread(final String workerId, final String className, final Set<Object> locks) {
+    final ConcurrentHashMap<Object, String> lockMgr = pendingVertexCreation.get(className);
+    for (Object o : locks) {
+      lockMgr.remove(o);
+      if (verboseLevel > 1)
+        OLogManager.instance().info(this, "- %s unlocking %s...", workerId, o);
     }
-    if (verboseLevel > 2)
-      OLogManager.instance().info(this, "%s unlocking done", workerId);
+  }
+
+  /**
+   * Postpones the execution of an operation (because resources are locked)
+   */
+  public void postPoneExecution(final OOperation operation) {
+    postponeExecution.offer(operation);
   }
 
   private void createBaseSchema(final OrientGraphNoTx db) {
@@ -536,7 +609,7 @@ public class OGraphImporter {
 
       OClass cls = schema.getClass(className);
       if (cls == null)
-        cls = schema.createClass(className, 32, v);
+        cls = schema.createClass(className, v);
 
       OProperty prop = cls.getProperty(propertyName);
       if (prop == null) {
@@ -575,7 +648,7 @@ public class OGraphImporter {
       OClass cls = schema.getClass(edgeClass.getKey());
 
       if (cls == null)
-        cls = schema.createClass(edgeClass.getKey(), 32, e);
+        cls = schema.createClass(edgeClass.getKey(), e);
 
       // ASSURE THERE ARE ENOUGH NUMBER OF CLUSTERS, OTHERWISE CREATE THE MISSING ONES
       int[] existingClusters = cls.getClusterIds();
@@ -600,8 +673,10 @@ public class OGraphImporter {
     final OMurmurHash3HashFunction destinationHash;
     if (destinationKeyType.equals(sourceKeyType))
       destinationHash = sourceHash;
-    else
+    else {
       destinationHash = new OMurmurHash3HashFunction();
+      destinationHash.setValueSerializer(new OSimpleKeySerializer(destinationKeyType));
+    }
 
     long destinationValue = destinationHash.hashCode(destinationKey);
     destinationValue = destinationValue == Long.MIN_VALUE ? 0 : abs(destinationValue);
@@ -659,6 +734,11 @@ public class OGraphImporter {
     if (totalEdges == 0 || totalVertices == 0)
       return;
 
+    int recordsLocked = 0;
+    for (ConcurrentHashMap<Object, String> o : pendingVertexCreation.values()) {
+      recordsLocked += o.size();
+    }
+
     String extra = "";
     if (printEstimated) {
       if (totalEstimatedEdges > 0) {
@@ -672,10 +752,11 @@ public class OGraphImporter {
       }
     }
 
-    System.out.print(String.format("\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts=%d retries=%d opsInQueues=%d%s\n",
+    System.out.print(String.format(
+        "\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts=%d retries=%d locks=%d opsInQueues=%d postponed=%d%s\n",
         vertices, totalVertices, (totalVertices - lastTotalVertices) / (dumpStatsEvery / 1000), edges, totalEdges,
-        (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), conflicts.longValue(), getRetries(), getOperationsInQueue(),
-        extra));
+        (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), conflicts.longValue(), getRetries(), recordsLocked,
+        getOperationsInQueue(), postponeExecution.size(), extra));
 
     lastTotalVertices = totalVertices;
     lastTotalEdges = totalEdges;
@@ -695,5 +776,11 @@ public class OGraphImporter {
       total += thread.getRetries();
     }
     return total;
+  }
+
+  private void checkForBackPressure() throws InterruptedException {
+    while (postponeExecution.size() > backPressureThreshold) {
+      executePostponedOperations(backPressureThreshold);
+    }
   }
 }

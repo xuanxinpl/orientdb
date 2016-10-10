@@ -48,63 +48,23 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
-  public void execute(final OGraphImporter importer, final OImporterWorkerThread workerThread, final OrientBaseGraph graph,
+  public boolean execute(final OGraphImporter importer, final OImporterWorkerThread workerThread, final OrientBaseGraph graph,
       final int sourceClusterIndex, final int destinationClusterIndex) {
 
-    OrientVertex sourceVertex = null;
-    OrientVertex destinationVertex = null;
-
-    boolean needReload = false;
-
-    // LOCK IN ORDER TO AVOID DEADLOCKS
-    boolean sourceIsLower;
-    if (sourceVertexClassName.compareTo(destinationVertexClassName) == 0) {
-      sourceIsLower = ((Comparable) sourceVertexId).compareTo(destinationVertexId) <= 0;
-    } else if (sourceVertexClassName.compareTo(destinationVertexClassName) < 0) {
-      sourceIsLower = true;
-    } else {
-      sourceIsLower = false;
-    }
-
-    String[] vertexClassNames = new String[2];
-    Object[] vertexIds = new Object[2];
-
-    if (sourceIsLower) {
-      vertexClassNames[0] = sourceVertexClassName;
-      vertexClassNames[1] = destinationVertexClassName;
-      vertexIds[0] = sourceVertexId;
-      vertexIds[1] = destinationVertexId;
-    } else {
-      vertexClassNames[0] = destinationVertexClassName;
-      vertexClassNames[1] = sourceVertexClassName;
-      vertexIds[0] = destinationVertexId;
-      vertexIds[1] = sourceVertexId;
-    }
-
     // LOCK RESOURCES FIRST
-    while (true) {
-      if (importer.lockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[0], vertexIds[0])) {
-        if (importer.lockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[1], vertexIds[1])) {
-          // BOTH LOCKED
-          break;
-        } else {
-          // UNLOCK SOURCE
-          importer.unlockVertexCreationByKey(workerThread.getThreadId(), vertexClassNames[0], vertexIds[0]);
-        }
-      }
-
-      // CANNOT LOCK: COMMIT PENDING TX TO FREE ALL ACQUIRED LOCKS
-      workerThread.commit(graph);
-      needReload = true;
-
-      try {
-        Thread.sleep(5);
-      } catch (InterruptedException e) {
-        return;
-      }
+    if (!workerThread.lockVertexCreationByKey(graph, sourceVertexClassName, sourceVertexId,
+        attempts > importer.getMaxAttemptsToFlushTransaction()))
+      // POSTPONE EXECUTION
+      return false;
+    else if (!workerThread.lockVertexCreationByKey(graph, destinationVertexClassName, destinationVertexId,
+        attempts > importer.getMaxAttemptsToFlushTransaction())) {
+      // UNLOCK SOURCE FIRST
+      workerThread.unlockVertexCreationByKey(sourceVertexClassName, sourceVertexId);
+      // POSTPONE EXECUTION
+      return false;
     }
 
-    sourceVertex = lookupVertex(importer, graph, sourceVertexClassName, sourceVertexId);
+    OrientVertex sourceVertex = lookupVertex(importer, graph, sourceVertexClassName, sourceVertexId);
     if (sourceVertex == null) {
       // CREATE SOURCE VERTEX
       sourceVertex = graph.addTemporaryVertex(sourceVertexClassName);
@@ -117,17 +77,9 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
       if (importer.getVerboseLevel() > 2)
         OLogManager.instance().info(this, "%s found record %s v%d for source key %s", workerThread.getThreadId(),
             sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
-
-      if (needReload) {
-        sourceVertex.getRecord().reload(null, false);
-
-        if (importer.getVerboseLevel() > 2)
-          OLogManager.instance().info(this, "%s reloaded record %s v%d for source key %s", workerThread.getThreadId(),
-              sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
-      }
     }
 
-    destinationVertex = lookupVertex(importer, graph, destinationVertexClassName, destinationVertexId);
+    OrientVertex destinationVertex = lookupVertex(importer, graph, destinationVertexClassName, destinationVertexId);
     if (destinationVertex == null) {
       // CREATE DESTINATION VERTEX
       destinationVertex = graph.addTemporaryVertex(destinationVertexClassName);
@@ -142,19 +94,13 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
       if (importer.getVerboseLevel() > 2)
         OLogManager.instance().info(this, "%s found record %s v%d for destination key %s", workerThread.getThreadId(),
             destinationVertex.getIdentity(), destinationVertex.getRecord().getVersion(), destinationVertexId);
-
-      if (needReload) {
-        destinationVertex.getRecord().reload(null, false);
-
-        if (importer.getVerboseLevel() > 2)
-          OLogManager.instance().info(this, "%s reloaded record %s v%d for source key %s", workerThread.getThreadId(),
-              sourceVertex.getIdentity(), sourceVertex.getRecord().getVersion(), sourceVertexId);
-      }
     }
 
     sourceVertex.addEdge(null, destinationVertex, edgeClassName, getThreadClusterName(graph, edgeClassName, sourceClusterIndex),
         properties);
 
     workerThread.incrementLocalEdgeCreatedInBatch();
+
+    return true;
   }
 }

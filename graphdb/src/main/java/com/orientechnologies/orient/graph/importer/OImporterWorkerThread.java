@@ -24,9 +24,12 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Worker thread that is run in parallel. There is one working thread per combination ov vertex-edge->vertex.
@@ -43,7 +46,8 @@ public class OImporterWorkerThread extends Thread {
 
   private final ArrayBlockingQueue<OOperation>    queue;
   private final ConcurrentLinkedQueue<OOperation> priorityQueue;
-  private final ArrayList<OOperation>             executedOperationInTx;
+  private final HashSet<OOperation>               executedOperationInTx;
+  private Map<String, HashSet<Object>>            acquiredLocks           = new HashMap<String, HashSet<Object>>();
 
   private long                                    localTotalRetry         = 0;
   private long                                    localOperationCount     = 0;
@@ -55,6 +59,7 @@ public class OImporterWorkerThread extends Thread {
   private String                                  edgeClusterName;
   private String                                  id;
   private boolean                                 retryInProgress         = false;
+  private volatile CountDownLatch                 notifier                = new CountDownLatch(1);
 
   public OImporterWorkerThread(final String id, final OGraphImporter importer, final String sourceClassName,
       final int sourceClusterIndex, final String destinationClassName, final int destinationClusterIndex,
@@ -69,7 +74,7 @@ public class OImporterWorkerThread extends Thread {
     this.edgeClassName = edgeClassName;
     this.queue = new ArrayBlockingQueue<OOperation>(importer.getQueueSize());
     this.priorityQueue = new ConcurrentLinkedQueue<OOperation>();
-    this.executedOperationInTx = new ArrayList<OOperation>(importer.getBatchSize());
+    this.executedOperationInTx = new HashSet<OOperation>(importer.getBatchSize());
   }
 
   public OImporterWorkerThread(final String id, final OGraphImporter importer, final String vertexClassName,
@@ -84,15 +89,20 @@ public class OImporterWorkerThread extends Thread {
     this.edgeClassName = null;
     this.queue = new ArrayBlockingQueue<OOperation>(importer.getQueueSize());
     this.priorityQueue = new ConcurrentLinkedQueue<OOperation>();
-    this.executedOperationInTx = new ArrayList<OOperation>(importer.getBatchSize());
+    this.executedOperationInTx = new HashSet<OOperation>(importer.getBatchSize());
   }
 
   public void sendOperation(final OOperation operation) throws InterruptedException {
+    operation.setThreadId(getThreadId());
     queue.put(operation);
+    notifier.countDown();
+    notifier = new CountDownLatch(1);
   }
 
   public void sendPriorityOperation(final OOperation operation) {
     priorityQueue.offer(operation);
+    notifier.countDown();
+    notifier = new CountDownLatch(1);
   }
 
   @Override
@@ -125,7 +135,7 @@ public class OImporterWorkerThread extends Thread {
             if (operation == null) {
               operation = queue.poll();
               if (operation == null) {
-                Thread.sleep(1);
+                notifier.await();
                 continue;
               }
             }
@@ -138,7 +148,15 @@ public class OImporterWorkerThread extends Thread {
           if (!(operation instanceof OCommitOperation))
             executedOperationInTx.add(operation);
 
-          operation.execute(importer, this, graph, sourceClusterIndex, destinationClusterIndex);
+          operation.incrementAttempts();
+
+          if (!operation.execute(importer, this, graph, sourceClusterIndex, destinationClusterIndex)) {
+            // EXECUTION POSTPONED (BECAUSE RESOURCES ARE LOCKED)
+            executedOperationInTx.remove(operation);
+
+            importer.postPoneExecution(operation);
+            continue;
+          }
 
           if (!(operation instanceof OCommitOperation)) {
             localOperationCount++;
@@ -193,7 +211,7 @@ public class OImporterWorkerThread extends Thread {
       }
 
     } finally {
-      importer.unlockCreationCurrentThread(id);
+      unlockAll();
     }
   }
 
@@ -213,6 +231,29 @@ public class OImporterWorkerThread extends Thread {
     localEdgeCreatedInBatch++;
   }
 
+  public void unlockVertexCreationByKey(final String vClassName, final Object key) {
+    // REMOVE THE LOCK LOCALLY FIRST
+    acquiredLocks.get(vClassName).remove(key);
+
+    importer.unlockVertexCreationByKey(id, vClassName, key);
+  }
+
+  public boolean lockVertexCreationByKey(final OrientBaseGraph graph, final String vClassName, final Object key,
+      final boolean commitIfBusy) {
+    if (importer.lockVertexCreationByKey(this, graph, vClassName, key, commitIfBusy)) {
+      // ADD THE LOCK LOCALLY
+      HashSet<Object> lockMgr = acquiredLocks.get(vClassName);
+      if (lockMgr == null) {
+        lockMgr = new HashSet<Object>();
+        acquiredLocks.put(vClassName, lockMgr);
+      }
+      lockMgr.add(key);
+      return true;
+    }
+
+    return false;
+  }
+
   protected void prepareRedoOperations(final ArrayBlockingQueue<OOperation> operationToReExecute) {
     // TRANSFER THE PENDING OPERATIONS IN THE QUEUE TO BE RE-EXECUTED
     retryInProgress = true;
@@ -220,5 +261,11 @@ public class OImporterWorkerThread extends Thread {
     for (OOperation op : executedOperationInTx)
       operationToReExecute.offer(op);
     executedOperationInTx.clear();
+  }
+
+  private void unlockAll() {
+    for (Map.Entry<String, HashSet<Object>> lockMgr : acquiredLocks.entrySet()) {
+      importer.unlockCreationCurrentThread(id, lockMgr.getKey(), lockMgr.getValue());
+    }
   }
 }
