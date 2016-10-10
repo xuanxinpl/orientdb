@@ -26,6 +26,8 @@ public interface OCursor {
 
   boolean next();
 
+  boolean tombstone();
+
   enum Direction {
     Forward, Reverse
   }

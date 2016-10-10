@@ -22,7 +22,6 @@ package com.orientechnologies.orient.core.index.lsmtree.sebtree;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OBinarySerializer;
-import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.orient.core.index.OAlwaysGreaterKey;
 import com.orientechnologies.orient.core.index.OAlwaysLessKey;
 import com.orientechnologies.orient.core.index.OCompositeKey;
@@ -57,6 +56,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   private static final OAlwaysLessKey    ALWAYS_LESS_KEY    = new OAlwaysLessKey();
   private static final OAlwaysGreaterKey ALWAYS_GREATER_KEY = new OAlwaysGreaterKey();
+
+  private static final Object TOMBSTONE = new Object();
 
   private Mode mode;
 
@@ -261,7 +262,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   @Override
-  public boolean contains(K key) {
+  public Containment contains(K key) {
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
       atomicOperationsManager.acquireReadLock(this);
@@ -291,12 +292,12 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   @Override
-  public V get(K key, OModifiableBoolean found) {
+  public V get(K key, ContainmentValue containment) {
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
-        return get(atomicOperation(), internalKey(key), found);
+        return get(atomicOperation(), internalKey(key), containment);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -371,14 +372,14 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   @Override
   public OKeyValueCursor<K, V> range(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end,
-      OCursor.Direction direction) {
+      OCursor.Direction direction, Tombstones tombstones) {
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
         return new Cursor<>(atomicOperation(), this, true,
             internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
-            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction, tombstones);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -388,15 +389,15 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
   }
 
   @Override
-  public OKeyCursor<K> keyRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end,
-      OCursor.Direction direction) {
+  public OKeyCursor<K> keyRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction,
+      Tombstones tombstones) {
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
         return new Cursor<>(atomicOperation(), this, false,
             internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
-            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction, tombstones);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -407,14 +408,14 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
 
   @Override
   public OValueCursor<V> valueRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end,
-      OCursor.Direction direction) {
+      OCursor.Direction direction, Tombstones tombstones) {
     final OSessionStoragePerformanceStatistic statistic = start();
     try {
       atomicOperationsManager.acquireReadLock(this);
       try {
         return new Cursor<>(atomicOperation(), this, true,
             internalRangeKey(beginningKey, true, beginning == OCursor.Beginning.Inclusive),
-            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction);
+            internalRangeKey(endKey, false, end == OCursor.End.Inclusive), beginning, end, direction, tombstones);
       } finally {
         atomicOperationsManager.releaseReadLock(this);
       }
@@ -1274,7 +1275,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     return -1;
   }
 
-  private boolean contains(OAtomicOperation atomicOperation, K key) {
+  private Containment contains(OAtomicOperation atomicOperation, K key) {
     final boolean nullKey = key == null;
     if (nullKey)
       checkNullKeyAllowed();
@@ -1286,7 +1287,8 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
         final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
         final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
-        return keyFound && !leaf.isTombstoneRecord(keyIndex);
+
+        return calculateContainment(keyFound, leaf.isTombstoneRecord(keyIndex));
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -1316,7 +1318,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
   }
 
-  private V get(OAtomicOperation atomicOperation, K key, OModifiableBoolean found) {
+  private V get(OAtomicOperation atomicOperation, K key, ContainmentValue containment) {
     final boolean nullKey = key == null;
     if (nullKey)
       checkNullKeyAllowed();
@@ -1328,9 +1330,9 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       try {
         final int keyIndex = nullKey ? 0 : leaf.indexOf(key);
         final boolean keyFound = nullKey ? leaf.getSize() == 1 : keyIndex >= 0;
-        final boolean visible = keyFound && !leaf.isTombstoneRecord(keyIndex);
-        found.setValue(visible);
-        return visible ? leaf.valueAt(keyIndex) : null;
+        final boolean tombstone = leaf.isTombstoneRecord(keyIndex);
+        containment.setValue(calculateContainment(keyFound, tombstone));
+        return keyFound && !tombstone ? leaf.valueAt(keyIndex) : null;
       } finally {
         releaseNode(atomicOperation, leaf.endRead());
       }
@@ -2017,6 +2019,13 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     return mode != Mode.Standalone;
   }
 
+  private Containment calculateContainment(boolean found, boolean tombstone) {
+    if (found)
+      return tombstone ? Containment.Tombstone : Containment.Contains;
+    else
+      return Containment.Absent;
+  }
+
   private void dump(OSebTreeNode<K, V> node, int level) throws IOException {
     node.dump(level);
 
@@ -2090,6 +2099,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     private final Beginning      beginning;
     private final End            end;
     private final Direction      direction;
+    private final Tombstones     tombstones;
 
     private long leafPointer;
     private int  recordIndex;
@@ -2099,7 +2109,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     private V value;
 
     public Cursor(OAtomicOperation atomicOperation, OSebTree<K, V> tree, boolean fetchValues, K beginningKey, K endKey,
-        OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction) {
+        OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction, Tombstones tombstones) {
 
       this.tree = tree;
       this.fetchValues = fetchValues;
@@ -2108,6 +2118,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       this.beginning = direction == Direction.Forward ? beginning : Beginning.values()[end.ordinal()];
       this.end = direction == Direction.Forward ? end : End.values()[beginning.ordinal()];
       this.direction = direction;
+      this.tombstones = tombstones;
 
       initialize(atomicOperation);
     }
@@ -2128,6 +2139,11 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     }
 
     @Override
+    public boolean tombstone() {
+      return value == TOMBSTONE;
+    }
+
+    @Override
     public K key() {
       assert hasRecord;
       return key;
@@ -2136,6 +2152,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
     @Override
     public V value() {
       assert hasRecord;
+      assert !tombstone();
       return value;
     }
 
@@ -2172,6 +2189,7 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
       }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean next(OAtomicOperation atomicOperation) {
       try {
         hasRecord = false;
@@ -2204,12 +2222,14 @@ public class OSebTree<K, V> extends ODurableComponent implements OTree<K, V> {
                 }
 
                 final boolean tombstone = leaf.isTombstoneRecord(recordIndex);
-                if (fetchValues && !tombstone)
+                if (tombstone)
+                  value = (V) TOMBSTONE;
+                else if (fetchValues)
                   value = leaf.valueAt(recordIndex);
 
                 recordIndex += direction == Direction.Forward ? +1 : -1;
 
-                if (tombstone) {
+                if (tombstone && tombstones == Tombstones.Exclude) {
                   if (recordIndex < 0 || recordIndex >= size) {
                     leafPointer = direction == Direction.Forward ? leaf.getRightSibling() : leaf.getLeftSibling();
                     recordIndex = direction == Direction.Forward ? 0 : Integer.MAX_VALUE;

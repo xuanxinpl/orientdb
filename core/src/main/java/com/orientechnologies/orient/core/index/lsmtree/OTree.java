@@ -19,8 +19,6 @@
 
 package com.orientechnologies.orient.core.index.lsmtree;
 
-import com.orientechnologies.common.types.OModifiableBoolean;
-
 /**
  * @author Sergey Sitnikov
  */
@@ -28,11 +26,11 @@ public interface OTree<K, V> {
 
   long size();
 
-  boolean contains(K key);
+  Containment contains(K key);
 
   V get(K key);
 
-  V get(K key, OModifiableBoolean found);
+  V get(K key, ContainmentValue containment);
 
   boolean put(K key, V value);
 
@@ -42,10 +40,38 @@ public interface OTree<K, V> {
 
   K lastKey();
 
-  OKeyValueCursor<K, V> range(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction);
+  OKeyValueCursor<K, V> range(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction,
+      Tombstones tombstones);
 
-  OKeyCursor<K> keyRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction);
+  OKeyCursor<K> keyRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction,
+      Tombstones tombstones);
 
-  OValueCursor<V> valueRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction);
+  OValueCursor<V> valueRange(K beginningKey, K endKey, OCursor.Beginning beginning, OCursor.End end, OCursor.Direction direction,
+      Tombstones tombstones);
+
+  enum Tombstones {
+    Exclude, Include
+  }
+
+  enum Containment {
+    Contains, Tombstone, Absent
+  }
+
+  class ContainmentValue {
+    private Containment value = null;
+
+    public Containment value() {
+      assert value != null;
+      return value;
+    }
+
+    public void setValue(Containment value) {
+      this.value = value;
+    }
+
+    public void reset() {
+      this.value = null;
+    }
+  }
 
 }
