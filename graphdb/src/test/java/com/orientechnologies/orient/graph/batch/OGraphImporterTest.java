@@ -32,10 +32,10 @@ public class OGraphImporterTest extends TestCase {
     batch.setTotalEstimatedEdges(22507155);
     batch.setLightweightEdges(false);
 
-    batch.setParallel(2);
-    batch.setBatchSize(50);
+    batch.setParallel(4);
+    batch.setBatchSize(150);
     batch.setQueueSize(2000);
-    batch.setMaxAttemptsToFlushTransaction(2);
+    batch.setMaxAttemptsToFlushTransaction(5);
     batch.setBackPressureThreshold(1000);
 
     batch.registerVertexClass("User", "id", OType.STRING);
