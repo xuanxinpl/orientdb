@@ -109,7 +109,7 @@ public class OClusterHealthChecker extends TimerTask {
     for (String dbName : manager.getMessageService().getDatabases()) {
       final ODistributedServerManager.DB_STATUS localNodeStatus = manager.getDatabaseStatus(manager.getLocalNodeName(), dbName);
       if (localNodeStatus != ODistributedServerManager.DB_STATUS.NOT_AVAILABLE)
-        // ONLY OFFLINE NODE/DB CAN BE RECOVERED
+        // ONLY NOT_AVAILABLE NODE/DB CAN BE RECOVERED
         continue;
 
       final List<String> servers = manager.getOnlineNodes(dbName);
@@ -186,10 +186,10 @@ public class OClusterHealthChecker extends TimerTask {
 
     if (OGlobalConfiguration.DISTRIBUTED_CHECK_HEALTH_CAN_OFFLINE_SERVER.getValueAsBoolean()) {
       ODistributedServerLog.warn(this, manager.getLocalNodeName(), server, ODistributedServerLog.DIRECTION.OUT,
-          "Server '%s' did not respond to the heartbeat message (db=%s, timeout=%dms). Setting the database as OFFLINE", server,
+          "Server '%s' did not respond to the heartbeat message (db=%s, timeout=%dms). Setting the database as NOT_AVAILABLE", server,
           dbName, OGlobalConfiguration.DISTRIBUTED_HEARTBEAT_TIMEOUT.getValueAsLong());
 
-      manager.setDatabaseStatus(server, dbName, ODistributedServerManager.DB_STATUS.OFFLINE);
+      manager.setDatabaseStatus(server, dbName, ODistributedServerManager.DB_STATUS.NOT_AVAILABLE);
 
     } else {
 

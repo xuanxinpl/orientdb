@@ -1,12 +1,14 @@
 package com.orientechnologies.orient.server.distributed;
 
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.junit.Assert;
+import org.junit.Test;
+
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
-import org.junit.Assert;
-
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 /*
  *
@@ -40,7 +42,7 @@ public class HaRemoveServerTest extends AbstractServerClusterTest {
     return "HaRemoveServerTest";
   }
 
-//  @Test
+  @Test
   public void test() throws Exception {
     init(SERVERS);
     prepare(false);
@@ -94,7 +96,7 @@ public class HaRemoveServerTest extends AbstractServerClusterTest {
 
       latch.await(10000, TimeUnit.MILLISECONDS);
 
-      Assert.assertEquals(ODistributedServerManager.DB_STATUS.NOT_AVAILABLE, ref.get());
+      Assert.assertEquals(ODistributedServerManager.DB_STATUS.OFFLINE, ref.get());
     } catch (InterruptedException e) {
       Assert.fail();
     } catch (ExecutionException e) {

@@ -73,7 +73,7 @@ public enum OGlobalConfiguration {
       Boolean.class, true),
 
   DIRECT_MEMORY_TRACK_MODE("memory.directMemory.trackMode",
-      "Activates the direct memory pool leak detector. This detector causes a large overhead and should be used for debugging "
+      "Activates the direct memory pool [leak detector](Leak-Detector.md). This detector causes a large overhead and should be used for debugging "
           + "purposes only. It's also a good idea to pass the "
           + "-Djava.util.logging.manager=com.orientechnologies.common.log.OLogManager$DebugLogManager switch to the JVM, "
           + "if you use this mode, this will enable the logging from JVM shutdown hooks.", Boolean.class, false),
@@ -747,7 +747,7 @@ public enum OGlobalConfiguration {
    * @Since 2.1.3
    */
   @OApi(maturity = OApi.MATURITY.NEW)DISTRIBUTED_BACKUP_DIRECTORY("distributed.backupDirectory",
-      "Directory where the copy of an existent database is saved, before it is downloaded from the cluster", String.class,
+      "Directory where the copy of an existent database is saved, before it is downloaded from the cluster. Leave it empty to avoid the backup.", String.class,
       "../backup/databases"),
 
   /**

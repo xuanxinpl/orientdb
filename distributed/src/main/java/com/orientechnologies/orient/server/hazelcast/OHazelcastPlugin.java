@@ -1079,7 +1079,7 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin implements Memb
     }
   }
 
-  private void invokeOnDatabaseStatusChange(String iNode, String iDatabaseName, DB_STATUS iStatus) {
+  private void invokeOnDatabaseStatusChange(final String iNode, final String iDatabaseName, final DB_STATUS iStatus) {
     // NOTIFY DB/NODE IS CHANGING STATUS
     for (ODistributedLifecycleListener l : listeners) {
       try {
@@ -1159,8 +1159,8 @@ public class OHazelcastPlugin extends ODistributedAbstractPlugin implements Memb
       // SERVER REMOVED CORRECTLY
       updateCachedDatabaseConfiguration(databaseName, cfg.getDocument(), true, true);
 
-    setDatabaseStatus(nodeLeftName, databaseName, DB_STATUS.NOT_AVAILABLE);
-    // configurationMap.put(CONFIG_DBSTATUS_PREFIX + nodeLeftName + "." + databaseName, DB_STATUS.NOT_AVAILABLE);
+    setDatabaseStatus(nodeLeftName, databaseName, DB_STATUS.OFFLINE);
+    // configurationMap.put(CONFIG_DBSTATUS_PREFIX + nodeLeftName + "." + databaseName, DB_STATUS.OFFLINE);
 
     return found;
   }
