@@ -21,6 +21,7 @@ package com.orientechnologies.orient.graph.importer;
 
 import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.log.OLogManager;
+import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
@@ -121,6 +122,8 @@ public class OImporterWorkerThread extends Thread {
       final int batchSize = importer.getBatchSize();
 
       final ArrayBlockingQueue<OOperation> operationToReExecute = new ArrayBlockingQueue<OOperation>(importer.getBatchSize());
+
+      graph.declareIntent(new OIntentMassiveInsert());
 
       while (true) {
         try {

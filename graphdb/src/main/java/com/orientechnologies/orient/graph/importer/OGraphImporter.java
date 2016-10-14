@@ -636,6 +636,8 @@ public class OGraphImporter {
       if (cls == null)
         cls = schema.createClass(className, v);
 
+      cls.setOverSize(1.2f);
+
       OProperty prop = cls.getProperty(propertyName);
       if (prop == null) {
         prop = cls.createProperty(propertyName, propertyValue);
