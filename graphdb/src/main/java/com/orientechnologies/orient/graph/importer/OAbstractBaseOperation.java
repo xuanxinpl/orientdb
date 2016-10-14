@@ -32,6 +32,11 @@ public abstract class OAbstractBaseOperation implements OOperation {
   protected int    attempts = 0;
 
   @Override
+  public int getAttempts() {
+    return attempts;
+  }
+
+  @Override
   public int incrementAttempts() {
     return attempts++;
   }
@@ -44,6 +49,11 @@ public abstract class OAbstractBaseOperation implements OOperation {
   @Override
   public void setThreadId(final String threadId) {
     this.threadId = threadId;
+  }
+
+  @Override
+  public boolean checkForExecution(final OGraphImporter importer) {
+    return true;
   }
 
   protected OrientVertex lookupVertex(final OGraphImporter importer, final OrientBaseGraph graph, final String vertexClassName,

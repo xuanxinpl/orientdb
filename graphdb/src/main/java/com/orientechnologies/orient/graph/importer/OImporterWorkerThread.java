@@ -92,11 +92,17 @@ public class OImporterWorkerThread extends Thread {
     this.executedOperationInTx = new HashSet<OOperation>(importer.getBatchSize());
   }
 
-  public void sendOperation(final OOperation operation) throws InterruptedException {
+  public boolean sendOperation(final OOperation operation, final boolean wait) throws InterruptedException {
     operation.setThreadId(getThreadId());
-    queue.put(operation);
+    if (wait)
+      queue.put(operation);
+    else if (!queue.offer(operation))
+      return false;
+
     notifier.countDown();
     notifier = new CountDownLatch(1);
+
+    return true;
   }
 
   public void sendPriorityOperation(final OOperation operation) {
@@ -135,6 +141,8 @@ public class OImporterWorkerThread extends Thread {
             if (operation == null) {
               operation = queue.poll();
               if (operation == null) {
+                // NO MORE MESSAGES COMMIT THE TRANSACTION SO FAR
+                commit(graph);
                 notifier.await();
                 continue;
               }
@@ -233,16 +241,22 @@ public class OImporterWorkerThread extends Thread {
 
   public void unlockVertexCreationByKey(final String vClassName, final Object key) {
     // REMOVE THE LOCK LOCALLY FIRST
-    acquiredLocks.get(vClassName).remove(key);
+    assert acquiredLocks.get(vClassName).contains(key);
 
-    importer.unlockVertexCreationByKey(id, vClassName, key);
+    if (acquiredLocks.get(vClassName).remove(key)) {
+      importer.unlockVertexCreationByKey(id, vClassName, key);
+    }
   }
 
   public boolean lockVertexCreationByKey(final OrientBaseGraph graph, final String vClassName, final Object key,
-      final boolean commitIfBusy) {
-    if (importer.lockVertexCreationByKey(this, graph, vClassName, key, commitIfBusy)) {
+      final boolean forceCommit) {
+    HashSet<Object> lockMgr = acquiredLocks.get(vClassName);
+
+    if (lockMgr != null && lockMgr.contains(key))
+      return true;
+
+    if (importer.lockVertexCreationByKey(this, graph, vClassName, key, forceCommit)) {
       // ADD THE LOCK LOCALLY
-      HashSet<Object> lockMgr = acquiredLocks.get(vClassName);
       if (lockMgr == null) {
         lockMgr = new HashSet<Object>();
         acquiredLocks.put(vClassName, lockMgr);
@@ -265,7 +279,9 @@ public class OImporterWorkerThread extends Thread {
 
   private void unlockAll() {
     for (Map.Entry<String, HashSet<Object>> lockMgr : acquiredLocks.entrySet()) {
-      importer.unlockCreationCurrentThread(id, lockMgr.getKey(), lockMgr.getValue());
+      final HashSet<Object> locks = lockMgr.getValue();
+      importer.unlockCreationCurrentThread(id, lockMgr.getKey(), locks);
+      locks.clear();
     }
   }
 }

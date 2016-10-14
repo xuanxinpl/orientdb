@@ -21,7 +21,6 @@ package com.orientechnologies.orient.graph.importer;
 
 import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.listener.OProgressListener;
-import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.common.util.OTriple;
 import com.orientechnologies.orient.core.Orient;
@@ -78,8 +77,7 @@ public class OGraphImporter {
   private TimerTask                                      postponeTask;
   private int                                            verboseLevel           = 1;
   private AtomicLong                                     conflicts              = new AtomicLong(0);
-  private long                                           lastTotalVertices      = 0;
-  private long                                           lastTotalEdges         = 0;
+  private AtomicLong                                     forcedCommits          = new AtomicLong(0);
   private AtomicLong                                     totalEdges             = new AtomicLong(0);
   private long                                           startTime;
   private int                                            totalEstimatedVertices = -1;
@@ -90,6 +88,16 @@ public class OGraphImporter {
 
   private final ConcurrentLinkedQueue<OOperation>        postponeExecution      = new ConcurrentLinkedQueue<OOperation>();
   private int                                            maxAttemptsToFlushTransaction;
+
+  private long                                           lastTotalVertices      = 0;
+  private long                                           lastTotalEdges         = 0;
+  private long                                           lastConflicts          = 0;
+  private long                                           lastForcedCommits      = 0;
+  private long                                           lastRetries            = 0;
+  private long                                           lastRecordsLocked      = 0;
+  private long                                           lastLocks              = 0;
+  private long                                           lastOpsInQueues        = 0;
+  private long                                           lastPostponed          = 0;
 
   /**
    * Creates a new batch insert procedure by using admin user. It's intended to be used only for a single batch cycle (begin,
@@ -206,10 +214,12 @@ public class OGraphImporter {
     }
 
     postponeTask = new TimerTask() {
+
       @Override
       public void run() {
         executePostponedOperations(-1);
       }
+
     };
 
     Orient.instance().scheduleTask(postponeTask, 5000, 5000);
@@ -229,8 +239,14 @@ public class OGraphImporter {
           // QUEUE EMPTY, WAIT FOR THE NEXT RUN
           return false;
 
+        if (!operation.checkForExecution(this))
+          // SKIP IT, POSTPONE THE OPERATION AGAIN
+          postponeExecution.offer(operation);
+        else
         // TRY TO RE-EXECUTE THE OPERATION
-        getThread(operation.getThreadId()).sendOperation(operation);
+        if (!getThread(operation.getThreadId()).sendOperation(operation, false))
+          // QUEUE FULL: RESCHEDULE IT
+          postponeExecution.offer(operation);
 
       } catch (Throwable t) {
         if (operation != null)
@@ -248,7 +264,7 @@ public class OGraphImporter {
     // SEND END MESSAGE TO THE WORKER THREADS
     for (OImporterWorkerThread t : threads.values()) {
       try {
-        t.sendOperation(new OEndOperation());
+        t.sendOperation(new OEndOperation(), true);
       } catch (InterruptedException e) {
         // IGNORE IT
       }
@@ -298,7 +314,7 @@ public class OGraphImporter {
           + "' because it has not been declared at first, by calling registerVertexClass() method");
 
     // MERGE THE EXISTENT VERTEX ON ITS QUEUE/THREAD
-    getThread(baseGraph, className, id).sendOperation(new OCreateVertexOperation(className, id, properties));
+    getThread(baseGraph, className, id).sendOperation(new OCreateVertexOperation(className, id, properties), true);
 
     checkForBackPressure();
   }
@@ -332,7 +348,7 @@ public class OGraphImporter {
 
     getThread(baseGraph, sourceVertexClassName, sourceVertexId, destinationVertexClassName, destinationVertexId, edgeClassName)
         .sendOperation(new OCreateEdgeOperation(edgeClassName, sourceVertexClassName, sourceVertexId, destinationVertexClassName,
-            destinationVertexId, properties));
+            destinationVertexId, properties), true);
 
     checkForBackPressure();
   }
@@ -524,8 +540,12 @@ public class OGraphImporter {
       locks.get(edge).unlock();
   }
 
+  public boolean isVertexLocked(final String className, final Object id) {
+    return pendingVertexCreation.get(className).containsKey(id);
+  }
+
   public boolean lockVertexCreationByKey(final OImporterWorkerThread worker, final OrientBaseGraph graph, final String vClassName,
-      final Object key, final boolean commitIfBusy) {
+      final Object key, final boolean forceCommit) {
     final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
 
     final String workerId = worker.getThreadId();
@@ -535,13 +555,17 @@ public class OGraphImporter {
       currentLock = lockManager.putIfAbsent(key, workerId);
       if (currentLock == null || currentLock.equals(workerId)) {
         if (verboseLevel > 1)
-          OLogManager.instance().info(this, "%s locked %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
+          System.out.printf("\n%s locked %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
         return true;
       }
 
-      conflicts.incrementAndGet();
+      if (verboseLevel > 1)
+        System.out.printf("\n%s key %s.%s is already locked, force commit (currentLock=%s)", workerId, vClassName, key,
+            currentLock);
 
-      if (commitIfBusy) {
+      if (forceCommit) {
+        forcedCommits.incrementAndGet();
+
         // ASK TO THE WORKER THREAD THAT IS LOCKING THE KEY TO COMMIT IN ORDER TO RELEASE IT
         final OCommitOperation syncCommitOperation = new OCommitOperation();
         getThread(currentLock).sendPriorityOperation(syncCommitOperation);
@@ -549,25 +573,21 @@ public class OGraphImporter {
         // COMMIT LOCAL TX
         worker.commit(graph);
 
-        // try {
-        // // WAIT A PROPORTIONAL TIME BASE ON THE NUMBER OF LOCKS
-        // Thread.sleep(1 + (lockManager.size() / 10));
-        // } catch (InterruptedException e) {
-        // // IGNORE IT
-        // }
-      } else
+      } else {
+        conflicts.incrementAndGet();
         break;
+      }
     }
 
     if (verboseLevel > 1)
-      OLogManager.instance().info(this, "%s cannot lock %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
+      System.out.printf("\n%s cannot lock %s.%s (currentLock=%s)", workerId, vClassName, key, currentLock);
 
     return false;
   }
 
   public void unlockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
     if (verboseLevel > 1)
-      OLogManager.instance().info(this, "%s unlocking %s.%s...", workerId, vClassName, key);
+      System.out.printf("\n%s unlocking %s.%s...", workerId, vClassName, key);
 
     final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
     lockManager.remove(key);
@@ -578,7 +598,7 @@ public class OGraphImporter {
     for (Object o : locks) {
       lockMgr.remove(o);
       if (verboseLevel > 1)
-        OLogManager.instance().info(this, "- %s unlocking %s...", workerId, o);
+        System.out.printf("\n- %s unlocking %s.%s...", workerId, className, o);
     }
   }
 
@@ -628,10 +648,14 @@ public class OGraphImporter {
         }
       }
 
-      if (index == null)
+      if (index == null) {
         // CREATE THE INDEX
         index = cls.createIndex(className + "." + propertyName, OClass.INDEX_TYPE.UNIQUE.toString(), (OProgressListener) null,
             (ODocument) null, "AUTOSHARDING", new String[] { propertyName });
+        // ODocument metadata = new ODocument().field("partitions", parallel);
+        // index = db.getRawGraph().getMetadata().getIndexManager().createIndex(className + "." + propertyName, "UNIQUE",
+        // new OSimpleKeyIndexDefinition(-1, OType.STRING), new int[0], null, metadata, "AUTOSHARDING");
+      }
 
       // REGISTER THE INDEX
       vertexIndexNames.put(className, index.getName());
@@ -706,28 +730,28 @@ public class OGraphImporter {
     baseGraph.makeActive();
 
     long totalVertices = 0l;
-    final StringBuilder vertices = new StringBuilder();
+    final StringBuilder totalVerticesReport = new StringBuilder();
     for (String cls : vertexClassesUsed.keySet()) {
-      if (vertices.length() > 0)
-        vertices.append(",");
+      if (totalVerticesReport.length() > 0)
+        totalVerticesReport.append(",");
       final long count = baseGraph.countVertices(cls);
       totalVertices += count;
-      vertices.append(String.format("%s:%d", cls, count));
+      totalVerticesReport.append(String.format("%s:%d", cls, count));
     }
 
     long totalEdges = 0l;
-    final StringBuilder edges = new StringBuilder();
+    final StringBuilder totalEdgesReport = new StringBuilder();
     if (lightweightEdges) {
       totalEdges = this.totalEdges.get();
-      edges.append('?');
+      totalEdgesReport.append('?');
     } else {
       for (OTriple<String, String, String> entry : edgeClassesUsed) {
-        if (edges.length() > 0)
-          edges.append(",");
+        if (totalEdgesReport.length() > 0)
+          totalEdgesReport.append(",");
 
         final long count = baseGraph.countEdges(entry.getKey());
         totalEdges += count;
-        edges.append(String.format("%s:%d", entry.getKey(), count));
+        totalEdgesReport.append(String.format("%s:%d", entry.getKey(), count));
       }
     }
 
@@ -752,14 +776,32 @@ public class OGraphImporter {
       }
     }
 
+    final long currentConflicts = conflicts.get();
+    final long currentForcedCommits = forcedCommits.get();
+    final long currentRetries = getRetries();
+    final long currentOperationsInQueue = getOperationsInQueue();
+    final long currentPostponedOperations = postponeExecution.size();
+
+    System.out
+        .print(String.format("VERTICES +%d EDGES +%d confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d\n",
+            totalVertices - lastTotalVertices, totalEdges - lastTotalEdges, currentConflicts - lastConflicts,
+            (currentForcedCommits - lastForcedCommits), currentRetries - lastRetries, recordsLocked - lastRecordsLocked,
+            currentOperationsInQueue - lastOpsInQueues, currentPostponedOperations - lastPostponed));
+
     System.out.print(String.format(
-        "\rVERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) conflicts=%d retries=%d locks=%d opsInQueues=%d postponed=%d%s\n",
-        vertices, totalVertices, (totalVertices - lastTotalVertices) / (dumpStatsEvery / 1000), edges, totalEdges,
-        (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), conflicts.longValue(), getRetries(), recordsLocked,
-        getOperationsInQueue(), postponeExecution.size(), extra));
+        "VERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d%s\n\n",
+        totalVerticesReport, totalVertices, (totalVertices - lastTotalVertices) / (dumpStatsEvery / 1000), totalEdgesReport,
+        totalEdges, (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), currentConflicts, forcedCommits.get(), getRetries(),
+        recordsLocked, getOperationsInQueue(), postponeExecution.size(), extra));
 
     lastTotalVertices = totalVertices;
     lastTotalEdges = totalEdges;
+    lastConflicts = currentConflicts;
+    lastForcedCommits = currentForcedCommits;
+    lastRetries = currentRetries;
+    lastRecordsLocked = recordsLocked;
+    lastOpsInQueues = currentOperationsInQueue;
+    lastPostponed = currentPostponedOperations;
   }
 
   private long getOperationsInQueue() {

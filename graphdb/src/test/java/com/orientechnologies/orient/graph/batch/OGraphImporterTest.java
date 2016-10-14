@@ -20,7 +20,7 @@ import java.util.Map;
 public class OGraphImporterTest extends TestCase {
 
   @Test
-  public void test1() throws IOException, InterruptedException {
+  public void testImport() throws IOException, InterruptedException {
     // String dbUrl = "memory:amazonReviews";
     String dbUrl = "plocal:/temp/databases/amazonReviews";
 
@@ -32,11 +32,12 @@ public class OGraphImporterTest extends TestCase {
     batch.setTotalEstimatedEdges(22507155);
     batch.setLightweightEdges(false);
 
+    batch.setVerboseLevel(1);
     batch.setParallel(4);
     batch.setBatchSize(150);
     batch.setQueueSize(2000);
-    batch.setMaxAttemptsToFlushTransaction(5);
-    batch.setBackPressureThreshold(1000);
+    batch.setMaxAttemptsToFlushTransaction(10);
+    batch.setBackPressureThreshold(2000);
 
     batch.registerVertexClass("User", "id", OType.STRING);
     batch.registerVertexClass("Product", "id", OType.STRING);

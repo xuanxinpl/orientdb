@@ -30,9 +30,13 @@ public interface OOperation {
   boolean execute(OGraphImporter importer, OImporterWorkerThread workerThread, OrientBaseGraph graph, int threadId,
       int destinationClusterIndex);
 
+  int getAttempts();
+
   int incrementAttempts();
 
   String getThreadId();
 
   void setThreadId(String threadId);
+
+  boolean checkForExecution(final OGraphImporter importer);
 }

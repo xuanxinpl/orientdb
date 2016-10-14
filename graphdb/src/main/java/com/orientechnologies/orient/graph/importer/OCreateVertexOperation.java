@@ -39,6 +39,11 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
+  @Override
+  public boolean checkForExecution(final OGraphImporter importer) {
+    return !importer.isVertexLocked(className, id);
+  }
+
   public boolean execute(final OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph,
       final int sourceClusterIndex, int destinationClusterIndex) {
     OrientVertex v = lookupVertex(importer, graph, className, id);
@@ -48,8 +53,7 @@ public class OCreateVertexOperation extends OAbstractBaseOperation {
       v.setProperties(properties);
     else {
       // WAIT TO LOCK THE KEY
-      if (!importer.lockVertexCreationByKey(workerThread, graph, className, id,
-          attempts > importer.getMaxAttemptsToFlushTransaction()))
+      if (!workerThread.lockVertexCreationByKey(graph, className, id, attempts > importer.getMaxAttemptsToFlushTransaction()))
         // POSTPONE EXECUTION
         return false;
 

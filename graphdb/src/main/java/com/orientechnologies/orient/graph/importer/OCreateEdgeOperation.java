@@ -48,16 +48,23 @@ public class OCreateEdgeOperation extends OAbstractBaseOperation {
     this.properties = properties;
   }
 
+  @Override
+  public boolean checkForExecution(final OGraphImporter importer) {
+    return !importer.isVertexLocked(sourceVertexClassName, sourceVertexId)
+        && !importer.isVertexLocked(destinationVertexClassName, destinationVertexId);
+  }
+
   public boolean execute(final OGraphImporter importer, final OImporterWorkerThread workerThread, final OrientBaseGraph graph,
       final int sourceClusterIndex, final int destinationClusterIndex) {
 
-    // LOCK RESOURCES FIRST
+    // LOCK SOURCE
     if (!workerThread.lockVertexCreationByKey(graph, sourceVertexClassName, sourceVertexId,
         attempts > importer.getMaxAttemptsToFlushTransaction()))
       // POSTPONE EXECUTION
       return false;
-    else if (!workerThread.lockVertexCreationByKey(graph, destinationVertexClassName, destinationVertexId,
-        attempts > importer.getMaxAttemptsToFlushTransaction())) {
+
+    // LOCK DESTINATION. AFTER RETRIES RETURN BECAUSE A FORCE_COMMIT WOULD LOOSE THE LOCK ON SOURCE VERTEX
+    if (!workerThread.lockVertexCreationByKey(graph, destinationVertexClassName, destinationVertexId, false)) {
       // UNLOCK SOURCE FIRST
       workerThread.unlockVertexCreationByKey(sourceVertexClassName, sourceVertexId);
       // POSTPONE EXECUTION
