@@ -24,9 +24,7 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -47,7 +45,6 @@ public class OImporterWorkerThread extends Thread {
   private final ArrayBlockingQueue<OOperation>    queue;
   private final ConcurrentLinkedQueue<OOperation> priorityQueue;
   private final HashSet<OOperation>               executedOperationInTx;
-  private Map<String, HashSet<Object>>            acquiredLocks           = new HashMap<String, HashSet<Object>>();
 
   private long                                    localTotalRetry         = 0;
   private long                                    localOperationCount     = 0;
@@ -240,32 +237,12 @@ public class OImporterWorkerThread extends Thread {
   }
 
   public void unlockVertexCreationByKey(final String vClassName, final Object key) {
-    // REMOVE THE LOCK LOCALLY FIRST
-    assert acquiredLocks.get(vClassName).contains(key);
-
-    if (acquiredLocks.get(vClassName).remove(key)) {
-      importer.unlockVertexCreationByKey(id, vClassName, key);
-    }
+    importer.unlockVertexCreationByKey(id, vClassName, key);
   }
 
   public boolean lockVertexCreationByKey(final OrientBaseGraph graph, final String vClassName, final Object key,
       final boolean forceCommit) {
-    HashSet<Object> lockMgr = acquiredLocks.get(vClassName);
-
-    if (lockMgr != null && lockMgr.contains(key))
-      return true;
-
-    if (importer.lockVertexCreationByKey(this, graph, vClassName, key, forceCommit)) {
-      // ADD THE LOCK LOCALLY
-      if (lockMgr == null) {
-        lockMgr = new HashSet<Object>();
-        acquiredLocks.put(vClassName, lockMgr);
-      }
-      lockMgr.add(key);
-      return true;
-    }
-
-    return false;
+    return importer.lockVertexCreationByKey(this, graph, vClassName, key, forceCommit);
   }
 
   protected void prepareRedoOperations(final ArrayBlockingQueue<OOperation> operationToReExecute) {
@@ -278,10 +255,6 @@ public class OImporterWorkerThread extends Thread {
   }
 
   private void unlockAll() {
-    for (Map.Entry<String, HashSet<Object>> lockMgr : acquiredLocks.entrySet()) {
-      final HashSet<Object> locks = lockMgr.getValue();
-      importer.unlockCreationCurrentThread(id, lockMgr.getKey(), locks);
-      locks.clear();
-    }
+    importer.unlockCreationCurrentThread(id);
   }
 }

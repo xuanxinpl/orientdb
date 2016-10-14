@@ -593,12 +593,17 @@ public class OGraphImporter {
     lockManager.remove(key);
   }
 
-  public void unlockCreationCurrentThread(final String workerId, final String className, final Set<Object> locks) {
-    final ConcurrentHashMap<Object, String> lockMgr = pendingVertexCreation.get(className);
-    for (Object o : locks) {
-      lockMgr.remove(o);
-      if (verboseLevel > 1)
-        System.out.printf("\n- %s unlocking %s.%s...", workerId, className, o);
+  public void unlockCreationCurrentThread(final String workerId) {
+    for (Map.Entry<String, ConcurrentHashMap<Object, String>> vClass : pendingVertexCreation.entrySet()) {
+      final ConcurrentHashMap<Object, String> lockMgr = pendingVertexCreation.get(vClass.getKey());
+      for (Iterator<Map.Entry<Object, String>> it = lockMgr.entrySet().iterator(); it.hasNext();) {
+        final Map.Entry<Object, String> o = it.next();
+        if (o.getValue().equals(workerId)) {
+          it.remove();
+          if (verboseLevel > 1)
+            System.out.printf("\n- %s unlocking %s.%s...", workerId, vClass.getKey(), o);
+        }
+      }
     }
   }
 

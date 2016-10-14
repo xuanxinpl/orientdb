@@ -34,7 +34,7 @@ public class OGraphImporterTest extends TestCase {
 
     batch.setVerboseLevel(1);
     batch.setParallel(4);
-    batch.setBatchSize(150);
+    batch.setBatchSize(10);
     batch.setQueueSize(2000);
     batch.setMaxAttemptsToFlushTransaction(10);
     batch.setBackPressureThreshold(2000);
