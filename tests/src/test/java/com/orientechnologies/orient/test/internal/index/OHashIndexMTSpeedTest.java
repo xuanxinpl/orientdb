@@ -6,6 +6,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.index.OIndex;
 import com.orientechnologies.orient.core.index.OSimpleKeyIndexDefinition;
+import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import junit.framework.TestCase;
@@ -22,7 +23,8 @@ public class OHashIndexMTSpeedTest extends TestCase {
   long                        lastCount        = 0;
 
   private ODatabaseDocumentTx databaseDocumentTx;
-  private int                 concurrencyLevel = 16;
+  private int                 concurrencyLevel = 8;
+  private boolean             useTx            = true;
   private long                total            = 1000000;
 
   @Test
@@ -69,6 +71,7 @@ public class OHashIndexMTSpeedTest extends TestCase {
         public void run() {
           final ODatabaseDocumentTx db = databaseDocumentTx.copy();
           db.activateOnCurrentThread();
+          db.declareIntent(new OIntentMassiveInsert());
 
           long totalPerThread = total / concurrencyLevel;
           if (threadId == concurrencyLevel - 1)
@@ -76,9 +79,19 @@ public class OHashIndexMTSpeedTest extends TestCase {
 
           final OIndex<?> index = db.getMetadata().getIndexManager().getIndex("User.id");
 
+          if (useTx)
+            db.begin();
           for (long k = totalPerThread * threadId; k < totalPerThread * (threadId + 1); ++k) {
+
             index.put(k, new ORecordId(0, k));
+
+            if (useTx && (k - totalPerThread) % 1000 == 0) {
+              db.commit();
+              db.begin();
+            }
           }
+          if (useTx)
+            db.commit();
         }
       };
     }
