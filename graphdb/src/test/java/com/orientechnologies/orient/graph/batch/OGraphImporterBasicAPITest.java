@@ -11,8 +11,6 @@ import com.tinkerpop.blueprints.impls.orient.OrientEdge;
 import com.tinkerpop.blueprints.impls.orient.OrientGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientVertex;
 import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
-import junit.framework.TestCase;
-import org.junit.Test;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,13 +24,12 @@ import java.util.TimerTask;
  * @author Luca Garulli
  */
 
-public class OGraphImporterBasicAPITest extends TestCase {
-  int  row             = 0;
-  long lastVertexCount = 0;
-  long lastEdgeCount   = 0;
+public class OGraphImporterBasicAPITest {
+  static int  row             = 0;
+  static long lastVertexCount = 0;
+  static long lastEdgeCount   = 0;
 
-  @Test
-  public void test1() throws IOException, InterruptedException {
+  public static void main(String[] args) throws IOException, InterruptedException {
     // String dbUrl = "memory:amazonReviews";
     String dbUrl = "plocal:/temp/databases/amazonReviews";
 
