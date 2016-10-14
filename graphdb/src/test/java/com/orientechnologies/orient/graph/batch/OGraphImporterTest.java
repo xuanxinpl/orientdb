@@ -3,8 +3,6 @@ package com.orientechnologies.orient.graph.batch;
 import com.orientechnologies.common.io.OFileUtils;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.graph.importer.OGraphImporter;
-import junit.framework.TestCase;
-import org.junit.Test;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -17,10 +15,9 @@ import java.util.Map;
  * @author Luca Garulli
  */
 
-public class OGraphImporterTest extends TestCase {
+public class OGraphImporterTest {
 
-  @Test
-  public void testImport() throws IOException, InterruptedException {
+  public static void main(String[] args) throws IOException, InterruptedException {
     // String dbUrl = "memory:amazonReviews";
     String dbUrl = "plocal:/temp/databases/amazonReviews";
 
