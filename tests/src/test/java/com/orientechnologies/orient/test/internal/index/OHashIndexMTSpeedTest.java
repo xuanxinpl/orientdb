@@ -2,6 +2,7 @@ package com.orientechnologies.orient.test.internal.index;
 
 import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.orient.core.Orient;
+import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.index.OIndex;
@@ -9,8 +10,6 @@ import com.orientechnologies.orient.core.index.OSimpleKeyIndexDefinition;
 import com.orientechnologies.orient.core.intent.OIntentMassiveInsert;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import junit.framework.TestCase;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.util.TimerTask;
@@ -19,16 +18,17 @@ import java.util.TimerTask;
  * @author Luca Garulli
  */
 
-public class OHashIndexMTSpeedTest extends TestCase {
-  long                        lastCount        = 0;
+public class OHashIndexMTSpeedTest {
+  private static long                lastCount        = 0;
 
-  private ODatabaseDocumentTx databaseDocumentTx;
-  private int                 concurrencyLevel = 8;
-  private boolean             useTx            = true;
-  private long                total            = 1000000;
+  private static ODatabaseDocumentTx databaseDocumentTx;
+  private static int                 concurrencyLevel = 8;
+  private static boolean             useTx            = true;
+  private static long                total            = 1000000;
 
-  @Test
-  public void test1() throws IOException, InterruptedException {
+  public static void main(String[] args) throws IOException, InterruptedException {
+    OGlobalConfiguration.ENVIRONMENT_LOCK_MANAGER_CONCURRENCY_LEVEL.setValue(64);
+
     String buildDirectory = System.getProperty("buildDirectory", ".");
     if (buildDirectory == null)
       buildDirectory = ".";
@@ -42,7 +42,7 @@ public class OHashIndexMTSpeedTest extends TestCase {
     }
     databaseDocumentTx.create();
 
-    ODocument metadata = new ODocument().field("partitions", concurrencyLevel);
+    ODocument metadata = new ODocument().field("partitions", concurrencyLevel * 8);
     final OIndex<?> userIndex = databaseDocumentTx.getMetadata().getIndexManager().createIndex("User.id", "UNIQUE",
         new OSimpleKeyIndexDefinition(-1, OType.LONG), new int[0], null, metadata, "AUTOSHARDING");
 
@@ -85,7 +85,7 @@ public class OHashIndexMTSpeedTest extends TestCase {
 
             index.put(k, new ORecordId(0, k));
 
-            if (useTx && (k - totalPerThread) % 1000 == 0) {
+            if (useTx && (k - totalPerThread) % 2 == 0) {
               db.commit();
               db.begin();
             }
