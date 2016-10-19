@@ -27,13 +27,18 @@ public class OGraphImporterTest {
 
     OGraphImporter batch = new OGraphImporter(dbUrl, "admin", "admin");
     batch.setTotalEstimatedEdges(22507155);
+
+    batch.setTransactional(true);
+    batch.setParallel(8);
     batch.setLightweightEdges(false);
 
+    batch.setEnableClusterLocking(false);
+    batch.setEnableVertexLocking(false);
+
     batch.setVerboseLevel(1);
-    batch.setParallel(4);
-    batch.setBatchSize(10);
+    batch.setBatchSize(2);
     batch.setQueueSize(2000);
-    batch.setMaxAttemptsToFlushTransaction(10);
+    batch.setMaxAttemptsToFlushTransaction(3);
     batch.setBackPressureThreshold(2000);
 
     batch.registerVertexClass("User", "id", OType.STRING);

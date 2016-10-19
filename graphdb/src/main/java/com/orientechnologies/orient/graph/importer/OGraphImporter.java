@@ -19,11 +19,13 @@
  */
 package com.orientechnologies.orient.graph.importer;
 
+import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.common.listener.OProgressListener;
 import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.common.util.OTriple;
 import com.orientechnologies.orient.core.Orient;
+import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.config.OStorageEntryConfiguration;
 import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.index.OIndex;
@@ -37,6 +39,7 @@ import com.orientechnologies.orient.core.serialization.serializer.binary.impl.in
 import com.tinkerpop.blueprints.impls.orient.*;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,13 +72,15 @@ public class OGraphImporter {
   private OrientGraphFactory                             factory;
   private OrientGraphNoTx                                baseGraph;
   private Map<String, OImporterWorkerThread>             threads                = new HashMap<String, OImporterWorkerThread>();
-  private Map<String, Lock>                              locks                  = new HashMap<String, Lock>();
+  private Map<String, Lock>                              clusterLocks           = new HashMap<String, Lock>();
   private Map<String, String>                            vertexIndexNames       = new HashMap<String, String>();
 
   private Map<String, ConcurrentHashMap<Object, String>> pendingVertexCreation  = new HashMap<String, ConcurrentHashMap<Object, String>>();
   private TimerTask                                      progressTask;
   private TimerTask                                      postponeTask;
   private int                                            verboseLevel           = 1;
+  private boolean                                        enableVertexLocking    = false;
+  private boolean                                        enableClusterLocking   = false;
   private AtomicLong                                     conflicts              = new AtomicLong(0);
   private AtomicLong                                     forcedCommits          = new AtomicLong(0);
   private AtomicLong                                     totalEdges             = new AtomicLong(0);
@@ -84,7 +89,9 @@ public class OGraphImporter {
   private int                                            totalEstimatedEdges    = -1;
   private long                                           dumpStatsEvery         = 2000;
   private boolean                                        lightweightEdges       = false;
+  private boolean                                        displayProgressDelta   = false;
   private int                                            backPressureThreshold  = 100;
+  private Callable<Void>                                 customSettingCallback;
 
   private final ConcurrentLinkedQueue<OOperation>        postponeExecution      = new ConcurrentLinkedQueue<OOperation>();
   private int                                            maxAttemptsToFlushTransaction;
@@ -95,7 +102,6 @@ public class OGraphImporter {
   private long                                           lastForcedCommits      = 0;
   private long                                           lastRetries            = 0;
   private long                                           lastRecordsLocked      = 0;
-  private long                                           lastLocks              = 0;
   private long                                           lastOpsInQueues        = 0;
   private long                                           lastPostponed          = 0;
 
@@ -134,6 +140,22 @@ public class OGraphImporter {
    *
    */
   public void begin() {
+    if (!transactional)
+      OGlobalConfiguration.USE_WAL.setValue(false);
+
+    OGlobalConfiguration.ENVIRONMENT_LOCK_MANAGER_CONCURRENCY_LEVEL.setValue(parallel * parallel);
+    OGlobalConfiguration.WAL_FUZZY_CHECKPOINT_INTERVAL.setValue(Integer.MAX_VALUE);
+    OGlobalConfiguration.DISK_WRITE_CACHE_PAGE_FLUSH_INTERVAL.setValue(Integer.MAX_VALUE);
+    OGlobalConfiguration.WAL_SYNC_ON_PAGE_FLUSH.setValue(false);
+    OGlobalConfiguration.WAL_MAX_SIZE.setValue(16384);
+
+    if (customSettingCallback != null)
+      try {
+        customSettingCallback.call();
+      } catch (Exception e) {
+        throw OException.wrapException(new OGraphImportException("Error on executing custom setting callback"), e);
+      }
+
     factory = new OrientGraphFactory(dbUrl, userName, password, false);
     factory.setUseLightweightEdges(lightweightEdges);
 
@@ -183,21 +205,23 @@ public class OGraphImporter {
       }
     }
 
-    // CREATE ONE LOCK PER CLUSTER ONLY FOR THE VERTEX CLASSES USED
-    for (Map.Entry<String, OPair<String, OType>> entry : vertexClassesUsed.entrySet()) {
-      final String className = entry.getKey();
-      final int[] clusterIds = baseGraph.getRawGraph().getMetadata().getSchema().getClass(className).getClusterIds();
+    if (enableClusterLocking) {
+      // CREATE ONE LOCK PER CLUSTER ONLY FOR THE VERTEX CLASSES USED
+      for (Map.Entry<String, OPair<String, OType>> entry : vertexClassesUsed.entrySet()) {
+        final String className = entry.getKey();
+        final int[] clusterIds = baseGraph.getRawGraph().getMetadata().getSchema().getClass(className).getClusterIds();
 
-      for (int clusterId : clusterIds) {
-        locks.put(baseGraph.getRawGraph().getClusterNameById(clusterId), new ReentrantLock());
+        for (int clusterId : clusterIds) {
+          clusterLocks.put(baseGraph.getRawGraph().getClusterNameById(clusterId), new ReentrantLock());
+        }
       }
-    }
 
-    // CREATE ONE LOCK PER CLUSTER ONLY FOR THE EDGE CLASSES USED
-    for (OTriple<String, String, String> edgeClass : edgeClassesUsed) {
-      final int[] clusterIds = baseGraph.getRawGraph().getMetadata().getSchema().getClass(edgeClass.getKey()).getClusterIds();
-      for (int clusterId : clusterIds) {
-        locks.put(baseGraph.getRawGraph().getClusterNameById(clusterId), new ReentrantLock());
+      // CREATE ONE LOCK PER CLUSTER ONLY FOR THE EDGE CLASSES USED
+      for (OTriple<String, String, String> edgeClass : edgeClassesUsed) {
+        final int[] clusterIds = baseGraph.getRawGraph().getMetadata().getSchema().getClass(edgeClass.getKey()).getClusterIds();
+        for (int clusterId : clusterIds) {
+          clusterLocks.put(baseGraph.getRawGraph().getClusterNameById(clusterId), new ReentrantLock());
+        }
       }
     }
 
@@ -507,11 +531,42 @@ public class OGraphImporter {
     this.backPressureThreshold = backPressureThreshold;
   }
 
+  public boolean isEnableVertexLocking() {
+    return enableVertexLocking;
+  }
+
+  public void setEnableVertexLocking(final boolean enableVertexLocking) {
+    this.enableVertexLocking = enableVertexLocking;
+  }
+
+  public boolean isEnableClusterLocking() {
+    return enableClusterLocking;
+  }
+
+  public void setEnableClusterLocking(final boolean enableClusterLocking) {
+    this.enableClusterLocking = enableClusterLocking;
+  }
+
+  public void setCustomSettingCallback(final Callable<Void> customSettingCallback) {
+    this.customSettingCallback = customSettingCallback;
+  }
+
+  public boolean isDisplayProgressDelta() {
+    return displayProgressDelta;
+  }
+
+  public void setDisplayProgressDelta(final boolean displayProgressDelta) {
+    this.displayProgressDelta = displayProgressDelta;
+  }
+
   public void addTotalEdges(final long tot) {
     totalEdges.addAndGet(tot);
   }
 
   public void lockClustersForCommit(final String source, final String destination, final String edge) {
+    if (!enableClusterLocking)
+      return;
+
     final List<String> list = new ArrayList<String>(3);
     list.add(source);
 
@@ -526,26 +581,34 @@ public class OGraphImporter {
 
     // LOCK ORDERED CLUSTERS
     for (String c : list) {
-      locks.get(c).lock();
+      clusterLocks.get(c).lock();
     }
   }
 
   public void unlockClustersForCommit(final String source, final String destination, final String edge) {
-    locks.get(source).unlock();
+    if (!enableClusterLocking)
+      return;
+
+    clusterLocks.get(source).unlock();
 
     if (destination != null)
-      locks.get(destination).unlock();
+      clusterLocks.get(destination).unlock();
 
     if (edge != null && !lightweightEdges)
-      locks.get(edge).unlock();
+      clusterLocks.get(edge).unlock();
   }
 
   public boolean isVertexLocked(final String className, final Object id) {
+    if (!enableVertexLocking)
+      return false;
     return pendingVertexCreation.get(className).containsKey(id);
   }
 
   public boolean lockVertexCreationByKey(final OImporterWorkerThread worker, final OrientBaseGraph graph, final String vClassName,
       final Object key, final boolean forceCommit) {
+    if (!enableVertexLocking)
+      return true;
+
     final ConcurrentHashMap<Object, String> lockManager = pendingVertexCreation.get(vClassName);
 
     final String workerId = worker.getThreadId();
@@ -586,6 +649,9 @@ public class OGraphImporter {
   }
 
   public void unlockVertexCreationByKey(final String workerId, final String vClassName, final Object key) {
+    if (!enableVertexLocking)
+      return;
+
     if (verboseLevel > 1)
       System.out.printf("\n%s unlocking %s.%s...", workerId, vClassName, key);
 
@@ -594,6 +660,9 @@ public class OGraphImporter {
   }
 
   public void unlockCreationCurrentThread(final String workerId) {
+    if (!enableVertexLocking)
+      return;
+
     for (Map.Entry<String, ConcurrentHashMap<Object, String>> vClass : pendingVertexCreation.entrySet()) {
       final ConcurrentHashMap<Object, String> lockMgr = pendingVertexCreation.get(vClass.getKey());
       for (Iterator<Map.Entry<Object, String>> it = lockMgr.entrySet().iterator(); it.hasNext();) {
@@ -634,7 +703,7 @@ public class OGraphImporter {
 
       OClass cls = schema.getClass(className);
       if (cls == null)
-        cls = schema.createClass(className, v);
+        cls = schema.createClass(className, parallel * parallel, v);
 
       cls.setOverSize(1.2f);
 
@@ -789,17 +858,19 @@ public class OGraphImporter {
     final long currentOperationsInQueue = getOperationsInQueue();
     final long currentPostponedOperations = postponeExecution.size();
 
-    System.out
-        .print(String.format("VERTICES +%d EDGES +%d confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d\n",
-            totalVertices - lastTotalVertices, totalEdges - lastTotalEdges, currentConflicts - lastConflicts,
-            (currentForcedCommits - lastForcedCommits), currentRetries - lastRetries, recordsLocked - lastRecordsLocked,
-            currentOperationsInQueue - lastOpsInQueues, currentPostponedOperations - lastPostponed));
+    if (displayProgressDelta)
+      System.out
+          .print(String.format("\nVERTICES +%d EDGES +%d confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d\n",
+              totalVertices - lastTotalVertices, totalEdges - lastTotalEdges, currentConflicts - lastConflicts,
+              (currentForcedCommits - lastForcedCommits), currentRetries - lastRetries, recordsLocked - lastRecordsLocked,
+              currentOperationsInQueue - lastOpsInQueues, currentPostponedOperations - lastPostponed));
 
     System.out.print(String.format(
-        "VERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d%s\n\n",
+        "VERTICES [%s]=%d (%d/sec) EDGES [%s]=%d (%d/sec) confl=%d forcedCommits=%d retries=%d locks=%d opsInQueues=%d postponed=%d elapsed=%s%s\n",
         totalVerticesReport, totalVertices, (totalVertices - lastTotalVertices) / (dumpStatsEvery / 1000), totalEdgesReport,
         totalEdges, (totalEdges - lastTotalEdges) / (dumpStatsEvery / 1000), currentConflicts, forcedCommits.get(), getRetries(),
-        recordsLocked, getOperationsInQueue(), postponeExecution.size(), extra));
+        recordsLocked, getOperationsInQueue(), postponeExecution.size(),
+        OIOUtils.getTimeAsString((System.currentTimeMillis() - startTime), "s"), extra));
 
     lastTotalVertices = totalVertices;
     lastTotalEdges = totalEdges;

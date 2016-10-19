@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Worker thread that is run in parallel. There is one working thread per combination ov vertex-edge->vertex.
@@ -143,18 +144,20 @@ public class OImporterWorkerThread extends Thread {
               if (operation == null) {
                 // NO MORE MESSAGES COMMIT THE TRANSACTION SO FAR
                 commit(graph);
-                notifier.await();
+                notifier.await(2, TimeUnit.SECONDS);
                 continue;
               }
             }
           }
 
-          if (operation instanceof OEndOperation)
-            // END
-            break;
-
           if (!(operation instanceof OCommitOperation))
             executedOperationInTx.add(operation);
+
+          if (operation instanceof OEndOperation) {
+            // END
+            commit(graph);
+            break;
+          }
 
           operation.incrementAttempts();
 
@@ -185,8 +188,6 @@ public class OImporterWorkerThread extends Thread {
           prepareRedoOperations(operationToReExecute);
         }
       }
-
-      commit(graph);
 
     } catch (Throwable t) {
       OLogManager.instance().error(this, "Error while processing next operation", t);
