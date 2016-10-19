@@ -27,6 +27,7 @@ import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.index.sbtreebonsai.local.OSBTreeBonsai;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Artem Orobets (enisher-at-gmail.com)
@@ -38,7 +39,8 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
   /**
    * Generates a lock name for the given cluster ID.
    *
-   * @param clusterId the cluster ID to generate the lock name for.
+   * @param clusterId
+   *          the cluster ID to generate the lock name for.
    *
    * @return the generated lock name.
    */
@@ -46,11 +48,8 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
     return FILE_NAME_PREFIX + clusterId + DEFAULT_EXTENSION;
   }
 
-  protected final int      evictionThreshold;
-  protected final int      cacheMaxSize;
-  protected final int      shift;
-  protected final int      mask;
-  protected final Object[] locks;
+  protected final int                                                                    evictionThreshold;
+  protected final int                                                                    cacheMaxSize;
   private final ConcurrentLinkedHashMap<OBonsaiCollectionPointer, SBTreeBonsaiContainer> treeCache = new ConcurrentLinkedHashMap.Builder<OBonsaiCollectionPointer, SBTreeBonsaiContainer>()
       .maximumWeightedCapacity(Long.MAX_VALUE).build();
 
@@ -62,25 +61,6 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
   public OSBTreeCollectionManagerAbstract(int evictionThreshold, int cacheMaxSize) {
     this.evictionThreshold = evictionThreshold;
     this.cacheMaxSize = cacheMaxSize;
-
-    final int concurrencyLevel = Runtime.getRuntime().availableProcessors() * 4;
-    int cL = 1;
-
-    int sh = 0;
-    while (cL < concurrencyLevel) {
-      cL <<= 1;
-      sh++;
-    }
-
-    shift = 32 - sh;
-    mask = cL - 1;
-
-    final Object[] locks = new Object[cL];
-    for (int i = 0; i < locks.length; i++) {
-      locks[i] = new Object();
-    }
-
-    this.locks = locks;
   }
 
   @Override
@@ -96,27 +76,22 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
 
   @Override
   public OSBTreeBonsai<OIdentifiable, Integer> loadSBTree(OBonsaiCollectionPointer collectionPointer) {
-    final Object lock = treesSubsetLock(collectionPointer);
-
     final OSBTreeBonsai<OIdentifiable, Integer> tree;
 
-    synchronized (lock) {
-      SBTreeBonsaiContainer container = treeCache.get(collectionPointer);
-      if (container != null) {
-        container.usagesCounter++;
-        tree = container.tree;
-      } else {
-        tree = loadTree(collectionPointer);
-        if (tree != null) {
-          assert tree.getRootBucketPointer().equals(collectionPointer.getRootPointer());
+    SBTreeBonsaiContainer container = treeCache.get(collectionPointer);
+    if (container != null) {
+      container.usagesCounter.incrementAndGet();
+      tree = container.tree;
+    } else {
+      tree = loadTree(collectionPointer);
+      if (tree != null) {
+        assert tree.getRootBucketPointer().equals(collectionPointer.getRootPointer());
 
-          container = new SBTreeBonsaiContainer(tree);
-          container.usagesCounter++;
+        container = new SBTreeBonsaiContainer(tree);
+        container.usagesCounter.incrementAndGet();
 
-          treeCache.put(collectionPointer, container);
-        }
+        treeCache.putIfAbsent(collectionPointer, container);
       }
-
     }
 
     if (tree != null)
@@ -127,40 +102,36 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
 
   @Override
   public void releaseSBTree(OBonsaiCollectionPointer collectionPointer) {
-    final Object lock = treesSubsetLock(collectionPointer);
-    synchronized (lock) {
-      SBTreeBonsaiContainer container = treeCache.getQuietly(collectionPointer);
-      assert container != null;
-      container.usagesCounter--;
-      assert container.usagesCounter >= 0;
-    }
+    final SBTreeBonsaiContainer container = treeCache.getQuietly(collectionPointer);
+    assert container != null;
+    container.usagesCounter.decrementAndGet();
+    assert container.usagesCounter.get() >= 0;
 
     evict();
   }
 
   @Override
   public void delete(OBonsaiCollectionPointer collectionPointer) {
-    final Object lock = treesSubsetLock(collectionPointer);
-    synchronized (lock) {
-      SBTreeBonsaiContainer container = treeCache.getQuietly(collectionPointer);
-      assert container != null;
+    SBTreeBonsaiContainer container = treeCache.getQuietly(collectionPointer);
+    assert container != null;
 
-      if (container.usagesCounter != 0)
-        throw new IllegalStateException("Cannot delete SBTreeBonsai instance because it is used in other thread.");
+    if (container.usagesCounter.get() != 0)
+      throw new IllegalStateException("Cannot delete SBTreeBonsai instance because it is used in other thread.");
 
-      treeCache.remove(collectionPointer);
-    }
+    treeCache.remove(collectionPointer);
   }
 
   private void evict() {
     if (treeCache.size() <= cacheMaxSize)
       return;
 
-    for (OBonsaiCollectionPointer collectionPointer : treeCache.ascendingKeySetWithLimit(evictionThreshold)) {
-      final Object treeLock = treesSubsetLock(collectionPointer);
-      synchronized (treeLock) {
+    synchronized (this) {
+      if (treeCache.size() <= cacheMaxSize)
+        return;
+
+      for (OBonsaiCollectionPointer collectionPointer : treeCache.ascendingKeySetWithLimit(evictionThreshold)) {
         SBTreeBonsaiContainer container = treeCache.getQuietly(collectionPointer);
-        if (container != null && container.usagesCounter == 0)
+        if (container != null && container.usagesCounter.get() == 0)
           treeCache.remove(collectionPointer);
       }
     }
@@ -183,16 +154,9 @@ public abstract class OSBTreeCollectionManagerAbstract implements OCloseable, OS
     return treeCache.size();
   }
 
-  private Object treesSubsetLock(OBonsaiCollectionPointer collectionPointer) {
-    final int hashCode = collectionPointer.hashCode();
-    final int index = (hashCode >>> shift) & mask;
-
-    return locks[index];
-  }
-
   private static final class SBTreeBonsaiContainer {
     private final OSBTreeBonsai<OIdentifiable, Integer> tree;
-    private int usagesCounter = 0;
+    private AtomicInteger                               usagesCounter = new AtomicInteger(0);
 
     private SBTreeBonsaiContainer(OSBTreeBonsai<OIdentifiable, Integer> tree) {
       this.tree = tree;
