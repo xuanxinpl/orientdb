@@ -114,7 +114,9 @@ public class OLuceneIndexEngineDelegate implements OLuceneIndexEngine, OFreezabl
 
   @Override
   public void close() {
-    delegate.close();
+    if (delegate != null) {
+      delegate.close();
+    }
   }
 
   @Override
@@ -126,6 +128,11 @@ public class OLuceneIndexEngineDelegate implements OLuceneIndexEngine, OFreezabl
   public void put(Object key, Object value) {
 
     delegate.put(key, value);
+  }
+
+  @Override
+  public boolean validatedPut(Object key, OIdentifiable value, Validator<Object, OIdentifiable> validator) {
+    return delegate.validatedPut(key, value, validator);
   }
 
   @Override

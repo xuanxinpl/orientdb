@@ -1,5 +1,15 @@
 package com.orientechnologies.orient.graph.batch;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TimerTask;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
+
 import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.io.OFileUtils;
 import com.orientechnologies.common.listener.OProgressListener;
@@ -11,16 +21,6 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.tinkerpop.blueprints.impls.orient.*;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TimerTask;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Simple Multi-threads graph importer. Source file downloaded from
@@ -90,11 +90,12 @@ public class OGraphImporterMTAPITest {
       threads[i] = new Thread() {
         @Override
         public void run() {
-          final OrientGraph localGraph = new OrientGraph(dbUrl, "admin", "admin");
+          final OrientGraph localGraph = new OrientGraph(dbUrl, "admin", "admin", false);
 
           final OIndex<?> userIndex = localGraph.getRawGraph().getMetadata().getIndexManager().getIndex("User.uid");
           final OIndex<?> productIndex = localGraph.getRawGraph().getMetadata().getIndexManager().getIndex("Product.uid");
 
+          localGraph.begin();
           for (int i = 0;; ++i) {
             final String line;
 
@@ -138,6 +139,7 @@ public class OGraphImporterMTAPITest {
 
                 if (i % 2 == 0) {
                   localGraph.commit();
+                  localGraph.begin();
                 }
 
                 break;
