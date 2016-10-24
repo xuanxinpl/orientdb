@@ -30,7 +30,7 @@ public class OGraphImporterTest {
 
     batch.setTransactional(false);
     batch.setParallel(4);
-    batch.setBatchSize(10);
+    batch.setBatchSize(2);
     batch.setLightweightEdges(false);
 
     batch.setEnableClusterLocking(false);

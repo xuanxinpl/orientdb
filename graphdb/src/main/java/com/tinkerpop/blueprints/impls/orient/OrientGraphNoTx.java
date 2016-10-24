@@ -20,6 +20,8 @@
 
 package com.tinkerpop.blueprints.impls.orient;
 
+import org.apache.commons.configuration.Configuration;
+
 import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.log.OLogManager;
@@ -32,7 +34,6 @@ import com.orientechnologies.orient.core.record.impl.ODocumentInternal;
 import com.tinkerpop.blueprints.Direction;
 import com.tinkerpop.blueprints.Features;
 import com.tinkerpop.blueprints.util.ExceptionFactory;
-import org.apache.commons.configuration.Configuration;
 
 /**
  * A Blueprints implementation of the graph database OrientDB (http://www.orientechnologies.com)
@@ -261,11 +262,13 @@ public class OrientGraphNoTx extends OrientBaseGraph {
         break;
 
       } catch (ONeedRetryException e) {
-        // RETRY
-        if (!outDocumentModified)
-          outDocument.reload();
-        else if (inDocument != null)
-          inDocument.reload();
+        if (retry + 1 < maxRetries) {
+          // RETRY
+          if (!outDocumentModified)
+            outDocument.reload();
+          else if (inDocument != null)
+            inDocument.reload();
+        }
       } catch (RuntimeException e) {
         // REVERT CHANGES. EDGE.REMOVE() TAKES CARE TO UPDATE ALSO BOTH VERTICES IN CASE
         try {
@@ -409,11 +412,8 @@ public class OrientGraphNoTx extends OrientBaseGraph {
       // CANNOT REVERT CHANGES, RETRY
       throw (RuntimeException) lastException;
 
-    throw OException
-        .wrapException(
-            new OrientGraphModificationException(
-                "Error on removing edges after vertex (" + iVertex.getIdentity() + ") delete in non tx environment"),
-            lastException);
+    throw OException.wrapException(new OrientGraphModificationException(
+        "Error on removing edges after vertex (" + iVertex.getIdentity() + ") delete in non tx environment"), lastException);
   }
 
 }

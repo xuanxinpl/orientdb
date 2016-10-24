@@ -113,6 +113,8 @@ public class OImporterWorkerThread extends Thread {
   @Override
   public void run() {
     final OrientBaseGraph graph = importer.isTransactional() ? importer.getFactory().getTx() : importer.getFactory().getNoTx();
+    graph.setMaxRetries(1);
+
     try {
       sourceClusterName = OAbstractBaseOperation.getThreadClusterName(graph, sourceClassName, sourceClusterIndex);
       if (destinationClassName != null)
