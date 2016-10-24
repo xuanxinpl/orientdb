@@ -120,7 +120,7 @@ public class OImporterWorkerThread extends Thread {
       if (edgeClassName != null)
         edgeClusterName = OAbstractBaseOperation.getThreadClusterName(graph, edgeClassName, sourceClusterIndex);
 
-      final int batchSize = importer.getBatchSize();
+      int batchSize = importer.getBatchSize();
 
       final ArrayBlockingQueue<OOperation> operationToReExecute = new ArrayBlockingQueue<OOperation>(importer.getBatchSize());
 
@@ -143,7 +143,7 @@ public class OImporterWorkerThread extends Thread {
               operation = queue.poll();
               if (operation == null) {
                 // NO MORE MESSAGES COMMIT THE TRANSACTION SO FAR
-                commit(graph);
+                commit(graph, false);
                 notifier.await(2, TimeUnit.SECONDS);
                 continue;
               }
@@ -155,7 +155,7 @@ public class OImporterWorkerThread extends Thread {
 
           if (operation instanceof OEndOperation) {
             // END
-            commit(graph);
+            commit(graph, true);
             break;
           }
 
@@ -175,7 +175,10 @@ public class OImporterWorkerThread extends Thread {
 
             if (batchSize > 0 && localOperationInBatch >= batchSize) {
               // COMMIT THE BATCH
-              commit(graph);
+              if (commit(graph, false)) {
+                batchSize += 10;
+              } else
+                batchSize = importer.getBatchSize();
             }
           }
 
@@ -196,12 +199,18 @@ public class OImporterWorkerThread extends Thread {
     }
   }
 
-  public void commit(final OrientBaseGraph graph) {
+  public boolean commit(final OrientBaseGraph graph, final boolean waitForAllLocks) {
     try {
-      if (localOperationInBatch == 0)
-        return;
+      if (!importer.isTransactional())
+        return false;
 
-      importer.lockClustersForCommit(sourceClusterName, destinationClusterName, edgeClusterName);
+      if (localOperationInBatch == 0)
+        return false;
+
+      if (!importer.lockClustersForCommit(waitForAllLocks, sourceClusterName, destinationClusterName, edgeClusterName))
+        // RETRY LATER
+        return false;
+
       try {
 
         localOperationInBatch = 0;
@@ -222,6 +231,7 @@ public class OImporterWorkerThread extends Thread {
     } finally {
       unlockAll();
     }
+    return true;
   }
 
   public String getThreadId() {

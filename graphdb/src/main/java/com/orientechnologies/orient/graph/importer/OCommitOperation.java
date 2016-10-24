@@ -30,7 +30,7 @@ public class OCommitOperation extends OAbstractBaseOperation {
   @Override
   public boolean execute(OGraphImporter importer, OImporterWorkerThread workerThread, final OrientBaseGraph graph,
       final int threadId, int destinationClusterIndex) {
-    workerThread.commit(graph);
+    workerThread.commit(graph, true);
     return true;
   }
 }
