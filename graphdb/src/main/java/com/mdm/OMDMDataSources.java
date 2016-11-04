@@ -4,7 +4,7 @@ import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.teleporter.util.ODriverConfigurator;
+import com.mdm.util.ODriverConfigurator;
 
 import java.io.File;
 import java.io.IOException;

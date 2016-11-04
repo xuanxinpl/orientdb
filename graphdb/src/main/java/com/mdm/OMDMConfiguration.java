@@ -5,10 +5,10 @@ import com.orientechnologies.common.io.OIOUtils;
 import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.server.OServerMain;
-import com.orientechnologies.teleporter.configuration.OConfigurationHandler;
-import com.orientechnologies.teleporter.configuration.api.OConfiguration;
-import com.orientechnologies.teleporter.configuration.api.OConfiguredEdgeClass;
-import com.orientechnologies.teleporter.configuration.api.OConfiguredVertexClass;
+import com.mdm.configuration.OConfigurationHandler;
+import com.mdm.configuration.api.OConfiguration;
+import com.mdm.configuration.api.OConfiguredEdgeClass;
+import com.mdm.configuration.api.OConfiguredVertexClass;
 
 import java.io.File;
 import java.io.IOException;

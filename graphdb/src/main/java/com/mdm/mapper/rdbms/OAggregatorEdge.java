@@ -18,7 +18,7 @@
 
 package com.mdm.mapper.rdbms;
 
-import com.orientechnologies.teleporter.model.graphmodel.OEdgeType;
+import com.mdm.model.graphmodel.OEdgeType;
 
 /**
  * @author Gabriele Ponzi

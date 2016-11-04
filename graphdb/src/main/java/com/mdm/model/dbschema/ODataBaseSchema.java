@@ -18,7 +18,7 @@
 
 package com.mdm.model.dbschema;
 
-import com.orientechnologies.teleporter.model.ODataSourceSchemaInfo;
+import com.mdm.model.ODataSourceSchemaInfo;
 
 import java.util.ArrayList;
 import java.util.List;

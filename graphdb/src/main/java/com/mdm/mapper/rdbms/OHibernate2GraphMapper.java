@@ -18,13 +18,13 @@
 
 package com.mdm.mapper.rdbms;
 
-import com.orientechnologies.teleporter.configuration.api.OConfiguration;
-import com.orientechnologies.teleporter.context.OTeleporterContext;
-import com.orientechnologies.teleporter.exception.OTeleporterRuntimeException;
-import com.orientechnologies.teleporter.model.dbschema.OAttribute;
-import com.orientechnologies.teleporter.model.dbschema.OEntity;
-import com.orientechnologies.teleporter.model.dbschema.OHierarchicalBag;
-import com.orientechnologies.teleporter.model.dbschema.OSourceDatabaseInfo;
+import com.mdm.configuration.api.OConfiguration;
+import com.mdm.context.OTeleporterContext;
+import com.mdm.exception.OTeleporterRuntimeException;
+import com.mdm.model.dbschema.OAttribute;
+import com.mdm.model.dbschema.OEntity;
+import com.mdm.model.dbschema.OHierarchicalBag;
+import com.mdm.model.dbschema.OSourceDatabaseInfo;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;

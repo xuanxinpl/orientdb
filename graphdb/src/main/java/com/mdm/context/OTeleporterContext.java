@@ -18,9 +18,9 @@
 
 package com.mdm.context;
 
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.ODBQueryEngine;
-import com.orientechnologies.teleporter.nameresolver.ONameResolver;
-import com.orientechnologies.teleporter.persistence.handler.ODriverDataTypeHandler;
+import com.mdm.importengine.rdbms.dbengine.ODBQueryEngine;
+import com.mdm.nameresolver.ONameResolver;
+import com.mdm.persistence.handler.ODriverDataTypeHandler;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

@@ -18,8 +18,8 @@
 
 package com.mdm.mapper;
 
-import com.orientechnologies.teleporter.model.graphmodel.OGraphModel;
-import com.orientechnologies.teleporter.nameresolver.ONameResolver;
+import com.mdm.model.graphmodel.OGraphModel;
+import com.mdm.nameresolver.ONameResolver;
 
 /**
  * Interface that manages the data source schema and the destination graph model with their correspondences.

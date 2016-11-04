@@ -18,18 +18,18 @@
 
 package com.mdm.mapper.rdbms;
 
-import com.orientechnologies.teleporter.configuration.api.*;
-import com.orientechnologies.teleporter.context.OTeleporterContext;
-import com.orientechnologies.teleporter.context.OTeleporterStatistics;
-import com.orientechnologies.teleporter.exception.OTeleporterRuntimeException;
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.ODBQueryEngine;
-import com.orientechnologies.teleporter.mapper.OSource2GraphMapper;
-import com.orientechnologies.teleporter.mapper.rdbms.classmapper.OClassMapper;
-import com.orientechnologies.teleporter.model.dbschema.*;
-import com.orientechnologies.teleporter.model.graphmodel.*;
-import com.orientechnologies.teleporter.nameresolver.ONameResolver;
-import com.orientechnologies.teleporter.persistence.util.ODBSourceConnection;
-import com.orientechnologies.teleporter.persistence.util.OQueryResult;
+import com.mdm.configuration.api.*;
+import com.mdm.context.OTeleporterContext;
+import com.mdm.context.OTeleporterStatistics;
+import com.mdm.exception.OTeleporterRuntimeException;
+import com.mdm.importengine.rdbms.dbengine.ODBQueryEngine;
+import com.mdm.mapper.OSource2GraphMapper;
+import com.mdm.mapper.rdbms.classmapper.OClassMapper;
+import com.mdm.model.dbschema.*;
+import com.mdm.model.graphmodel.*;
+import com.mdm.nameresolver.ONameResolver;
+import com.mdm.persistence.util.ODBSourceConnection;
+import com.mdm.persistence.util.OQueryResult;
 
 import java.sql.*;
 import java.util.*;

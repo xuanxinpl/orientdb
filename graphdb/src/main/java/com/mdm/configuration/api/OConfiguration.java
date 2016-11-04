@@ -18,7 +18,7 @@
 
 package com.mdm.configuration.api;
 
-import com.orientechnologies.teleporter.model.dbschema.OEntity;
+import com.mdm.model.dbschema.OEntity;
 
 import java.util.LinkedList;
 import java.util.List;
