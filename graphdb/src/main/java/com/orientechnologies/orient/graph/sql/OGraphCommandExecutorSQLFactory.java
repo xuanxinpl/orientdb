@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.mdm.OMDMConfiguration;
+import com.mdm.OMDMGraphNoTx;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
@@ -156,7 +158,7 @@ public class OGraphCommandExecutorSQLFactory implements OCommandExecutorSQLFacto
     // Set it again on ThreadLocal because the getRawGraph() may have set a closed db in the thread-local
     shouldBeShutDown.setValue(true);
     ODatabaseRecordThreadLocal.INSTANCE.set((ODatabaseDocumentInternal) database);
-    return new OrientGraphNoTx((ODatabaseDocumentTx) database);
+    return new OMDMGraphNoTx(new OMDMConfiguration(), (ODatabaseDocumentTx) database);
   }
 
   public static <T> T runInTx(final OrientGraph graph, final GraphCallBack<T> callBack) {
