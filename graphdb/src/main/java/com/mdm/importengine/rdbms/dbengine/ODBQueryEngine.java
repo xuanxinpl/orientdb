@@ -49,7 +49,7 @@ public class ODBQueryEngine implements ODataSourceQueryEngine {
 
   public ODBQueryEngine(String driver) {
     this.queryBuilderFactory = new OQueryBuilderFactory();
-    this.queryBuilder = this.queryBuilderFactory.buildQueryBuilder(driver);
+    //this.queryBuilder = this.queryBuilderFactory.buildQueryBuilder(driver);
   }
 
 

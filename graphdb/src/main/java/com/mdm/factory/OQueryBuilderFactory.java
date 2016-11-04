@@ -18,11 +18,11 @@
 
 package com.mdm.factory;
 
-import com.orientechnologies.teleporter.context.OTeleporterContext;
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.OCommonQueryBuilder;
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.OMysqlQueryBuilder;
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.OPostgreSQLQueryBuilder;
-import com.orientechnologies.teleporter.importengine.rdbms.dbengine.OQueryBuilder;
+import com.mdm.context.OTeleporterContext;
+import com.mdm.importengine.rdbms.dbengine.OCommonQueryBuilder;
+import com.mdm.importengine.rdbms.dbengine.OMysqlQueryBuilder;
+import com.mdm.importengine.rdbms.dbengine.OPostgreSQLQueryBuilder;
+import com.mdm.importengine.rdbms.dbengine.OQueryBuilder;
 
 /**
  * @author Gabriele Ponzi
