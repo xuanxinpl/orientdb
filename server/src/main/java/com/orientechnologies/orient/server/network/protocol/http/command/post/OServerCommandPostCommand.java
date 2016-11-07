@@ -103,9 +103,9 @@ public class OServerCommandPostCommand extends OServerCommandAuthenticatedDbAbst
       cmd.setCacheableResult(true);
 
       if (params == null) {
-        response = db.command(cmd).execute();
+        response = db.command(cmd.getText());
       } else {
-        response = db.command(cmd).execute(params);
+        response = db.command(cmd.getText(), params);
       }
 
       fetchPlan = executor.getFetchPlan();

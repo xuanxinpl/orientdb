@@ -27,6 +27,7 @@ import com.orientechnologies.orient.core.db.record.OIdentifiable;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.serialization.serializer.OJSONWriter;
+import com.orientechnologies.orient.core.sql.executor.OTodoResultSet;
 import com.orientechnologies.orient.server.OClientConnection;
 
 import java.io.*;
@@ -42,27 +43,27 @@ import java.util.zip.GZIPOutputStream;
  * @author Luca Garulli (l.garulli--(at)--orientdb.com)
  */
 public class OHttpResponse {
-  public static final String   JSON_FORMAT       = "type,indent:-1,rid,version,attribSameRow,class,keepTypes,alwaysFetchEmbeddedDocuments";
-  public static final char[]   URL_SEPARATOR     = { '/' };
-  private static final Charset utf8              = Charset.forName("utf8");
-  
-  public final String          httpVersion;
-  private final OutputStream   out;
-  public String                headers;
-  public String[]              additionalHeaders;
-  public String                characterSet;
-  public String                contentType;
-  public String                serverInfo;
+  public static final  String  JSON_FORMAT   = "type,indent:-1,rid,version,attribSameRow,class,keepTypes,alwaysFetchEmbeddedDocuments";
+  public static final  char[]  URL_SEPARATOR = { '/' };
+  private static final Charset utf8          = Charset.forName("utf8");
 
-  public String                sessionId;
-  public String                callbackFunction;
-  public String                contentEncoding;
-  public boolean               sendStarted       = false;
-  public String                content;
-  public int                   code;
-  public boolean               keepAlive         = true;
-  public boolean               jsonErrorResponse = true;
-  public OClientConnection     connection;
+  public final  String       httpVersion;
+  private final OutputStream out;
+  public        String       headers;
+  public        String[]     additionalHeaders;
+  public        String       characterSet;
+  public        String       contentType;
+  public        String       serverInfo;
+
+  public String sessionId;
+  public String callbackFunction;
+  public String contentEncoding;
+  public boolean sendStarted = false;
+  public String content;
+  public int    code;
+  public boolean keepAlive         = true;
+  public boolean jsonErrorResponse = true;
+  public OClientConnection connection;
   private boolean streaming = OGlobalConfiguration.NETWORK_HTTP_STREAMING.getValueAsBoolean();
 
   public OHttpResponse(final OutputStream iOutStream, final String iHttpVersion, final String[] iAdditionalHeaders,
@@ -147,7 +148,7 @@ public class OHttpResponse {
     if (headers != null) {
       writeLine(headers);
     }
-    
+
     // Set up a date formatter that prints the date in the Http-date format as
     // per RFC 7231, section 7.1.1.1
     SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
@@ -209,8 +210,8 @@ public class OHttpResponse {
           doc.field(key, entry.getValue());
         }
         newResult = Collections.singleton(doc).iterator();
-      } else if (OMultiValue.isMultiValue(iResult)
-          && (OMultiValue.getSize(iResult) > 0 && !(OMultiValue.getFirstValue(iResult) instanceof OIdentifiable))) {
+      } else if (OMultiValue.isMultiValue(iResult) && (OMultiValue.getSize(iResult) > 0 && !(OMultiValue
+          .getFirstValue(iResult) instanceof OIdentifiable))) {
         newResult = Collections.singleton(new ODocument().field("value", iResult)).iterator();
       } else if (iResult instanceof OIdentifiable) {
         // CONVERT SINGLE VALUE IN A COLLECTION
@@ -219,6 +220,18 @@ public class OHttpResponse {
         newResult = ((Iterable<OIdentifiable>) iResult).iterator();
       } else if (OMultiValue.isMultiValue(iResult)) {
         newResult = OMultiValue.getMultiValueIterator(iResult);
+      } else if (iResult instanceof OTodoResultSet) {
+        newResult = new Iterator() {
+          @Override
+          public boolean hasNext() {
+            return ((OTodoResultSet) iResult).hasNext();
+          }
+
+          @Override
+          public Object next() {
+            return ((OTodoResultSet) iResult).next().toElement();
+          }
+        };
       } else {
         newResult = Collections.singleton(new ODocument().field("value", iResult)).iterator();
       }
@@ -328,7 +341,7 @@ public class OHttpResponse {
         iFormat = JSON_FORMAT + "," + iFormat;
 
       final String sendFormat = iFormat;
-      if (streaming ) {
+      if (streaming) {
         sendStream(OHttpUtils.STATUS_OK_CODE, "OK", OHttpUtils.CONTENT_JSON, null, new OCallable<Void, OChunkedResponse>() {
           @Override
           public Void call(OChunkedResponse iArgument) {
@@ -350,8 +363,8 @@ public class OHttpResponse {
     }
   }
 
-  private void writeRecordsOnStream(String iFetchPlan, String iFormat, Map<String, Object> iAdditionalProperties, Iterator<Object> it,
-      Writer buffer) throws IOException {
+  private void writeRecordsOnStream(String iFetchPlan, String iFormat, Map<String, Object> iAdditionalProperties,
+      Iterator<Object> it, Writer buffer) throws IOException {
     final OJSONWriter json = new OJSONWriter(buffer, iFormat);
     json.beginObject();
 
@@ -610,5 +623,5 @@ public class OHttpResponse {
   public void setStreaming(boolean streaming) {
     this.streaming = streaming;
   }
-  
+
 }
