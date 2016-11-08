@@ -24,9 +24,11 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.util.OCallable;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.record.OElement;
 import com.orientechnologies.orient.core.record.ORecord;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.serialization.serializer.OJSONWriter;
+import com.orientechnologies.orient.core.sql.executor.OResult;
 import com.orientechnologies.orient.core.sql.executor.OTodoResultSet;
 import com.orientechnologies.orient.server.OClientConnection;
 
@@ -229,7 +231,21 @@ public class OHttpResponse {
 
           @Override
           public Object next() {
-            return ((OTodoResultSet) iResult).next().toElement();
+            return convertToFlatDoc(((OTodoResultSet) iResult).next().toElement());
+          }
+
+          private Object convertToFlatDoc(OElement oElement) {
+            ODocument doc = oElement.getRecord();
+            if(doc.getIdentity().isPersistent()){
+              return doc;
+            }
+            for(String s:doc.getPropertyNames()){
+              Object propValue = doc.getProperty(s);
+              if(propValue instanceof OResult){
+                doc.setProperty(s, ((OResult) propValue).toElement());
+              }
+            }
+            return doc;
           }
         };
       } else {
