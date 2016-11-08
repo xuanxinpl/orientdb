@@ -2,6 +2,9 @@ package com.orientechnologies.orient.core.sql.executor;
 
 import com.orientechnologies.orient.core.command.OCommandContext;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.parser.OMatchFilter;
 import com.orientechnologies.orient.core.sql.parser.OMatchPathItem;
 import com.orientechnologies.orient.core.sql.parser.OWhereClause;
 
@@ -85,21 +88,22 @@ public class MatchEdgeTraverser {
       if (startingElem instanceof OResult) {
         startingElem = ((OResult) startingElem).getElement().orElse(null);
       }
-      downstream = executeTraversal(ctx, this.item, (OIdentifiable) startingElem, 0).iterator();
+
+      OMatchFilter filter = item.getFilter();
+      String targetClass = filter == null ? null : filter.getClassName(ctx);
+      OWhereClause whereCond = filter == null ? null : filter.getFilter();
+      OWhereClause whileCond = filter == null ? null : filter.getWhileCondition();
+      Integer maxDepth = filter == null ? null : filter.getMaxDepth();
+
+      downstream = executeTraversal(ctx, targetClass, whereCond, whileCond, maxDepth, (OIdentifiable) startingElem, 0).iterator();
     }
   }
 
-  protected Iterable<OIdentifiable> executeTraversal(OCommandContext iCommandContext, OMatchPathItem item,
-      OIdentifiable startingPoint, int depth) {
+  protected Iterable<OIdentifiable> executeTraversal(OCommandContext iCommandContext, String targetClass, OWhereClause whereCond,
+      OWhereClause whileCond, Integer maxDepth, OIdentifiable startingPoint, int depth) {
 
-    OWhereClause filter = null;
+    OWhereClause filter = whereCond;
     OWhereClause whileCondition = null;
-    Integer maxDepth = null;
-    if (item.getFilter() != null) {
-      filter = item.getFilter().getFilter();
-      whileCondition = item.getFilter().getWhileCondition();
-      maxDepth = item.getFilter().getMaxDepth();
-    }
 
     Set<OIdentifiable> result = new HashSet<OIdentifiable>();
 
@@ -107,14 +111,14 @@ public class MatchEdgeTraverser {
       // evaluated
       Iterable<OIdentifiable> queryResult = traversePatternEdge(startingPoint, iCommandContext);
 
-      if (item.getFilter() == null || item.getFilter().getFilter() == null) {
+      if (filter == null && targetClass==null) {
         return queryResult;
       }
 
       for (OIdentifiable origin : queryResult) {
         Object previousMatch = iCommandContext.getVariable("$currentMatch");
         iCommandContext.setVariable("$currentMatch", origin);
-        if (matchesFilters(iCommandContext, filter, origin)) {
+        if (matchesType(iCommandContext, targetClass, origin) && matchesFilters(iCommandContext, filter, origin)) {
           result.add(origin);
         }
         iCommandContext.setVariable("$currentMatch", previousMatch);
@@ -123,7 +127,7 @@ public class MatchEdgeTraverser {
       iCommandContext.setVariable("$depth", depth);
       Object previousMatch = iCommandContext.getVariable("$currentMatch");
       iCommandContext.setVariable("$currentMatch", startingPoint);
-      if (matchesFilters(iCommandContext, filter, startingPoint)) {
+      if (matchesType(iCommandContext, targetClass, startingPoint) && matchesFilters(iCommandContext, filter, startingPoint)) {
         result.add(startingPoint);
       }
 
@@ -137,7 +141,8 @@ public class MatchEdgeTraverser {
           //            continue;
           //          }
           // TODO consider break strategies (eg. re-traverse nodes)
-          Iterable<OIdentifiable> subResult = executeTraversal(iCommandContext, item, origin, depth + 1);
+          Iterable<OIdentifiable> subResult = executeTraversal(iCommandContext, targetClass, whereCond, whileCond, maxDepth, origin,
+              depth + 1);
           if (subResult instanceof Collection) {
             result.addAll((Collection<? extends OIdentifiable>) subResult);
           } else {
@@ -150,6 +155,18 @@ public class MatchEdgeTraverser {
       iCommandContext.setVariable("$currentMatch", previousMatch);
     }
     return result;
+  }
+
+  protected boolean matchesType(OCommandContext iCommandContext, String targetClass, OIdentifiable startingPoint) {
+    if (targetClass == null) {
+      return true;
+    }
+    ODocument doc = startingPoint.getRecord();
+    OClass clazz = doc.getSchemaClass();
+    if (clazz == null) {
+      return false;
+    }
+    return clazz.isSubClassOf(targetClass);
   }
 
   protected boolean matchesFilters(OCommandContext iCommandContext, OWhereClause filter, OIdentifiable origin) {

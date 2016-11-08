@@ -285,16 +285,35 @@ public class OMatchExecutionPlanner {
     this.aliasClasses = aliasClasses;
 
     rebindFilters(aliasFilters);
+    rebindTargetClasses(aliasClasses);
+  }
+
+  private void rebindTargetClasses(Map<String, String> aliasClasses) {
+    for (OMatchExpression expression : matchExpressions) {
+      String alias = expression.getOrigin().getAlias();
+      String clazz = aliasClasses.get(alias);
+      pattern.get(alias).setTargetClass(clazz);
+
+      for (OMatchPathItem item : expression.getItems()) {
+        alias = item.getFilter().getAlias();
+        clazz = aliasClasses.get(alias);
+        pattern.get(alias).setTargetClass(clazz);
+      }
+    }
   }
 
   private void rebindFilters(Map<String, OWhereClause> aliasFilters) {
     for (OMatchExpression expression : matchExpressions) {
-      OWhereClause newFilter = aliasFilters.get(expression.getOrigin().getAlias());
+      String alias = expression.getOrigin().getAlias();
+      OWhereClause newFilter = aliasFilters.get(alias);
       expression.getOrigin().setFilter(newFilter);
+      pattern.get(alias).setFilter(newFilter);
 
       for (OMatchPathItem item : expression.getItems()) {
-        newFilter = aliasFilters.get(item.getFilter().getAlias());
+        alias = item.getFilter().getAlias();
+        newFilter = aliasFilters.get(alias);
         item.getFilter().setFilter(newFilter);
+        pattern.get(alias).setFilter(newFilter);
       }
     }
   }

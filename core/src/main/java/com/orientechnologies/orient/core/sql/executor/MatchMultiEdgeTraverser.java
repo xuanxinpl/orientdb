@@ -55,7 +55,14 @@ public class MatchMultiEdgeTraverser extends MatchEdgeTraverser {
             current = ((OResult) current).getElement().orElse(null);
           }
           MatchEdgeTraverser subtraverser = new MatchEdgeTraverser(null, sub);
-          subtraverser.executeTraversal(iCommandContext, sub, (OIdentifiable) current, 0).forEach(x -> rightSide.add(x));
+
+          OMatchFilter subfilter = sub.getFilter();
+          String subtargetClass = subfilter==null?null:subfilter.getClassName(iCommandContext);
+          OWhereClause subwhereCond = subfilter == null ? null : subfilter.getFilter();
+          OWhereClause subwhileCond = subfilter == null ? null : subfilter.getWhileCondition();
+          Integer submaxDepth = subfilter == null ? null : subfilter.getMaxDepth();
+
+          subtraverser.executeTraversal(iCommandContext, subtargetClass, subwhereCond, subwhileCond, submaxDepth, (OIdentifiable) current, 0).forEach(x -> rightSide.add(x));
 
         } else {
           iCommandContext.setVariable("$current", o);

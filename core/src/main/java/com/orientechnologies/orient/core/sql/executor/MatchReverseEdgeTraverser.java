@@ -20,6 +20,22 @@ public class MatchReverseEdgeTraverser extends MatchEdgeTraverser {
     this.endPointAlias = edge.edge.out.alias;
   }
 
+  protected void init(OCommandContext ctx) {
+    if (downstream == null) {
+      Object startingElem = sourceRecord.getProperty(getStartingPointAlias());
+      if (startingElem instanceof OResult) {
+        startingElem = ((OResult) startingElem).getElement().orElse(null);
+      }
+
+      String targetClass = edge.edge.out.getTargetClass();
+      OWhereClause whereCond = edge.edge.out.getFilter();
+      OWhereClause whileCond = null;
+      Integer maxDepth = null;
+
+      downstream = executeTraversal(ctx, targetClass, whereCond, whileCond, maxDepth, (OIdentifiable) startingElem, 0).iterator();
+    }
+  }
+
   @Override protected Iterable<OIdentifiable> traversePatternEdge(OIdentifiable startingPoint, OCommandContext iCommandContext) {
 
     Object qR = this.item.getMethod().executeReverse(startingPoint, iCommandContext);
