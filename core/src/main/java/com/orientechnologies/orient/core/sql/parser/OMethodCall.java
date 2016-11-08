@@ -98,6 +98,9 @@ public class OMethodCall extends SimpleNode {
                 ctx);
       } else {
         Object current = ctx.getVariable("$current");
+        if(current == null){
+          current = targetObjects;
+        }
         if(current instanceof OIdentifiable) {
           return function.execute(targetObjects, (OIdentifiable) current, null, paramValues.toArray(), ctx);
         }else if(current instanceof OResult){
