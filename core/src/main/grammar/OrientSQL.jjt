@@ -1170,7 +1170,18 @@ OMatchStatement MatchStatement():
             lastMatchExpr = MatchExpression() { jjtThis.matchExpressions.add(lastMatchExpr); }
         )*
         <RETURN>
-        lastReturn = Expression() {lastReturnAlias = null;}
+
+        (
+            LOOKAHEAD(3)
+            (
+                <DISTINCT> { jjtThis.returnDistinct = true; }
+                lastReturn = Expression() {lastReturnAlias = null;}
+            )
+            |
+            (
+                lastReturn = Expression() {lastReturnAlias = null;}
+            )
+        )
         [ <AS> lastReturnAlias = Identifier() ]
         {
             jjtThis.returnAliases.add(lastReturnAlias);

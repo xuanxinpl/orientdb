@@ -42,8 +42,12 @@ public class MatchFirstStep extends AbstractExecutionStep {
     getPrev().ifPresent(x -> x.syncPull(ctx, nRecords));
     init(ctx);
     return new OTodoResultSet() {
+      int totalFetched = 0;
 
       @Override public boolean hasNext() {
+        if(totalFetched >= nRecords){
+          return false;
+        }
         if (iterator != null) {
           return iterator.hasNext();
         } else {
@@ -52,7 +56,9 @@ public class MatchFirstStep extends AbstractExecutionStep {
       }
 
       @Override public OResult next() {
-
+        if(totalFetched>=nRecords){
+          throw new IllegalStateException();
+        }
         OResultInternal result = new OResultInternal();
         if (iterator != null) {
           result.setProperty(getAlias(), iterator.next());
@@ -60,6 +66,7 @@ public class MatchFirstStep extends AbstractExecutionStep {
           result.setProperty(getAlias(), subResultSet.next());
         }
         ctx.setVariable("$matched", result);
+        totalFetched++;
         return result;
       }
 

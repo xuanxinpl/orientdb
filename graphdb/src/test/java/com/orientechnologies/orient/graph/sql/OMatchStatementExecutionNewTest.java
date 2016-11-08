@@ -257,6 +257,7 @@ public class OMatchStatementExecutionNewTest {
   @Test public void testSimpleLimit() throws Exception {
     OTodoResultSet qResult = db
         .query("match {class:Person, as: person, where: (name = 'n1' or name = 'n2')} return person limit 1");
+    printExecutionPlan(qResult);
     Assert.assertTrue(qResult.hasNext());
     qResult.next();
     Assert.assertFalse(qResult.hasNext());
@@ -1177,6 +1178,7 @@ public class OMatchStatementExecutionNewTest {
     query.append("return $matches LIMIT 1");
 
     OTodoResultSet result = db.query(query.toString());
+    printExecutionPlan(result);
 
     Assert.assertTrue(result.hasNext());
     OResult d = result.next();
@@ -1392,7 +1394,7 @@ public class OMatchStatementExecutionNewTest {
       StringBuilder query = new StringBuilder();
       query.append("match ");
       query.append("{class:DiamondV, as: one, where: (uid = 0)}.out('DiamondE').out('DiamondE'){as: two} ");
-      query.append("return one, two");
+      query.append("return distinct one, two");
 
 
       OTodoResultSet result = db.query(query.toString());
@@ -1404,7 +1406,7 @@ public class OMatchStatementExecutionNewTest {
       query = new StringBuilder();
       query.append("match ");
       query.append("{class:DiamondV, as: one, where: (uid = 0)}.out('DiamondE').out('DiamondE'){as: two} ");
-      query.append("return one.uid, two.uid");
+      query.append("return distinct one.uid, two.uid");
 
       result.close();
 
@@ -1449,7 +1451,7 @@ public class OMatchStatementExecutionNewTest {
       query.append("      while: ($depth = 0 or in('ManagerOf').size() = 0),");
       query.append("      where: ($depth = 0 or in('ManagerOf').size() = 0)");
       query.append("  }<-WorksAt-{as: managed}");
-      query.append("  return $elements");
+      query.append("  return distinct $elements");
 
 
       return db.query(query.toString());
@@ -1541,7 +1543,7 @@ public class OMatchStatementExecutionNewTest {
       query.append("      while: ($depth = 0 or in('ManagerOf').size() = 0),");
       query.append("      where: ($depth = 0 or in('ManagerOf').size() = 0)");
       query.append("  }<-WorksAt-{as: managed}");
-      query.append("  return $pathElements");
+      query.append("  return distinct $pathElements");
 
 
       return db.query(query.toString());

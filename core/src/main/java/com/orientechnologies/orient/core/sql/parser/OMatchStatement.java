@@ -88,6 +88,7 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
   protected           List<OMatchExpression> matchExpressions = new ArrayList<OMatchExpression>();
   protected           List<OExpression>      returnItems      = new ArrayList<OExpression>();
   protected           List<OIdentifier>      returnAliases    = new ArrayList<OIdentifier>();
+  protected           boolean                returnDistinct = false;
   protected OLimit limit;
 
   // post-parsing generated data
@@ -1068,6 +1069,9 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
       first = false;
     }
     builder.append(" RETURN ");
+    if(this.returnDistinct){
+      builder.append("DISTINCT ");
+    }
     first = true;
     for (OExpression expr : this.returnItems) {
       if (!first) {
@@ -1096,6 +1100,7 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
     result.returnItems = returnItems == null ? null : returnItems.stream().map(x -> x.copy()).collect(Collectors.toList());
     result.returnAliases = returnAliases == null ? null : returnAliases.stream().map(x -> x.copy()).collect(Collectors.toList());
     result.limit = limit == null ? null : limit.copy();
+    result.returnDistinct = this.returnDistinct;
     result.buildPatterns();
     return result;
   }
@@ -1115,6 +1120,9 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
     if (returnAliases != null ? !returnAliases.equals(that.returnAliases) : that.returnAliases != null)
       return false;
     if (limit != null ? !limit.equals(that.limit) : that.limit != null)
+      return false;
+
+    if (returnDistinct!=that.returnDistinct)
       return false;
 
     return true;
@@ -1158,6 +1166,14 @@ public class OMatchStatement extends OStatement implements OCommandExecutor, OIt
 
   public void setMatchExpressions(List<OMatchExpression> matchExpressions) {
     this.matchExpressions = matchExpressions;
+  }
+
+  public boolean isReturnDistinct() {
+    return returnDistinct;
+  }
+
+  public void setReturnDistinct(boolean returnDistinct) {
+    this.returnDistinct = returnDistinct;
   }
 }
 /* JavaCC - OriginalChecksum=6ff0afbe9d31f08b72159fcf24070c9f (do not edit this line) */

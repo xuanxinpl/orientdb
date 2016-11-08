@@ -23,6 +23,7 @@ public class OMatchExecutionPlanner {
   protected List<OMatchExpression> matchExpressions;
   protected List<OExpression>      returnItems;
   protected List<OIdentifier>      returnAliases;
+  protected boolean                returnDistinct = false;
   boolean returnElements     = false;
   boolean returnPaths        = false;
   boolean returnPatterns     = false;
@@ -45,6 +46,7 @@ public class OMatchExecutionPlanner {
     this.limit = stm.getLimit() == null ? null : stm.getLimit().copy();
     //    this.skip = stm.getSkip() == null ? null : stm.getSkip().copy();
 
+    this.returnDistinct = stm.isReturnDistinct();
     this.returnElements = stm.returnsElements();
     this.returnPaths = stm.returnsPaths();
     this.returnPatterns = stm.returnsPatterns();
@@ -84,8 +86,9 @@ public class OMatchExecutionPlanner {
     }
     addReturnStep(result, context);
 
-    result.chain(new DistinctExecutionStep(context)); //TODO make it optional?
-
+    if(this.returnDistinct) {
+      result.chain(new DistinctExecutionStep(context));
+    }
     if (this.skip != null && skip.getValue(context) >= 0) {
       result.chain(new SkipExecutionStep(skip, context));
     }
