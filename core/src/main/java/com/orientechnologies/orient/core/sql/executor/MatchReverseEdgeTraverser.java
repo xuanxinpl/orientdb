@@ -51,7 +51,10 @@ public class MatchReverseEdgeTraverser extends MatchEdgeTraverser {
   }
 
   protected boolean matchesFilters(OCommandContext iCommandContext, OWhereClause filter, OIdentifiable origin) {
-    return true;
+    if (filter == null) {
+      return true;
+    }
+    return filter.matchesFilters(origin, iCommandContext);
   }
 
 }
