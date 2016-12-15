@@ -21,7 +21,6 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OByteSerializer;
 import com.orientechnologies.common.serialization.types.OIntegerSerializer;
 import com.orientechnologies.common.serialization.types.OLongSerializer;
-import com.orientechnologies.common.util.OCallable;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.compression.OCompression;
 import com.orientechnologies.orient.core.compression.OCompressionFactory;
@@ -38,8 +37,6 @@ import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.metadata.OMetadata;
-import com.orientechnologies.orient.core.record.ORecord;
-import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.storage.*;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
@@ -61,6 +58,9 @@ import static com.orientechnologies.orient.core.config.OGlobalConfiguration.PAGI
  * @since 10/7/13
  */
 public class OPaginatedCluster extends ODurableComponent implements OCluster {
+
+  private static final boolean VALIDATE_FREE_LISTS     = true;
+  private static final boolean VALIDATE_ALL_FREE_LISTS = true;
 
   public enum RECORD_STATUS {
     NOT_EXISTENT, PRESENT, ALLOCATED, REMOVED
@@ -451,6 +451,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
       OAtomicOperation atomicOperation = startAtomicOperation(true);
       acquireExclusiveLock();
       try {
+        validateAllFreeLists(atomicOperation);
+
         int entryContentLength = getEntryContentLength(content.length);
 
         if (entryContentLength < OClusterPage.MAX_RECORD_SIZE) {
@@ -487,6 +489,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
             addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
 
             endAtomicOperation(false, null);
+
+            validateAllFreeLists(atomicOperation);
 
             return createPhysicalPosition(recordType, clusterPosition, addEntryResult.recordVersion);
           } catch (Exception e) {
@@ -575,6 +579,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
 
             addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
             endAtomicOperation(false, null);
+
+            validateAllFreeLists(atomicOperation);
 
             return createPhysicalPosition(recordType, clusterPosition, version);
           } catch (RuntimeException e) {
@@ -755,6 +761,7 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
       OAtomicOperation atomicOperation = startAtomicOperation(true);
       acquireExclusiveLock();
       try {
+        validateAllFreeLists(atomicOperation);
 
         OClusterPositionMapBucket.PositionEntry positionEntry = clusterPositionMap.get(clusterPosition, 1);
         if (positionEntry == null) {
@@ -781,6 +788,7 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
           try {
             OClusterPage localPage = new OClusterPage(cacheEntry, false, getChanges(atomicOperation, cacheEntry));
             initialFreePageIndex = calculateFreePageIndex(localPage);
+            validateFreeList(initialFreePageIndex, atomicOperation);
 
             if (localPage.isDeleted(recordPosition)) {
               if (removedContentSize == 0) {
@@ -830,6 +838,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
         clusterPositionMap.remove(clusterPosition);
         addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
         endAtomicOperation(false, null);
+
+        validateAllFreeLists(atomicOperation);
 
         return true;
       } catch (IOException e) {
@@ -903,6 +913,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
 
       acquireExclusiveLock();
       try {
+        validateAllFreeLists(atomicOperation);
+
         final OClusterPositionMapBucket.PositionEntry positionEntry = clusterPositionMap.get(clusterPosition, 1);
 
         if (positionEntry == null) {
@@ -1114,6 +1126,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
 
         addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
         endAtomicOperation(false, null);
+
+        validateAllFreeLists(atomicOperation);
       } catch (RuntimeException e) {
         endAtomicOperation(true, e);
         throw OException.wrapException(new OPaginatedClusterException("Error during record update", this), e);
@@ -1142,6 +1156,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
 
       acquireExclusiveLock();
       try {
+        validateAllFreeLists(atomicOperation);
+
         final OClusterPositionMapBucket.PositionEntry positionEntry = clusterPositionMap.get(clusterPosition, 1);
         if (positionEntry != null) {
           // NOT DELETED
@@ -1182,6 +1198,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
             addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
 
             endAtomicOperation(false, null);
+
+            validateAllFreeLists(atomicOperation);
 
           } catch (Exception e) {
             endAtomicOperation(true, e);
@@ -1266,6 +1284,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
             addAtomicOperationMetadata(new ORecordId(id, clusterPosition), atomicOperation);
 
             endAtomicOperation(false, null);
+
+            validateAllFreeLists(atomicOperation);
 
           } catch (RuntimeException e) {
             endAtomicOperation(true, e);
@@ -1945,6 +1965,7 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
         }
       }
 
+      validateFreeList(freePageIndex, atomicOperation);
       return new FindFreePageResult(pageIndex, freePageIndex);
     }
   }
@@ -2056,6 +2077,8 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
       pinnedStateEntry.releaseExclusiveLock();
       releasePage(atomicOperation, pinnedStateEntry);
     }
+
+    validateFreeList(freeListIndex, atomicOperation);
   }
 
   private int calculateFreePageIndex(OClusterPage localPage) {
@@ -2208,5 +2231,46 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
   @Override
   public String toString() {
     return "plocal cluster: " + getName();
+  }
+
+  private void validateFreeList(int listIndex, OAtomicOperation atomicOperation) throws IOException {
+    if (!VALIDATE_FREE_LISTS || listIndex < 0 || listIndex >= FREE_LIST_SIZE)
+      return;
+
+    final OCacheEntry stateEntry = loadPage(atomicOperation, fileId, pinnedStateEntryIndex, true);
+    stateEntry.acquireSharedLock();
+    try {
+      OPaginatedClusterState state = new OPaginatedClusterState(stateEntry, getChanges(atomicOperation, stateEntry));
+      long prevPageIndex = -1;
+      long pageIndex = state.getFreeListPage(listIndex);
+
+      while (pageIndex >= 0) {
+        OCacheEntry pageEntry = loadPage(atomicOperation, fileId, pageIndex, false);
+        pageEntry.acquireSharedLock();
+        try {
+          final OClusterPage page = new OClusterPage(pageEntry, false, getChanges(atomicOperation, pageEntry));
+          final int calculatedListIndex = calculateFreePageIndex(page);
+          assert listIndex == calculatedListIndex;
+
+          assert prevPageIndex == page.getPrevPage();
+          prevPageIndex = pageIndex;
+          pageIndex = page.getNextPage();
+        } finally {
+          pageEntry.releaseSharedLock();
+          releasePage(atomicOperation, pageEntry);
+        }
+      }
+
+    } finally {
+      stateEntry.releaseSharedLock();
+      releasePage(atomicOperation, stateEntry);
+    }
+  }
+
+  private void validateAllFreeLists(OAtomicOperation atomicOperation) throws IOException {
+    //noinspection ConstantConditions
+    if (VALIDATE_FREE_LISTS && VALIDATE_ALL_FREE_LISTS)
+      for (int i = 0; i < FREE_LIST_SIZE; ++i)
+        validateFreeList(i, atomicOperation);
   }
 }
