@@ -1,18 +1,17 @@
 package com.orientechnologies.orient.server.distributed;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.junit.Assert;
-import org.junit.Test;
-
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /*
  *
- *  *  Copyright 2015 Orient Technologies LTD (info(at)orientechnologies.com)
+ *  *  Copyright 2015 OrientDB LTD (http://orientdb.com)
  *  *
  *  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  *  you may not use this file except in compliance with the License.
@@ -26,7 +25,7 @@ import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
  *  *  See the License for the specific language governing permissions and
  *  *  limitations under the License.
  *  *
- *  * For more information: http://www.orientechnologies.com
+ *  * For more information: http://orientdb.com
  *
  */
 

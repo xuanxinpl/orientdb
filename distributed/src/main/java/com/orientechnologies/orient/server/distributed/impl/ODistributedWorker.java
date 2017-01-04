@@ -32,9 +32,11 @@ import com.orientechnologies.orient.core.metadata.security.OSecurityUser;
 import com.orientechnologies.orient.core.metadata.security.OUser;
 import com.orientechnologies.orient.server.distributed.*;
 import com.orientechnologies.orient.server.distributed.ODistributedServerLog.DIRECTION;
+import com.orientechnologies.orient.server.distributed.task.ODistributedOperationException;
 import com.orientechnologies.orient.server.distributed.task.ORemoteTask;
 
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -53,11 +55,12 @@ public class ODistributedWorker extends Thread {
   protected final ArrayBlockingQueue<ODistributedRequest> localQueue;
   protected final int                                     id;
 
-  protected volatile ODatabaseDocumentInternal            database;
-  protected volatile OUser                                lastUser;
-  protected volatile boolean                              running              = true;
+  protected volatile ODatabaseDocumentInternal database;
+  protected volatile OUser                     lastUser;
+  protected volatile boolean running = true;
 
-  private AtomicLong processedRequests = new AtomicLong(0);
+  private AtomicLong    processedRequests     = new AtomicLong(0);
+  private AtomicBoolean waitingForNextRequest = new AtomicBoolean(true);
 
   private static final long MAX_SHUTDOWN_TIMEOUT = 5000l;
 
@@ -157,8 +160,7 @@ public class ODistributedWorker extends Thread {
 
     } else if (database.isClosed()) {
       // DATABASE CLOSED, REOPEN IT
-      database.close();
-      database = distributed.getDatabaseInstance();
+      manager.getServerInstance().openDatabase(database.getURL());
     }
   }
 
@@ -234,14 +236,20 @@ public class ODistributedWorker extends Thread {
     return req;
   }
 
+  public boolean isWaitingForNextRequest() {
+    return waitingForNextRequest.get();
+  }
+
   protected ODistributedRequest nextMessage() throws InterruptedException {
+    waitingForNextRequest.set(true);
     final ODistributedRequest req = localQueue.take();
+    waitingForNextRequest.set(false);
     processedRequests.incrementAndGet();
     return req;
   }
 
   /**
-   * Execute the remote call on the local node and send back the result
+   * Executes the remote call on the local node and send back the result
    */
   protected void onMessage(final ODistributedRequest iRequest) {
     String senderNodeName = null;
@@ -277,10 +285,16 @@ public class ODistributedWorker extends Thread {
     Object responsePayload = null;
     OSecurityUser origin = null;
     try {
-      task.setNodeSource(senderNodeName);
       waitNodeIsOnline();
-      if (task.isUsingDatabase())
+
+      distributed.waitIsReady(task);
+
+      if (task.isUsingDatabase()) {
         initDatabaseInstance();
+        if (database == null)
+          throw new ODistributedOperationException(
+              "Error on executing remote request because the database '" + databaseName + "' is not available");
+      }
 
       // keep original user in database, check the username passed in request and set new user in DB, after document saved,
       // reset to original user
@@ -369,7 +383,8 @@ public class ODistributedWorker extends Thread {
       final ORemoteServerController remoteSenderServer = manager.getRemoteServer(senderNodeName);
 
       ODistributedServerLog
-          .debug(current, localNodeName, senderNodeName, ODistributedServerLog.DIRECTION.OUT, "Sending response %s back", response);
+          .debug(current, localNodeName, senderNodeName, ODistributedServerLog.DIRECTION.OUT, "Sending response %s back (reqId=%s)",
+              response, iRequest);
 
       remoteSenderServer.sendResponse(response);
 
@@ -410,6 +425,15 @@ public class ODistributedWorker extends Thread {
 
   public long getProcessedRequests() {
     return processedRequests.get();
+  }
+
+  public void reset() {
+    localQueue.clear();
+    if (database != null) {
+      database.activateOnCurrentThread();
+      database.close();
+      database = null;
+    }
   }
 
   public void sendShutdown() {

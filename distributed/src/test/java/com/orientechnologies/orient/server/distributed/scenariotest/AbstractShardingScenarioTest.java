@@ -23,7 +23,6 @@ import com.orientechnologies.orient.core.exception.ORecordNotFoundException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.orientechnologies.orient.core.sql.query.OLegacyResultSet;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import com.orientechnologies.orient.server.distributed.ODistributedException;
@@ -136,7 +135,7 @@ public class AbstractShardingScenarioTest extends AbstractScenarioTest {
     graphFactory = new OrientGraphFactory("plocal:target/server0/databases/" + getDatabaseName());
     graph = graphFactory.getNoTx();
     try {
-      OLegacyResultSet<ODocument> clients = new OCommandSQL("select from Client").execute();
+      Collection<ODocument> clients = new OCommandSQL("select from Client").execute();
       int total = clients.size();
       assertEquals(expected, total);
 
@@ -158,8 +157,8 @@ public class AbstractShardingScenarioTest extends AbstractScenarioTest {
           int total = result.size();
           // assertEquals(count * writerCount, total);
 
-          sqlCommand = "select count(*) from cluster:client_"
-              + server.getServerInstance().getDistributedManager().getLocalNodeName();
+          sqlCommand =
+              "select count(*) from cluster:client_" + server.getServerInstance().getDistributedManager().getLocalNodeName();
           result = new OCommandSQL(sqlCommand).execute();
           total = ((Number) result.get(0).field("count")).intValue();
           // assertEquals(count * writerCount, total);
@@ -251,8 +250,9 @@ public class AbstractShardingScenarioTest extends AbstractScenarioTest {
 
     List<OrientVertex> verticesToCheck = new LinkedList<OrientVertex>();
 
-    super.banner("Checking consistency among servers...\nChecking on servers {" + checkOnServer
-        + "} that all the vertices written on {" + writtenServer + "} are consistent.");
+    super.banner(
+        "Checking consistency among servers...\nChecking on servers {" + checkOnServer + "} that all the vertices written on {"
+            + writtenServer + "} are consistent.");
 
     try {
 
@@ -325,9 +325,9 @@ public class AbstractShardingScenarioTest extends AbstractScenarioTest {
 
   protected class ShardWriter implements Callable<Void> {
     protected final String databaseUrl;
-    protected int          serverId;
+    protected       int    serverId;
     protected final String shardName;
-    protected int          threadId;
+    protected       int    threadId;
 
     protected ShardWriter(final int iServerId, final String shardName, final int iThreadId, final String db) {
       serverId = iServerId;

@@ -1,6 +1,6 @@
 /*
  *
- *  *  Copyright 2010-2016 OrientDB LTD (http://orientdb.com)
+ *  *  Copyright 2014 Orient Technologies LTD (info(at)orientechnologies.com)
  *  *
  *  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  *  you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
  *  *  See the License for the specific language governing permissions and
  *  *  limitations under the License.
  *  *
- *  * For more information: http://orientdb.com
+ *  * For more information: http://www.orientechnologies.com
  *
  */
 package com.orientechnologies.orient.core.command;
 
 /**
  * Interface to know if the command must be distributed in clustered scenario.
- * 
- * @author Luca Garulli (l.garulli--(at)--orientdb.com)
+ *
+ * @author Luca Garulli
  */
 public interface OCommandDistributedReplicateRequest {
 
@@ -77,4 +77,9 @@ public interface OCommandDistributedReplicateRequest {
    * Returns the undo command if any.
    */
   String getUndoCommand();
+
+  /**
+   * Returns true if the command is executed on local node first and then distributed, or false if it's executed to all the servers at the same time.
+   */
+  boolean isDistributedExecutingOnLocalNodeFirst();
 }

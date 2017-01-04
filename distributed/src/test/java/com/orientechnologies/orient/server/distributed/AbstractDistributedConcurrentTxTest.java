@@ -20,14 +20,6 @@
 
 package com.orientechnologies.orient.server.distributed;
 
-import java.util.Date;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.junit.Assert;
-
 import com.orientechnologies.common.concur.ONeedRetryException;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
@@ -37,6 +29,13 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.orientechnologies.orient.server.distributed.task.ODistributedRecordLockedException;
 import com.tinkerpop.blueprints.impls.orient.*;
+import org.junit.Assert;
+
+import java.util.Date;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Test distributed TX
@@ -69,7 +68,8 @@ public abstract class AbstractDistributedConcurrentTxTest extends AbstractDistri
 
         try {
           if ((i + 1) % 100 == 0)
-            System.out.println("\nWriter " + databaseUrl + " managed " + (i + 1) + "/" + count + " vertices so far");
+            System.out.println("\nWriter " + databaseUrl + " id=" + Thread.currentThread().getId() + " managed " + (i + 1) + "/"
+                + count + " vertices so far");
 
           int retry = 0;
           boolean success = false;
@@ -77,7 +77,7 @@ public abstract class AbstractDistributedConcurrentTxTest extends AbstractDistri
             try {
               updateVertex(localVertex);
               graph.commit();
-              OLogManager.instance().info(this, "Success count %d retry %d", i, retry);
+              OLogManager.instance().debug(this, "Success count %d retry %d", i, retry);
               success = true;
               break;
 

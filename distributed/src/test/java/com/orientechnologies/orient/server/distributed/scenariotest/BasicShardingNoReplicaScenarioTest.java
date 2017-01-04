@@ -21,8 +21,7 @@ import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.orientechnologies.orient.server.distributed.ODistributedConfiguration;
-import com.orientechnologies.orient.server.distributed.ServerRun;
+import com.orientechnologies.orient.server.distributed.OModifiableDistributedConfiguration;
 import com.orientechnologies.orient.server.hazelcast.OHazelcastPlugin;
 import com.tinkerpop.blueprints.Vertex;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphFactory;
@@ -31,24 +30,18 @@ import com.tinkerpop.blueprints.impls.orient.OrientVertex;
 import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 import static org.junit.Assert.*;
 
 /**
- * It checks the consistency in the cluster with the following scenario:
- * - 3 server (europe, usa, asia)
- * - 3 shards, one for each server (client_europe, client_usa, client_asia)
- * - writes on each node (5 threads for each running server write 100 records)
- * - check availability no-replica (you can retry records of all the shards)
- * - shutdown server3
- * - check availability no-replica (you can retry only records in shard1 and shard2)
- * - restart server3
- * - check availability no-replica (you can retry records of all the shards)
- * - this test checks also the full restore of database that doesn't overwrite the client_asia
- * cluster because owned only by asia server
+ * It checks the consistency in the cluster with the following scenario: - 3 server (europe, usa, asia) - 3 shards, one for each
+ * server (client_europe, client_usa, client_asia) - writes on each node (5 threads for each running server write 100 records) -
+ * check availability no-replica (you can retry records of all the shards) - shutdown server3 - check availability no-replica (you
+ * can retry only records in shard1 and shard2) - restart server3 - check availability no-replica (you can retry records of all the
+ * shards) - this test checks also the full restore of database that doesn't overwrite the client_asia cluster because owned only by
+ * asia server
  *
  * @author Gabriele Ponzi
  * @email <gabriele.ponzi--at--gmail.com>
@@ -60,9 +53,6 @@ public class BasicShardingNoReplicaScenarioTest extends AbstractShardingScenario
   public void test() throws Exception {
     init(SERVERS);
     prepare(false);
-
-    executeTestsOnServers = new ArrayList<ServerRun>(serverInstance);
-
     execute();
   }
 
@@ -71,12 +61,9 @@ public class BasicShardingNoReplicaScenarioTest extends AbstractShardingScenario
 
     OHazelcastPlugin manager1 = (OHazelcastPlugin) serverInstance.get(0).getServerInstance().getDistributedManager();
 
-    ODistributedConfiguration databaseConfiguration = manager1.getDatabaseConfiguration(this.getDatabaseName());
+    final OModifiableDistributedConfiguration databaseConfiguration = manager1.getDatabaseConfiguration(this.getDatabaseName())
+        .modify();
     ODocument cfg = databaseConfiguration.getDocument();
-    cfg.field("autoDeploy", false);
-    cfg.field("version", (Integer) cfg.field("version") + 1);
-
-    manager1.updateCachedDatabaseConfiguration(this.getDatabaseName(), cfg, true, true);
 
     OrientGraphFactory localFactory = new OrientGraphFactory("plocal:target/server0/databases/" + getDatabaseName());
     OrientGraphNoTx graphNoTx = null;
@@ -85,14 +72,14 @@ public class BasicShardingNoReplicaScenarioTest extends AbstractShardingScenario
 
       final OrientVertexType clientType = graphNoTx.createVertexType("Client", 1);
 
-      ODistributedConfiguration dCfg = new ODistributedConfiguration(cfg);
+      OModifiableDistributedConfiguration dCfg = new OModifiableDistributedConfiguration(cfg);
       for (int i = 0; i < serverInstance.size(); ++i) {
         final String serverName = serverInstance.get(i).getServerInstance().getDistributedManager().getLocalNodeName();
         clientType.addCluster("client_" + serverName);
 
         dCfg.setServerOwner("client_" + serverName, serverName);
       }
-      manager1.updateCachedDatabaseConfiguration(this.getDatabaseName(), dCfg.getDocument(), true, true);
+      manager1.updateCachedDatabaseConfiguration(this.getDatabaseName(), dCfg, true);
 
       final OrientVertexType.OrientVertexProperty prop = clientType.createProperty("name", OType.STRING);
       prop.createIndex(OClass.INDEX_TYPE.NOTUNIQUE);

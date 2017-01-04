@@ -24,7 +24,7 @@ import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphFactory;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
 import com.tinkerpop.blueprints.impls.orient.OrientVertex;
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Iterator;
@@ -33,7 +33,7 @@ import java.util.Iterator;
  * Start 2 servers and execute query across the cluster
  */
 public class ServerClusterQueryTest extends AbstractServerClusterTest {
-  final static int     SERVERS = 2;
+  final static int SERVERS = 2;
   private OrientVertex v1;
   private OrientVertex v2;
   private OrientVertex v3;
@@ -102,8 +102,8 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
         final OrientVertex r2 = it.next();
         Assert.assertFalse(it.hasNext());
 
-        Assert.assertEquals(r1.<Object>getProperty("d"), 0);
-        Assert.assertEquals(r2.<Object>getProperty("d"), 1);
+        Assert.assertEquals((int) r1.getProperty("d"), 0);
+        Assert.assertEquals((int) r2.getProperty("d"), 1);
 
       } finally {
         g.shutdown();
@@ -117,14 +117,14 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
       OrientGraphNoTx g = factory.getNoTx();
 
       try {
-        final Iterable<OrientVertex> result = g.command(new OCommandSQL("select sum(amount) as total from v")).execute(
-            v2.getIdentity());
+        final Iterable<OrientVertex> result = g.command(new OCommandSQL("select sum(amount) as total from v"))
+            .execute(v2.getIdentity());
 
         final Iterator<OrientVertex> it = result.iterator();
         Assert.assertTrue(it.hasNext());
 
         final OrientVertex r1 = it.next();
-        Assert.assertEquals(r1.<Object>getProperty("total"), 46);
+        Assert.assertEquals((int) r1.getProperty("total"), 46);
 
       } finally {
         g.shutdown();
@@ -138,8 +138,8 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
       OrientGraphNoTx g = factory.getNoTx();
 
       try {
-        Iterable<OrientVertex> result = g.command(new OCommandSQL("select amount from v order by amount asc")).execute(
-            v2.getIdentity());
+        Iterable<OrientVertex> result = g.command(new OCommandSQL("select amount from v order by amount asc"))
+            .execute(v2.getIdentity());
 
         Iterator<OrientVertex> it = result.iterator();
         Assert.assertTrue(it.hasNext());
@@ -151,9 +151,9 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
         OrientVertex r3 = it.next();
         Assert.assertFalse(it.hasNext());
 
-        Assert.assertEquals(10, r1.<Object>getProperty("amount"));
-        Assert.assertEquals(15, r2.<Object>getProperty("amount"));
-        Assert.assertEquals(21, r3.<Object>getProperty("amount"));
+        Assert.assertEquals(10, (int) r1.getProperty("amount"));
+        Assert.assertEquals(15, (int) r2.getProperty("amount"));
+        Assert.assertEquals(21, (int) r3.getProperty("amount"));
 
         result = g.command(new OCommandSQL("select amount from v order by amount desc")).execute(v2.getIdentity());
 
@@ -167,9 +167,9 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
         r3 = it.next();
         Assert.assertFalse(it.hasNext());
 
-        Assert.assertEquals(21, r1.<Object>getProperty("amount"));
-        Assert.assertEquals(15, r2.<Object>getProperty("amount"));
-        Assert.assertEquals(10, r3.<Object>getProperty("amount"));
+        Assert.assertEquals(21, (int) r1.getProperty("amount"));
+        Assert.assertEquals(15, (int) r2.getProperty("amount"));
+        Assert.assertEquals(10, (int) r3.getProperty("amount"));
 
       } finally {
         g.shutdown();
@@ -183,8 +183,8 @@ public class ServerClusterQueryTest extends AbstractServerClusterTest {
       OrientGraphNoTx g = factory.getNoTx();
 
       try {
-        Iterable<OrientVertex> result = g.command(
-            new OCommandSQL("select from ( select amount, kind from v group by kind ) order by kind")).execute();
+        Iterable<OrientVertex> result = g
+            .command(new OCommandSQL("select from ( select amount, kind from v group by kind ) order by kind")).execute();
 
         Iterator<OrientVertex> it = result.iterator();
         Assert.assertTrue(it.hasNext());

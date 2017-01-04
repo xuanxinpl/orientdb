@@ -15,9 +15,6 @@
  */
 package com.orientechnologies.orient.server.distributed;
 
-import java.io.File;
-import java.io.IOException;
-
 import com.hazelcast.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.HazelcastInstanceImpl;
@@ -29,9 +26,13 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.OServerMain;
 import com.orientechnologies.orient.server.hazelcast.OHazelcastPlugin;
+import com.orientechnologies.orient.server.network.OServerNetworkListener;
 import com.orientechnologies.orient.server.network.protocol.binary.ONetworkProtocolBinary;
 import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
 import com.tinkerpop.blueprints.impls.orient.OrientGraphFactory;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * Running server instance.
@@ -39,9 +40,9 @@ import com.tinkerpop.blueprints.impls.orient.OrientGraphFactory;
  * @author Luca Garulli (l.garulli--(at)--orientdb.com)
  */
 public class ServerRun {
-  protected final String serverId;
-  protected String       rootPath;
-  protected OServer      server;
+  protected final String  serverId;
+  protected       String  rootPath;
+  protected       OServer server;
 
   public ServerRun(final String iRootPath, final String serverId) {
     this.rootPath = iRootPath;
@@ -66,7 +67,10 @@ public class ServerRun {
   }
 
   public String getBinaryProtocolAddress() {
-    return server.getListenerByProtocol(ONetworkProtocolBinary.class).getListeningAddress(true);
+    final OServerNetworkListener prot = server.getListenerByProtocol(ONetworkProtocolBinary.class);
+    if (prot == null)
+      return null;
+    return prot.getListeningAddress(true);
   }
 
   public void deleteNode() {
@@ -174,8 +178,14 @@ public class ServerRun {
       try {
         ((OHazelcastPlugin) server.getDistributedManager()).getHazelcastInstance().shutdown();
       } catch (Exception e) {
+        // IGNORE IT
       }
-      server.shutdown();
+
+      try {
+        server.shutdown();
+      } catch (Exception e) {
+        // IGNORE IT
+      }
     }
 
     closeStorages();
@@ -191,8 +201,14 @@ public class ServerRun {
         hz.getLifecycleService().terminate();
 
       } catch (Exception e) {
+        // IGNORE IT
       }
-      server.shutdown();
+
+      try {
+        server.shutdown();
+      } catch (Exception e) {
+        // IGNORE IT
+      }
     }
 
     closeStorages();

@@ -138,6 +138,11 @@
             <artifactId>hazelcast-cloud</artifactId>
             <version>3.6.5</version>
         </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -57,9 +57,9 @@ public class ODistributedOutput {
         final String serverName = m.field("name");
 
         serverRow.field("Name", serverName + (manager.getLocalNodeName().equals(serverName) ? "*" : ""));
-        serverRow.field("Status", (Object) m.field("status"));
+        serverRow.field("Status", (String) m.field("status"));
         serverRow.field("Databases", (String) null);
-        serverRow.field("Conns", (Object) m.field("connections"));
+        serverRow.field("Conns", (Number) m.field("connections"));
 
         final Date date = m.field("startedOn");
 
@@ -89,8 +89,9 @@ public class ODistributedOutput {
         if (usedMem != null) {
           final long maxMem = m.field("maxMemory");
 
-          serverRow.field("UsedMemory", String.format("%s/%s (%.2f%%)", OFileUtils.getSizeAsString(usedMem),
-              OFileUtils.getSizeAsString(maxMem), ((float) usedMem / (float) maxMem) * 100));
+          serverRow.field("UsedMemory", String
+              .format("%s/%s (%.2f%%)", OFileUtils.getSizeAsString(usedMem), OFileUtils.getSizeAsString(maxMem),
+                  ((float) usedMem / (float) maxMem) * 100));
         }
         rows.add(serverRow);
 
@@ -415,6 +416,7 @@ public class ODistributedOutput {
    *
    * @param manager
    * @param distribCfg
+   *
    * @return
    */
   public static String getCompactServerStatus(final ODistributedServerManager manager, final ODocument distribCfg) {
@@ -436,7 +438,7 @@ public class ODistributedOutput {
 
         final String serverName = m.field("name");
         buffer.append(serverName);
-        buffer.append((String)m.field("status"));
+        buffer.append((String) m.field("status"));
 
         final Collection<String> databases = m.field("databases");
         if (databases != null) {
@@ -524,24 +526,26 @@ public class ODistributedOutput {
     final String localNodeName = manager.getLocalNodeName();
 
     // READ DEFAULT CFG (CLUSTER=*)
-    final String defaultWQ = cfg.isLocalDataCenterWriteQuorum() ? ODistributedConfiguration.QUORUM_LOCAL_DC
-        : "" + cfg.getWriteQuorum(ODistributedConfiguration.ALL_WILDCARD, availableNodes, localNodeName);
+    final String defaultWQ = cfg.isLocalDataCenterWriteQuorum() ?
+        ODistributedConfiguration.QUORUM_LOCAL_DC :
+        "" + cfg.getWriteQuorum(ODistributedConfiguration.ALL_WILDCARD, availableNodes, localNodeName);
     final int defaultRQ = cfg.getReadQuorum(ODistributedConfiguration.ALL_WILDCARD, availableNodes, localNodeName);
     final String defaultOwner = "" + cfg.getClusterOwner(ODistributedConfiguration.ALL_WILDCARD);
-    final List<String> defaultServers = cfg.getServers(ODistributedConfiguration.ALL_WILDCARD);
+    final List<String> defaultServers = cfg.getConfiguredServers(ODistributedConfiguration.ALL_WILDCARD);
 
     final List<OIdentifiable> rows = new ArrayList<OIdentifiable>();
     final Set<String> allServers = new HashSet<String>();
 
     for (String cluster : cfg.getClusterNames()) {
-      final String wQ = cfg.isLocalDataCenterWriteQuorum() ? ODistributedConfiguration.QUORUM_LOCAL_DC
-          : "" + cfg.getWriteQuorum(cluster, availableNodes, localNodeName);
+      final String wQ = cfg.isLocalDataCenterWriteQuorum() ?
+          ODistributedConfiguration.QUORUM_LOCAL_DC :
+          "" + cfg.getWriteQuorum(cluster, availableNodes, localNodeName);
       final int rQ = cfg.getReadQuorum(cluster, availableNodes, localNodeName);
       final String owner = cfg.getClusterOwner(cluster);
-      final List<String> servers = cfg.getServers(cluster);
+      final List<String> servers = cfg.getConfiguredServers(cluster);
 
-      if (!cluster.equals(ODistributedConfiguration.ALL_WILDCARD) && defaultWQ.equals(wQ) && defaultRQ == rQ
-          && defaultOwner.equals(owner) && defaultServers.size() == servers.size() && defaultServers.containsAll(servers))
+      if (!cluster.equals(ODistributedConfiguration.ALL_WILDCARD) && defaultWQ.equals(wQ) && defaultRQ == rQ && defaultOwner
+          .equals(owner) && defaultServers.size() == servers.size() && defaultServers.containsAll(servers))
         // SAME CFG AS THE DEFAULT: DON'T DISPLAY IT
         continue;
 

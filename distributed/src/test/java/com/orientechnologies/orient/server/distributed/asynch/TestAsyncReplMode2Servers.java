@@ -12,8 +12,8 @@ public class TestAsyncReplMode2Servers extends BareBoneBase2ServerTest {
   private static final int    NUM_OF_RETRIES         = 3;
   private static final String CNT_PROP_NAME          = "cnt";
 
-  private Object              parentV1Id;
-  private Object              parentV2Id;
+  private Object parentV1Id;
+  private Object parentV2Id;
 
   @Override
   protected String getDatabaseName() {
@@ -47,7 +47,7 @@ public class TestAsyncReplMode2Servers extends BareBoneBase2ServerTest {
             try {
               parentV1.setProperty(CNT_PROP_NAME, ++countPropValue);
               graph.commit();
-              System.out.println("Committing parentV1" + parentV1.getRecord()+"...");
+              System.out.println("Committing parentV1" + parentV1.getRecord() + "...");
               break;
             } catch (OConcurrentModificationException c) {
               graph.rollback();
@@ -86,6 +86,7 @@ public class TestAsyncReplMode2Servers extends BareBoneBase2ServerTest {
       OrientBaseGraph graph = new OrientGraph(getLocalURL2());
       try {
         OrientVertex parentV1 = graph.getVertex(parentV1Id);
+        assertNotNull(parentV1);
         assertEquals(1, parentV1.getRecord().getVersion());
 
         OrientVertex parentV2 = graph.getVertex(parentV2Id);
@@ -101,8 +102,8 @@ public class TestAsyncReplMode2Servers extends BareBoneBase2ServerTest {
 
           parentV1.reload();
           parentV2.reload();
-          assertEquals("parentV1 (" + parentV1.getRecord() + ")", ++countPropValue, parentV1.<Object>getProperty(CNT_PROP_NAME));
-          assertEquals("parentV2 (" + parentV2.getRecord() + ")", countPropValue, parentV2.<Object>getProperty(CNT_PROP_NAME));
+          assertEquals("parentV1 (" + parentV1.getRecord() + ")", ++countPropValue, (int) parentV1.getProperty(CNT_PROP_NAME));
+          assertEquals("parentV2 (" + parentV2.getRecord() + ")", countPropValue, (int) parentV2.getProperty(CNT_PROP_NAME));
         }
       } catch (Throwable e) {
         if (exceptionInThread == null) {

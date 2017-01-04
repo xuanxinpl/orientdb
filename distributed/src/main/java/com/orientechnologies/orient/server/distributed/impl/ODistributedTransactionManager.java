@@ -29,6 +29,7 @@ import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.OExecutionThreadLocal;
 import com.orientechnologies.orient.core.db.OScenarioThreadLocal;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.OPlaceholder;
 import com.orientechnologies.orient.core.db.record.ORecordOperation;
 import com.orientechnologies.orient.core.exception.*;
@@ -41,6 +42,7 @@ import com.orientechnologies.orient.core.replication.OAsyncReplicationOk;
 import com.orientechnologies.orient.core.storage.ORawBuffer;
 import com.orientechnologies.orient.core.storage.OStorageOperationResult;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
+import com.orientechnologies.orient.core.storage.impl.local.paginated.OLocalPaginatedStorage;
 import com.orientechnologies.orient.core.tx.OTransaction;
 import com.orientechnologies.orient.core.tx.OTransactionAbstract;
 import com.orientechnologies.orient.core.tx.OTransactionInternal;
@@ -49,6 +51,7 @@ import com.orientechnologies.orient.server.distributed.ODistributedRequest.EXECU
 import com.orientechnologies.orient.server.distributed.impl.task.*;
 import com.orientechnologies.orient.server.distributed.task.*;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,7 +67,7 @@ public class ODistributedTransactionManager {
   private final ODistributedStorage       storage;
   private final ODistributedDatabase      localDistributedDatabase;
 
-  private static final boolean            SYNC_TX_COMPLETED = false;
+  private static final boolean SYNC_TX_COMPLETED = false;
 
   public ODistributedTransactionManager(final ODistributedStorage storage, final ODistributedServerManager manager,
       final ODistributedDatabase iDDatabase) {
@@ -114,6 +117,15 @@ public class ODistributedTransactionManager {
           }
         });
 
+        try {
+          localDistributedDatabase.getSyncConfiguration()
+              .setLastLSN(localNodeName, ((OLocalPaginatedStorage) storage.getUnderlying()).getLSN(), true);
+        } catch (IOException e) {
+          ODistributedServerLog
+              .debug(this, dManager != null ? dManager.getLocalNodeName() : "?", null, ODistributedServerLog.DIRECTION.NONE,
+                  "Error on updating local LSN configuration for database '%s'", storage.getName());
+        }
+
         // REMOVE THE TX OBJECT FROM DATABASE TO AVOID UND OPERATIONS ARE "LOST IN TRANSACTION"
         database.setDefaultTransactionMode();
 
@@ -123,7 +135,7 @@ public class ODistributedTransactionManager {
         }
 
         final Set<String> involvedClusters = getInvolvedClusters(uResult);
-        final Set<String> nodes = getAvailableNodesButLocal(dbCfg, involvedClusters, localNodeName);
+        Set<String> nodes = getAvailableNodesButLocal(dbCfg, involvedClusters, localNodeName);
         if (nodes.isEmpty()) {
           // NO FURTHER NODES TO INVOLVE
           executionModeSynch = true;
@@ -147,6 +159,19 @@ public class ODistributedTransactionManager {
             ODistributedResponse lastResult = null;
             for (int retry = 1; retry <= maxAutoRetry; ++retry) {
               boolean isLastRetry = maxAutoRetry == retry;
+
+              if (retry > 1) {
+                // REBUILD THE SERVER LIST
+                nodes = getAvailableNodesButLocal(dbCfg, involvedClusters, localNodeName);
+                if (nodes.isEmpty()) {
+                  // NO FURTHER NODES TO INVOLVE
+                  executionModeSynch = true;
+                  return null;
+                }
+
+                ODistributedServerLog.debug(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
+                    "Retrying (%d/%d) transaction reqId=%s...", retry, maxAutoRetry, requestId);
+              }
 
               // SYNCHRONOUS CALL: REPLICATE IT
               lastResult = dManager.sendRequest(storage.getName(), involvedClusters, nodes, txTask, requestId.getMessageId(),
@@ -235,10 +260,10 @@ public class ODistributedTransactionManager {
     } catch (OConcurrentCreateException e) {
 
       // REQUEST A REPAIR OF THE CLUSTER BECAUSE IS NOT ALIGNED
-      localDistributedDatabase.getDatabaseRapairer().repairCluster(e.getActualRid().getClusterId());
+      localDistributedDatabase.getDatabaseRepairer().repairCluster(e.getActualRid().getClusterId());
       throw e;
     } catch (OConcurrentModificationException e) {
-      localDistributedDatabase.getDatabaseRapairer().repairRecord((ORecordId) e.getRid());
+      localDistributedDatabase.getDatabaseRepairer().repairRecord((ORecordId) e.getRid());
       throw e;
 
     } catch (Exception e) {
@@ -246,9 +271,9 @@ public class ODistributedTransactionManager {
       for (ORecordOperation op : iTx.getAllRecordEntries()) {
         if (iTx.hasRecordCreation()) {
           final ORecordId lockEntireCluster = (ORecordId) op.getRecord().getIdentity().copy();
-          localDistributedDatabase.getDatabaseRapairer().repairCluster(lockEntireCluster.getClusterId());
+          localDistributedDatabase.getDatabaseRepairer().repairCluster(lockEntireCluster.getClusterId());
         }
-        localDistributedDatabase.getDatabaseRapairer().repairRecord((ORecordId) op.getRecord().getIdentity());
+        localDistributedDatabase.getDatabaseRepairer().repairRecord((ORecordId) op.getRecord().getIdentity());
       }
 
       storage.handleDistributedException("Cannot route TX operation against distributed node", e);
@@ -271,7 +296,7 @@ public class ODistributedTransactionManager {
           }
         }
 
-        if (storage.checkForCluster(newRid, localNodeName, dbCfg) != null)
+        if (storage.checkForCluster(op.getRecord(), localNodeName, dbCfg) != null)
           iTx.updateIdentityAfterCommit(rid, newRid);
 
         break;
@@ -296,8 +321,9 @@ public class ODistributedTransactionManager {
     final OAsyncReplicationError onAsyncReplicationError = storage.getAsyncReplicationError();
 
     // ASYNCHRONOUSLY REPLICATE IT TO ALL THE OTHER NODES
-    storage.asynchronousExecution(new OAsynchDistributedOperation(storage.getName(), involvedClusters, nodes, txTask, messageId,
-        localResult, afterSendCallback, new OCallable<Object, OPair<ODistributedRequestId, Object>>() {
+    storage.asynchronousExecution(
+        new OAsynchDistributedOperation(storage.getName(), involvedClusters, nodes, txTask, messageId, localResult,
+            afterSendCallback, new OCallable<Object, OPair<ODistributedRequestId, Object>>() {
           @Override
           public Object call(final OPair<ODistributedRequestId, Object> iArgument) {
             try {
@@ -442,17 +468,22 @@ public class ODistributedTransactionManager {
 
     try {
       // SEND FINAL TX COMPLETE TASK TO UNLOCK RECORDS
-      final ODistributedResponse response = dManager.sendRequest(storage.getName(), involvedClusters, nodes,
-          new OCompleted2pcTask(reqId, status, partitionKey), dManager.getNextMessageIdCounter(),
-          SYNC_TX_COMPLETED ? EXECUTION_MODE.NO_RESPONSE : EXECUTION_MODE.NO_RESPONSE, null, null);
+      ODistributedServerLog.debug(this, localNodeName, nodes.toString(), ODistributedServerLog.DIRECTION.OUT,
+          "Sending distributed end of transaction status=%s reqId=%s waitForFinalResponse=%s", status, reqId, SYNC_TX_COMPLETED);
+
+      final ODistributedResponse response = dManager
+          .sendRequest(storage.getName(), involvedClusters, nodes, new OCompleted2pcTask(reqId, status, partitionKey),
+              dManager.getNextMessageIdCounter(), SYNC_TX_COMPLETED ? EXECUTION_MODE.NO_RESPONSE : EXECUTION_MODE.NO_RESPONSE, null,
+              null);
 
       if (SYNC_TX_COMPLETED) {
         // WAIT FOR THE RESPONSE
         final Object result = response.getPayload();
         if (!(result instanceof Boolean) || !((Boolean) result).booleanValue()) {
           // EXCEPTION: LOG IT AND ADD AS NESTED EXCEPTION
-          ODistributedServerLog.error(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
-              "Distributed transaction complete error: %s", response);
+          ODistributedServerLog
+              .error(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE, "Distributed transaction complete error: %s",
+                  response);
 
         }
       }
@@ -535,7 +566,8 @@ public class ODistributedTransactionManager {
 
     if (lastRecordCannotLock != null) {
       // localDistributedDatabase.dumpLocks();
-      throw new ODistributedRecordLockedException(lastRecordCannotLock, lastLockHolder, System.currentTimeMillis() - begin);
+      throw new ODistributedRecordLockedException(dManager.getLocalNodeName(), lastRecordCannotLock, lastLockHolder,
+          System.currentTimeMillis() - begin);
     }
   }
 
@@ -543,8 +575,8 @@ public class ODistributedTransactionManager {
    * Create undo content for distributed 2-phase rollback. This list of undo tasks is sent to all the nodes to revert a transaction
    * and it's also applied locally.
    *
-   * @param iTx
-   *          Current transaction
+   * @param iTx Current transaction
+   *
    * @return List of remote undo tasks
    */
   protected List<OAbstractRemoteTask> createUndoTasksFromTx(final OTransaction iTx) {
@@ -649,8 +681,8 @@ public class ODistributedTransactionManager {
       }
 
       if (ODistributedServerLog.isDebugEnabled())
-        ODistributedServerLog.debug(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
-            "Distributed transaction %s completed", reqId);
+        ODistributedServerLog
+            .debug(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE, "Distributed transaction %s completed", reqId);
 
       sendTxCompleted(localNodeName, involvedClusters, nodes, reqId, true, txTask.getPartitionKey());
 
@@ -658,7 +690,7 @@ public class ODistributedTransactionManager {
       // AUTO RETRY
 
       if (ODistributedServerLog.isDebugEnabled())
-        ODistributedServerLog.debug(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
+        ODistributedServerLog.debug(this, localNodeName, nodes.toString(), ODistributedServerLog.DIRECTION.IN,
             "Distributed transaction %s error: record %s is locked by %s", reqId,
             ((ODistributedRecordLockedException) result).getRid(), ((ODistributedRecordLockedException) result).getLockHolder());
 
@@ -676,7 +708,7 @@ public class ODistributedTransactionManager {
     } else if (result instanceof Exception) {
       // EXCEPTION: LOG IT AND ADD AS NESTED EXCEPTION
       if (ODistributedServerLog.isDebugEnabled())
-        ODistributedServerLog.debug(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
+        ODistributedServerLog.debug(this, localNodeName, nodes.toString(), ODistributedServerLog.DIRECTION.IN,
             "Distributed transaction %s received error: %s", reqId, result, result.toString());
 
       // LET TO THE CALLER TO UNDO IT
@@ -688,7 +720,7 @@ public class ODistributedTransactionManager {
     } else {
       // UNKNOWN RESPONSE TYPE
       if (ODistributedServerLog.isDebugEnabled())
-        ODistributedServerLog.info(this, localNodeName, null, ODistributedServerLog.DIRECTION.NONE,
+        ODistributedServerLog.info(this, localNodeName, nodes.toString(), ODistributedServerLog.DIRECTION.IN,
             "Distributed transaction %s error, received unknown response type: %s", reqId, result);
 
       // ROLLBACK TX
