@@ -1623,6 +1623,13 @@ public abstract class ODatabaseDocumentAbstract extends OListenerManger<ODatabas
   }
 
   public <RET extends ORecord> RET executeSaveEmptyRecord(ORecord record, String clusterName) {
+    if (record instanceof OVertexDelegate) {
+      record = record.getRecord();
+    }
+    if (record instanceof OEdgeDelegate) {
+      record = record.getRecord();
+    }
+
     ORecordId rid = (ORecordId) record.getIdentity();
     assert rid.isNew();
 
@@ -1648,11 +1655,19 @@ public abstract class ODatabaseDocumentAbstract extends OListenerManger<ODatabas
    *
    * @Internal
    */
-  public <RET extends ORecord> RET executeSaveRecord(final ORecord record, String clusterName, final int ver,
-      final OPERATION_MODE mode, boolean forceCreate, final ORecordCallback<? extends Number> recordCreatedCallback,
+  public <RET extends ORecord> RET executeSaveRecord(ORecord record, String clusterName, final int ver, final OPERATION_MODE mode,
+      boolean forceCreate, final ORecordCallback<? extends Number> recordCreatedCallback,
       ORecordCallback<Integer> recordUpdatedCallback) {
     checkOpenness();
     checkIfActive();
+
+    if (record instanceof OVertexDelegate) {
+      record = record.getRecord();
+    }
+    if (record instanceof OEdgeDelegate) {
+      record = record.getRecord();
+    }
+
     if (!record.isDirty())
       return (RET) record;
 
