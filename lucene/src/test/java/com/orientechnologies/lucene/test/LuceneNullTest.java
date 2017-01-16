@@ -1,10 +1,10 @@
 package com.orientechnologies.lucene.test;
 
+import com.orientechnologies.orient.core.db.ODatabase;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.index.OIndex;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -16,9 +16,9 @@ public class LuceneNullTest {
   @Test
   public void testNullChangeToNotNullWithLists() {
 
-    OrientGraphNoTx graph = new OrientGraphNoTx("memory:testNullChangeToNotNull");
+    ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:testNullChangeToNotNull");
     try {
-      ODatabaseDocumentTx db = graph.getRawGraph();
+      db.create();
 
       db.command(new OCommandSQL("create class Test extends V")).execute();
 
@@ -40,7 +40,7 @@ public class LuceneNullTest {
 
       Assert.assertEquals(index.getSize(), 1);
     } finally {
-      graph.drop();
+      db.drop();
     }
 
   }
@@ -48,9 +48,8 @@ public class LuceneNullTest {
   @Test
   public void testNotNullChangeToNullWithLists() {
 
-    OrientGraphNoTx graph = new OrientGraphNoTx("memory:testNotNullChangeToNullWithLists");
+    ODatabase db = new ODatabaseDocumentTx("memory:testNotNullChangeToNullWithLists");
     try {
-      ODatabaseDocumentTx db = graph.getRawGraph();
 
       db.command(new OCommandSQL("create class Test extends V")).execute();
       db.command(new OCommandSQL("create property Test.names EMBEDDEDLIST STRING")).execute();
@@ -73,7 +72,7 @@ public class LuceneNullTest {
       OIndex<?> index = db.getMetadata().getIndexManager().getIndex("Test.names");
       Assert.assertEquals(index.getSize(), 0);
     } finally {
-      graph.drop();
+      db.drop();
     }
 
   }

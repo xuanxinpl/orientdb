@@ -23,12 +23,10 @@ import com.orientechnologies.orient.core.index.OIndex;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
-import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
-import com.tinkerpop.blueprints.impls.orient.OrientVertex;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -201,17 +199,17 @@ public class LuceneListIndexingTest extends BaseLuceneTest {
   @Test
   public void rname() throws Exception {
 
-    final OrientGraphNoTx graph = new OrientGraphNoTx(db);
-    final OrientVertexType c1 = graph.createVertexType("C1");
+    final OClass c1 = db.getMetadata().getSchema().createClass("C1", db.getMetadata().getSchema().getClass("V"));
     c1.createProperty("p1", OType.STRING);
 
     final ODocument metadata = new ODocument();
     metadata.field("default", "org.apache.lucene.analysis.en.EnglishAnalyzer");
     c1.createIndex("p1", "FULLTEXT", null, metadata, "LUCENE", new String[] { "p1" });
 
-    final OrientVertex result = graph.addVertex("class:C1");
+    final OVertex result = db.newVertex("C1");
     result.setProperty("p1", "testing");
-    graph.commit();
+    result.save();
+    db.commit();
 
     final Iterable search = db.command(new OSQLSynchQuery<>("SELECT from C1 WHERE p1 LUCENE \"tested\"")).execute();
 

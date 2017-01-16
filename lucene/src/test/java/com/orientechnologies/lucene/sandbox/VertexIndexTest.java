@@ -1,9 +1,8 @@
 package com.orientechnologies.lucene.sandbox;
 
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
-import com.tinkerpop.blueprints.impls.orient.OrientGraph;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -34,8 +33,9 @@ public class VertexIndexTest {
   @Test
   public void testFullTextIndexOnvertex() {
 
-    OrientGraph graph = new OrientGraph("memory:TestDB", "admin", "admin");
-    OrientVertexType vType = graph.getVertexType("V");
+    ODatabaseDocumentTx graph = new ODatabaseDocumentTx("memory:TestDB");
+    graph.create();
+    OClass vType = graph.getMetadata().getSchema().getClass("V");
 
     vType.createProperty("title", OType.STRING);
     vType.createProperty("text", OType.STRING);

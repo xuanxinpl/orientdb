@@ -18,13 +18,12 @@
 
 package com.orientechnologies.lucene.test;
 
-import com.orientechnologies.common.util.OCallable;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.tinkerpop.blueprints.impls.orient.OrientBaseGraph;
-import com.tinkerpop.blueprints.impls.orient.OrientGraph;
-import com.tinkerpop.blueprints.impls.orient.OrientVertex;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -39,43 +38,41 @@ public class LuceneGraphTXTest {
   @Test
   public void graphTxTest() throws Exception {
 
-    OrientGraph graph = new OrientGraph("memory:graphTx");
+    ODatabaseDocumentTx graph = new ODatabaseDocumentTx("memory:graphTx");
+    graph.create();
 
     try {
 
-      graph.executeOutsideTx(new OCallable<Object, OrientBaseGraph>() {
-        @Override
-        public Object call(OrientBaseGraph graph) {
-          OrientVertexType city = graph.createVertexType("City");
-          city.createProperty("name", OType.STRING);
-          graph.command(new OCommandSQL("create index City.name on City (name) FULLTEXT ENGINE LUCENE")).execute();
-          return null;
-        }
-      });
+      OSchema schema = graph.getMetadata().getSchema();
+      OClass city = schema.createClass("City", schema.getClass("V"));
+      city.createProperty("name", OType.STRING);
+      graph.command(new OCommandSQL("create index City.name on City (name) FULLTEXT ENGINE LUCENE")).execute();
 
-      OrientVertex v = graph.addVertex("class:City", "name", "London");
+      graph.begin();
+      OVertex v = graph.newVertex("City");
+      v.setProperty("name", "London");
 
       v.save();
 
-      Collection results = graph.getRawGraph().command(new OCommandSQL("select from City where name lucene 'London'")).execute();
+      Collection results = graph.command(new OCommandSQL("select from City where name lucene 'London'")).execute();
       Assert.assertEquals(results.size(), 1);
 
       v.setProperty("name", "Berlin");
 
       v.save();
 
-      results = graph.getRawGraph().command(new OCommandSQL("select from City where name lucene 'Berlin'")).execute();
+      results = graph.command(new OCommandSQL("select from City where name lucene 'Berlin'")).execute();
       Assert.assertEquals(results.size(), 1);
 
-      results = graph.getRawGraph().command(new OCommandSQL("select from City where name lucene 'London'")).execute();
+      results = graph.command(new OCommandSQL("select from City where name lucene 'London'")).execute();
       Assert.assertEquals(results.size(), 0);
 
       graph.commit();
 
       // Assert After Commit
-      results = graph.getRawGraph().command(new OCommandSQL("select from City where name lucene 'Berlin'")).execute();
+      results = graph.command(new OCommandSQL("select from City where name lucene 'Berlin'")).execute();
       Assert.assertEquals(results.size(), 1);
-      results = graph.getRawGraph().command(new OCommandSQL("select from City where name lucene 'London'")).execute();
+      results = graph.command(new OCommandSQL("select from City where name lucene 'London'")).execute();
       Assert.assertEquals(results.size(), 0);
 
     } finally {

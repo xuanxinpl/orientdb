@@ -1,10 +1,12 @@
 package com.orientechnologies.lucene.test;
 
+import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.record.OElement;
+import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.tinkerpop.blueprints.impls.orient.OrientGraph;
-import com.tinkerpop.blueprints.impls.orient.OrientVertex;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
+import com.orientechnologies.orient.core.sql.executor.OResultSet;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -15,15 +17,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class LucenePhraseQueriesTest extends BaseLuceneTest {
 
-  private OrientGraph graph;
-
   @Before
   public void setUp() throws Exception {
 
-    graph = new OrientGraph(db, false);
-    OrientVertexType type = graph.createVertexType("Role");
+    OClass type = db.getMetadata().getSchema().createClass("Role", db.getMetadata().getSchema().getClass("V"));
     type.createProperty("name", OType.STRING);
-    graph.commit();
 
     db.command(new OCommandSQL("create index Role.name on Role (name) FULLTEXT ENGINE LUCENE " + "METADATA{"
         + "\"name_index\": \"org.apache.lucene.analysis.standard.StandardAnalyzer\"," + "\"name_index_stopwords\": \"[]\","
@@ -31,77 +29,87 @@ public class LucenePhraseQueriesTest extends BaseLuceneTest {
         //                + "\"name_query\": \"org.apache.lucene.analysis.core.KeywordAnalyzer\""
         + "} ")).execute();
 
-    graph.addVertex("class:Role").setProperty("name", "System IT Owner");
-    graph.addVertex("class:Role").setProperty("name", "System Business Owner");
-    graph.addVertex("class:Role").setProperty("name", "System Business SME");
-    graph.addVertex("class:Role").setProperty("name", "System Technical SME");
-    graph.addVertex("class:Role").setProperty("name", "System");
-    graph.addVertex("class:Role").setProperty("name", "boat");
-    graph.addVertex("class:Role").setProperty("name", "moat");
-
-    graph.commit();
+    OVertex v = db.newVertex("Role");
+    v.setProperty("name", "System IT Owner");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "System Business Owner");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "System Business SME");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "System Technical SME");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "System");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "boat");
+    v.save();
+    v = db.newVertex("Role");
+    v.setProperty("name", "moat");
+    v.save();
 
   }
 
   @Test
   public void testPhraseQueries() throws Exception {
 
-    Iterable<OrientVertex> vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' \"Business Owner\" '  "))
-        .execute();
+    OResultSet vertexes = db.command("select from Role where name lucene ' \"Business Owner\" '  ");
 
-    assertThat(vertexes).hasSize(1);
+    Assert.assertEquals(1L, vertexes.stream().count());
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' \"Owner of Business\" '  ")).execute();
+    vertexes = db.command("select from Role where name lucene ' \"Owner of Business\" '  ");
 
-    assertThat(vertexes).hasSize(0);
+    Assert.assertEquals(0L, vertexes.stream().count());
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' \"System Owner\" '  ")).execute();
+    vertexes = db.command("select from Role where name lucene ' \"System Owner\" '  ");
 
-    assertThat(vertexes).hasSize(0);
+    Assert.assertEquals(0L, vertexes.stream().count());
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' \"System SME\"~1 '  ")).execute();
+    vertexes = db.command("select from Role where name lucene ' \"System SME\"~1 '  ");
 
-    assertThat(vertexes).hasSize(2);
+    Assert.assertEquals(2L, vertexes.stream().count());
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' \"System Business\"~1 '  ")).execute();
+    vertexes = db.command("select from Role where name lucene ' \"System Business\"~1 '  ");
 
-    assertThat(vertexes).hasSize(2);
+    Assert.assertEquals(2L, vertexes.stream().count());
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ' /[mb]oat/ '  ")).execute();
+    vertexes = db.command("select from Role where name lucene ' /[mb]oat/ '  ");
 
-    assertThat(vertexes).hasSize(2);
+    Assert.assertEquals(2L, vertexes.stream().count());
 
   }
 
   @Test
   public void testComplexPhraseQueries() throws Exception {
 
-    Iterable<OrientVertex> vertexes = graph.command(new OCommandSQL("select from Role where name lucene ?"))
-        .execute("\"System SME\"~1");
+    Iterable<OElement> vertexes = db.command(new OCommandSQL("select from Role where name lucene ?")).execute("\"System SME\"~1");
 
     assertThat(vertexes).allMatch(v -> v.<String>getProperty("name").contains("SME"));
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"SME System\"~1");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"SME System\"~1");
 
     assertThat(vertexes).isEmpty();
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"Owner Of Business\"");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"Owner Of Business\"");
     vertexes.forEach(v -> System.out.println("v = " + v.getProperty("name")));
 
     assertThat(vertexes).isEmpty();
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Business SME\"");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Business SME\"");
 
     assertThat(vertexes).hasSize(1).allMatch(v -> v.<String>getProperty("name").equalsIgnoreCase("System Business SME"));
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Owner\"~1 -business");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Owner\"~1 -business");
 
     assertThat(vertexes).hasSize(1).allMatch(v -> v.<String>getProperty("name").equalsIgnoreCase("System IT Owner"));
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Owner\"~1 -IT");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("\"System Owner\"~1 -IT");
     assertThat(vertexes).hasSize(1).allMatch(v -> v.<String>getProperty("name").equalsIgnoreCase("System Business Owner"));
 
-    vertexes = graph.command(new OCommandSQL("select from Role where name lucene ? ")).execute("+System +Own*~0.0 -IT");
+    vertexes = db.command(new OCommandSQL("select from Role where name lucene ? ")).execute("+System +Own*~0.0 -IT");
     assertThat(vertexes).hasSize(1).allMatch(v -> v.<String>getProperty("name").equalsIgnoreCase("System Business Owner"));
   }
 }

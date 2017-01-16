@@ -19,11 +19,10 @@
 package com.orientechnologies.lucene.test;
 
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
-import com.tinkerpop.blueprints.impls.orient.OrientGraphNoTx;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -59,11 +58,10 @@ public class LuceneInheritanceQueryTest {
   }
 
   protected void createSchema(ODatabaseDocumentTx db) {
-    final OrientVertexType c1 = new OrientGraphNoTx(db).createVertexType("C1");
+    final OClass c1 = db.getMetadata().getSchema().createClass("C1", db.getMetadata().getSchema().getClass("V"));
     c1.createProperty("name", OType.STRING);
     c1.createIndex("C1.name", "FULLTEXT", null, null, "LUCENE", new String[] { "name" });
-    final OrientVertexType c2 = new OrientGraphNoTx(db).createVertexType("C2");
-    c2.setSuperClass(c1);
+    final OClass c2 = db.getMetadata().getSchema().createClass("C2", c1);
   }
 
 }

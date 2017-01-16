@@ -18,12 +18,12 @@
 
 package com.orientechnologies.lucene.test;
 
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-import com.tinkerpop.blueprints.Parameter;
-import com.tinkerpop.blueprints.Vertex;
-import com.tinkerpop.blueprints.impls.orient.OrientGraph;
-import com.tinkerpop.blueprints.impls.orient.OrientVertexType;
+import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,8 +33,6 @@ import org.junit.Test;
  */
 public class GraphEmbeddedTest extends BaseLuceneTest {
 
-  private OrientGraph graph;
-
   public GraphEmbeddedTest() {
 
   }
@@ -42,8 +40,9 @@ public class GraphEmbeddedTest extends BaseLuceneTest {
   @Before
   public void init() {
 
-    graph = new OrientGraph(db, false);
-    OrientVertexType type = graph.createVertexType("City");
+    OSchema schema = db.getMetadata().getSchema();
+
+    OClass type = schema.createClass("City", schema.getClass("V"));
     type.createProperty("latitude", OType.DOUBLE);
     type.createProperty("longitude", OType.DOUBLE);
     type.createProperty("name", OType.STRING);
@@ -56,52 +55,49 @@ public class GraphEmbeddedTest extends BaseLuceneTest {
 
     //THIS WON'T USE LUCENE INDEXES!!!! see #6997
 
-    graph.getRawGraph().begin();
-    graph.addVertex("class:City", new Object[] { "name", "London / a" });
-    graph.addVertex("class:City", new Object[] { "name", "Rome" });
+    db.begin();
+    OVertex vertex = db.newVertex("City");
+    vertex.setProperty("name", "London / a");
+    vertex.save();
 
-    graph.commit();
+    vertex = db.newVertex("City");
+    vertex.setProperty("name", "Rome");
+    vertex.save();
+    db.commit();
 
-    Iterable<Vertex> vertexes = graph.getVertices("City", new String[] { "name" }, new Object[] { "London / a" });
+    OResultSet rs = db.query("select from City where name=  \"London / a\"");
+    long size = rs.vertexStream().count();
+    Assert.assertEquals(size, 1L);
 
-    int size = 0;
-    for (Vertex v : vertexes) {
-      size++;
-      Assert.assertNotNull(v);
-    }
-    Assert.assertEquals(size, 1);
+    size = (int) db.query("select from City where name=  \"Rome\"").vertexStream().count();
 
-    vertexes = graph.getVertices("City", new String[] { "name" }, new Object[] { "Rome" });
-
-    size = 0;
-    for (Vertex v : vertexes) {
-      size++;
-      Assert.assertNotNull(v);
-    }
-    Assert.assertEquals(size, 1);
+    Assert.assertEquals(size, 1L);
   }
 
   @Test
   public void testGetVericesFilterClass() {
 
-    graph.createVertexType("One");
-    graph.createVertexType("Two");
-    graph.createKeyIndex("name", Vertex.class, new Parameter("type", "NOTUNIQUE"));
+    OSchema schema = db.getMetadata().getSchema();
 
-    graph.getRawGraph().begin();
-    graph.addVertex("class:One", new Object[] { "name", "Same" });
-    graph.addVertex("class:Two", new Object[] { "name", "Same" });
+    OClass vClass = schema.createClass("V");
+    schema.createClass("One", schema.getClass("V"));
+    schema.createClass("Two", schema.getClass("V"));
 
-    graph.commit();
+    vClass.createIndex("V.name", OClass.INDEX_TYPE.NOTUNIQUE, "name");
 
-    Iterable<Vertex> vertexes = graph.getVertices("One", new String[] { "name" }, new Object[] { "Same" });
+    db.begin();
+    OVertex v = db.newVertex("One");
+    v.setProperty("name", "Same" );
+    v.save();
+    v = db.newVertex("Two");
+    v.setProperty("name", "Same" );
+    v.save();
 
-    int size = 0;
-    for (Vertex v : vertexes) {
-      size++;
-      Assert.assertNotNull(v);
-    }
-    Assert.assertEquals(1, size);
+    db.commit();
+
+    long size = db.query("select from One where name= \"Same\"").vertexStream().count();
+
+    Assert.assertEquals(1L, size);
   }
 
 }
