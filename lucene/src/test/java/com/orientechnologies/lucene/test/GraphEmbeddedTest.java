@@ -65,7 +65,7 @@ public class GraphEmbeddedTest extends BaseLuceneTest {
     vertex.save();
     db.commit();
 
-    OResultSet rs = db.query("select from City where name=  \"London / a\"");
+    OResultSet rs = db.query("select from City where name=  \"London\"");
     long size = rs.vertexStream().count();
     Assert.assertEquals(size, 1L);
 
@@ -75,14 +75,15 @@ public class GraphEmbeddedTest extends BaseLuceneTest {
   }
 
   @Test
-  public void testGetVericesFilterClass() {
+  public void testGetVerticesFilterClass() {
 
     OSchema schema = db.getMetadata().getSchema();
 
-    OClass vClass = schema.createClass("V");
+    OClass vClass = schema.getClass("V");
     schema.createClass("One", schema.getClass("V"));
     schema.createClass("Two", schema.getClass("V"));
 
+    vClass.createProperty("name",OType.STRING);
     vClass.createIndex("V.name", OClass.INDEX_TYPE.NOTUNIQUE, "name");
 
     db.begin();

@@ -22,6 +22,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.record.OEdge;
 import com.orientechnologies.orient.core.record.OVertex;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
@@ -79,7 +80,8 @@ public class LuceneMiscTest {
   @Test
   public void testSubLucene() {
 
-    ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:doubleLucene");
+    ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:subLucene");
+    db.create();
     try {
 
       db.command(new OCommandSQL("create class Person extends V")).execute();
@@ -108,6 +110,8 @@ public class LuceneMiscTest {
   public void testNamedParams() {
 
     ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:doubleLucene");
+
+    db.create();
     try {
 
       db.command(new OCommandSQL("create class Test extends V")).execute();
@@ -134,6 +138,7 @@ public class LuceneMiscTest {
 
     ODatabaseDocumentTx db = new ODatabaseDocumentTx("memory:dotted");
 
+    db.create();
     try {
       OSchema schema = db.getMetadata().getSchema();
       OClass v = schema.getClass("V");
@@ -158,7 +163,11 @@ public class LuceneMiscTest {
       OVertex songVertex = db.newVertex("Song");
       songVertex.setProperty("title", "hurricane");
 
-      authorVertex.addEdge(songVertex, "AuthorOf");
+
+
+      OEdge authorOf1 = authorVertex.addEdge(songVertex, "AuthorOf");
+
+      db.save(authorOf1);
 
       List<Object> results = db.command(new OCommandSQL("select from AuthorOf")).execute();
       Assert.assertEquals(results.size(), 1);

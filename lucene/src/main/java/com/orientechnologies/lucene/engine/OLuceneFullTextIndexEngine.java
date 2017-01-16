@@ -168,7 +168,7 @@ public class OLuceneFullTextIndexEngine extends OLuceneIndexEngineAbstract {
   @Override
   public OIndexCursor iterateEntriesBetween(Object rangeFrom, boolean fromInclusive, Object rangeTo, boolean toInclusive,
       boolean ascSortOrder, ValuesTransformer transformer) {
-    return new LuceneIndexCursor((OLuceneResultSet) get(rangeFrom), rangeFrom);
+    return new OLuceneIndexCursor((OLuceneResultSet) get(rangeFrom), rangeFrom);
   }
 
   private Set<OIdentifiable> getResults(Query query, OCommandContext context, Object key, OLuceneTxChanges changes) {
@@ -275,77 +275,4 @@ public class OLuceneFullTextIndexEngine extends OLuceneIndexEngineAbstract {
     }
   }
 
-  public class LuceneIndexCursor implements OIndexCursor {
-
-    private final Object           key;
-    private       OLuceneResultSet resultSet;
-
-    private Iterator<OIdentifiable> iterator;
-
-    public LuceneIndexCursor(OLuceneResultSet resultSet, Object key) {
-      this.resultSet = resultSet;
-      this.iterator = resultSet.iterator();
-      this.key = key;
-    }
-
-    @Override
-    public Map.Entry<Object, OIdentifiable> nextEntry() {
-
-      if (iterator.hasNext()) {
-        final OIdentifiable next = iterator.next();
-        return new Map.Entry<Object, OIdentifiable>() {
-          @Override
-          public Object getKey() {
-            return key;
-          }
-
-          @Override
-          public OIdentifiable getValue() {
-            return next;
-          }
-
-          @Override
-          public OIdentifiable setValue(OIdentifiable value) {
-            return null;
-          }
-        };
-      }
-      return null;
-    }
-
-    @Override
-    public Set<OIdentifiable> toValues() {
-      return null;
-    }
-
-    @Override
-    public Set<Map.Entry<Object, OIdentifiable>> toEntries() {
-      return null;
-    }
-
-    @Override
-    public Set<Object> toKeys() {
-      return null;
-    }
-
-    @Override
-    public void setPrefetchSize(int prefetchSize) {
-
-    }
-
-    @Override
-    public boolean hasNext() {
-      return false;
-    }
-
-    @Override
-    public OIdentifiable next() {
-      return null;
-    }
-
-    @Override
-    public void remove() {
-
-    }
-  }
 }

@@ -22,6 +22,8 @@ import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.common.serialization.types.OBinarySerializer;
 import com.orientechnologies.lucene.OLuceneIndex;
 import com.orientechnologies.lucene.OLuceneTxOperations;
+import com.orientechnologies.lucene.collections.OLuceneAbstractResultSet;
+import com.orientechnologies.lucene.engine.OLuceneIndexCursor;
 import com.orientechnologies.lucene.engine.OLuceneIndexEngine;
 import com.orientechnologies.lucene.tx.OLuceneTxChanges;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
@@ -246,7 +248,20 @@ public class OLuceneIndexNotUnique extends OIndexAbstract<Set<OIdentifiable>> im
 
   @Override
   public OIndexCursor iterateEntries(Collection<?> keys, boolean ascSortOrder) {
-    return null;
+
+    Object key = keys.iterator().next();
+
+    OLuceneAbstractResultSet resultSet;
+    final OTransaction transaction = getDatabase().getTransaction();
+    if (transaction.isActive()) {
+      resultSet = (OLuceneAbstractResultSet) storage.callIndexEngine(false, false, indexId, engine -> {
+        OLuceneIndexEngine indexEngine = (OLuceneIndexEngine) engine;
+        return indexEngine.getInTx(key, getTransactionChanges(transaction));
+      });
+    } else {
+      resultSet = (OLuceneAbstractResultSet) storage.getIndexValue(indexId, key);
+    }
+    return new OLuceneIndexCursor(resultSet, key);
   }
 
   @Override
