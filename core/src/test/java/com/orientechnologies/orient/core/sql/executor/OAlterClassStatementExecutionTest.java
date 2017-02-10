@@ -5,10 +5,8 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.exception.OCommandExecutionException;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import com.orientechnologies.orient.core.metadata.schema.OType;
+import org.junit.*;
 
 /**
  * @author Luigi Dell'Aquila (l.dellaquila-(at)-orientdb.com)
@@ -36,6 +34,21 @@ public class OAlterClassStatementExecutionTest {
     schema.reload();
     Assert.assertNull(schema.getClass(className));
     Assert.assertNotNull(schema.getClass(className + "_new"));
+    result.close();
+  }
+
+  @Test
+  @Ignore
+  public void testAlterPropertyTest() {
+    String className = "testName1";
+    OSchema schema = db.getMetadata().getSchema();
+    OClass klass = schema.createClass(className);
+    klass.createProperty("prop", OType.LINKLIST);
+
+    OResultSet result = db.command("alter property " + className + ".prop linkedClass \"V\" ");
+    schema.reload();
+    Assert.assertNotNull(schema.getClass(className).getProperty("prop").getLinkedClass());
+    Assert.assertEquals(schema.getClass(className).getProperty("prop").getLinkedClass().getName(), "V");
     result.close();
   }
 
