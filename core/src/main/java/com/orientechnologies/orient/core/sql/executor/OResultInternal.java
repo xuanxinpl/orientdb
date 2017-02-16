@@ -19,8 +19,37 @@ public class OResultInternal implements OResult {
     if (value instanceof Optional) {
       value = ((Optional) value).orElse(null);
     }
+    value = convertMultivalues(value);
     assert checkType(value) : " value:" + value;
     content.put(name, value);
+  }
+
+  /**
+   * converts non standard multi-value objects to lists.
+   * <p>
+   * An unsupported multi-value can be a custom iterator or iterable
+   *
+   * @param value the original value
+   *
+   * @return a List containing the same elements of the value, if the value is an unsupported multi-value
+   */
+  private Object convertMultivalues(Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (OType.getTypeByValue(value) == null) {
+      if (value instanceof Iterable) {
+        value = ((Iterable) value).iterator();
+      }
+      if (value instanceof Iterator) {
+        List result = new ArrayList();
+        while (((Iterator) value).hasNext()) {
+          result.add(((Iterator) value).next());
+        }
+        value = result;
+      }
+    }
+    return value;
   }
 
   private boolean checkType(Object value) {

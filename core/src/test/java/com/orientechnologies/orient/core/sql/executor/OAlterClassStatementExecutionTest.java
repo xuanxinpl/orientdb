@@ -38,7 +38,6 @@ public class OAlterClassStatementExecutionTest {
   }
 
   @Test
-  @Ignore
   public void testAlterPropertyTest() {
     String className = "testName1";
     OSchema schema = db.getMetadata().getSchema();
