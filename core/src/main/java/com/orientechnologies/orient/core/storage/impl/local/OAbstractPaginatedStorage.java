@@ -68,6 +68,7 @@ import com.orientechnologies.orient.core.record.ORecordInternal;
 import com.orientechnologies.orient.core.record.ORecordVersionHelper;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.record.impl.ODocumentInternal;
+import com.orientechnologies.orient.core.serialization.OBase64Utils;
 import com.orientechnologies.orient.core.serialization.serializer.binary.impl.index.OCompositeKeySerializer;
 import com.orientechnologies.orient.core.serialization.serializer.binary.impl.index.OSimpleKeySerializer;
 import com.orientechnologies.orient.core.storage.*;
@@ -1057,6 +1058,11 @@ public abstract class OAbstractPaginatedStorage extends OStorageAbstract
     checkOpeness();
     checkLowDiskSpaceFullCheckpointRequestsAndBackgroundDataFlushExceptions();
 
+    if (rid.getClusterId() == defaultClusterId) {
+      OLogManager.instance()
+          .error(this, "Creating record with default cluster id, content:" + OBase64Utils.encodeBytes(content), new Exception());
+    }
+
     final OPhysicalPosition ppos = new OPhysicalPosition(recordType);
     final OCluster cluster = getClusterById(rid.getClusterId());
 
@@ -1125,6 +1131,11 @@ public abstract class OAbstractPaginatedStorage extends OStorageAbstract
       final int version, final byte recordType, final int mode, final ORecordCallback<Integer> callback) {
     checkOpeness();
     checkLowDiskSpaceFullCheckpointRequestsAndBackgroundDataFlushExceptions();
+
+    if (rid.getClusterId() == defaultClusterId) {
+      OLogManager.instance()
+          .error(this, "Updationg record in default cluster, content:" + OBase64Utils.encodeBytes(content), new Exception());
+    }
 
     final OCluster cluster = getClusterById(rid.getClusterId());
 
