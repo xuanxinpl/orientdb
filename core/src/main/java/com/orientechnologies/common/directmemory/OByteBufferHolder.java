@@ -2,7 +2,7 @@ package com.orientechnologies.common.directmemory;
 
 import java.nio.ByteBuffer;
 
-public class OByteBufferHolder {
+public class OByteBufferHolder implements OByteBufferContainer {
   OByteBufferHolder prev;
   OByteBufferHolder next;
 
@@ -21,6 +21,7 @@ public class OByteBufferHolder {
     return prev == null && next == null;
   }
 
+  @Override
   public ByteBuffer getBuffer() {
     return buffer;
   }

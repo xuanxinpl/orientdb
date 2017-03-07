@@ -1,7 +1,6 @@
 package com.orientechnologies.common.directmemory;
 
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -11,14 +10,14 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class OTwoWayBufferPoolTest {
+public class OTwoSizeBufferPoolTest {
   private static final int PAGE_SIZE           = 2;
   private static final int MAX_HEAP_SIZE       = 16;
   private static final int MAX_ALLOCATION_SIZE = 43;
 
   @Test
   public void testAllocateDeallocateSinglePage() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     final OByteBufferHolder holder = bufferPool.acquire(PAGE_SIZE, false);
     Assert.assertTrue(holder.isAcquired());
@@ -40,7 +39,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocateOneAndFourPage() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     final OByteBufferHolder firstOnePageHolder = bufferPool.acquire(PAGE_SIZE, false);
 
@@ -125,7 +124,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocateEightOnePages() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -296,7 +295,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocateEightAndFourOnePages() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -506,7 +505,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocateAtTheBorder() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -536,7 +535,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testExhaustBuffer() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -645,7 +644,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testExhaustBufferTwo() {
-    OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(34, MAX_HEAP_SIZE, PAGE_SIZE);
+    OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(34, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -679,7 +678,7 @@ public class OTwoWayBufferPoolTest {
   @Test
   public void testInvalidPageSize() {
     try {
-      OTwoWayBufferPool pool = new OTwoWayBufferPool(32, 16, 6);
+      OTwoSizeBufferPool pool = new OTwoSizeBufferPool(32, 16, 6);
       Assert.fail();
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(true);
@@ -688,7 +687,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAcquireInvalidPageNumber() {
-    final OTwoWayBufferPool pool = new OTwoWayBufferPool(32, 16, 2);
+    final OTwoSizeBufferPool pool = new OTwoSizeBufferPool(32, 16, 2);
     try {
       pool.acquire(5, false);
       Assert.fail();
@@ -699,7 +698,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testPageCleanOne() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     OByteBufferHolder firstPage = bufferPool.acquire(PAGE_SIZE, false);
     OByteBufferHolder secondPage = bufferPool.acquire(PAGE_SIZE, false);
@@ -801,7 +800,7 @@ public class OTwoWayBufferPoolTest {
   public void testPageCleanTwo() {
     final int pageSize = 2048;
 
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(1024 * 1024, 256 * 1024, pageSize);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(1024 * 1024, 256 * 1024, pageSize);
 
     OByteBufferHolder firstPage = bufferPool.acquire(pageSize, false);
     OByteBufferHolder secondPage = bufferPool.acquire(pageSize, false);
@@ -901,7 +900,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testPartiallyFilledHeap() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(6, 6, 2);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(6, 6, 2);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -952,7 +951,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testExhaustHeapNotFitInQuatroPage() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(18 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(18 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
 
     for (int i = 0; i < 4; i++) {
       Assert.assertNotNull(bufferPool.acquire(PAGE_SIZE, false));
@@ -976,7 +975,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testExhaustHeapNotFitInQuatroPageOverflow() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(8 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(8 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
 
     for (int i = 0; i < 4; i++) {
       Assert.assertNotNull(bufferPool.acquire(PAGE_SIZE, false));
@@ -997,7 +996,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testExhaustPartialHeapByQuatroPage() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(10, 6, 2);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(10, 6, 2);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -1019,7 +1018,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocationQuatroPageAfterSinglePage() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -1059,7 +1058,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocationQuatroPageAfterSinglePageInTheMiddle() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -1113,7 +1112,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocationQuatroPageAfterSinglePageRelease() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(MAX_ALLOCATION_SIZE, MAX_HEAP_SIZE, PAGE_SIZE);
 
     Assert.assertArrayEquals(new int[] {}, bufferPool.heaps());
     Assert.assertArrayEquals(new int[][] {}, bufferPool.snapshot());
@@ -1143,7 +1142,7 @@ public class OTwoWayBufferPoolTest {
 
   @Test
   public void testAllocationQuatroPageAtTheEndOfTheHeap() {
-    final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(18 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
+    final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(18 * PAGE_SIZE, 6 * PAGE_SIZE, PAGE_SIZE);
 
     for (int i = 0; i < 5; i++) {
       Assert.assertNotNull(bufferPool.acquire(PAGE_SIZE, false));
@@ -1172,7 +1171,7 @@ public class OTwoWayBufferPoolTest {
       final int pageSize = 2;
 
       final ExecutorService executor = Executors.newCachedThreadPool();
-      final OTwoWayBufferPool bufferPool = new OTwoWayBufferPool(1024, 130, pageSize);
+      final OTwoSizeBufferPool bufferPool = new OTwoSizeBufferPool(1024, 130, pageSize);
 
       final CountDownLatch latch = new CountDownLatch(1);
       final AtomicBoolean stop = new AtomicBoolean();
@@ -1264,12 +1263,12 @@ public class OTwoWayBufferPoolTest {
   }
 
   private final static class RequestReleasePages implements Callable<Void> {
-    private final OTwoWayBufferPool bufferPool;
-    private final CountDownLatch    latch;
-    private final AtomicBoolean     stop;
-    private final int               pageSize;
+    private final OTwoSizeBufferPool bufferPool;
+    private final CountDownLatch     latch;
+    private final AtomicBoolean      stop;
+    private final int                pageSize;
 
-    public RequestReleasePages(OTwoWayBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
+    public RequestReleasePages(OTwoSizeBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
       this.bufferPool = bufferPool;
       this.latch = latch;
       this.stop = stop;
@@ -1290,12 +1289,12 @@ public class OTwoWayBufferPoolTest {
   }
 
   private final static class RequestTenPagesReleaseTenPages implements Callable<Void> {
-    private final OTwoWayBufferPool bufferPool;
-    private final CountDownLatch    latch;
-    private final AtomicBoolean     stop;
-    private final int               pageSize;
+    private final OTwoSizeBufferPool bufferPool;
+    private final CountDownLatch     latch;
+    private final AtomicBoolean      stop;
+    private final int                pageSize;
 
-    public RequestTenPagesReleaseTenPages(OTwoWayBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
+    public RequestTenPagesReleaseTenPages(OTwoSizeBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
       this.bufferPool = bufferPool;
       this.latch = latch;
       this.stop = stop;
@@ -1322,12 +1321,12 @@ public class OTwoWayBufferPoolTest {
   }
 
   private static final class RequestTenReleaseTenReverseOrder implements Callable<Void> {
-    private final OTwoWayBufferPool bufferPool;
-    private final CountDownLatch    latch;
-    private final AtomicBoolean     stop;
-    private final int               pageSize;
+    private final OTwoSizeBufferPool bufferPool;
+    private final CountDownLatch     latch;
+    private final AtomicBoolean      stop;
+    private final int                pageSize;
 
-    public RequestTenReleaseTenReverseOrder(OTwoWayBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
+    public RequestTenReleaseTenReverseOrder(OTwoSizeBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
       this.bufferPool = bufferPool;
       this.latch = latch;
       this.stop = stop;
@@ -1355,12 +1354,12 @@ public class OTwoWayBufferPoolTest {
   }
 
   private static final class RequestTenPagesReleaseOneAtRandom implements Callable<Void> {
-    private final OTwoWayBufferPool bufferPool;
-    private final CountDownLatch    latch;
-    private final AtomicBoolean     stop;
-    private final int               pageSize;
+    private final OTwoSizeBufferPool bufferPool;
+    private final CountDownLatch     latch;
+    private final AtomicBoolean      stop;
+    private final int                pageSize;
 
-    public RequestTenPagesReleaseOneAtRandom(OTwoWayBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
+    public RequestTenPagesReleaseOneAtRandom(OTwoSizeBufferPool bufferPool, CountDownLatch latch, AtomicBoolean stop, int pageSize) {
       this.bufferPool = bufferPool;
       this.latch = latch;
       this.stop = stop;

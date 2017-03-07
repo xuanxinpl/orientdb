@@ -3,10 +3,10 @@ package com.orientechnologies.common.directmemory;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class OTwoWayQueueListTest {
+public class OTwoSizeQueueListTest {
   @Test
   public void testSinglePagePushPull() {
-    OTwoWayQueueList queueList = new OTwoWayQueueList();
+    OTwoSizeQueueList queueList = new OTwoSizeQueueList();
     OByteBufferHolder holder = new OByteBufferHolder(null, -1, -1);
 
     Assert.assertTrue(holder.isAcquired());
@@ -28,7 +28,7 @@ public class OTwoWayQueueListTest {
 
   @Test
   public void testPushPullFour() {
-    final OTwoWayQueueList queueList = new OTwoWayQueueList();
+    final OTwoSizeQueueList queueList = new OTwoSizeQueueList();
 
     final OByteBufferHolder[] holders = new OByteBufferHolder[4];
 
@@ -55,7 +55,7 @@ public class OTwoWayQueueListTest {
 
   @Test
   public void testPushFourRemoveTwoFromTheEnds() {
-    final OTwoWayQueueList queueList = new OTwoWayQueueList();
+    final OTwoSizeQueueList queueList = new OTwoSizeQueueList();
 
     final OByteBufferHolder[] holders = new OByteBufferHolder[4];
 
@@ -85,7 +85,7 @@ public class OTwoWayQueueListTest {
 
   @Test
   public void testPushFourRemoveTwoFromTheMiddle() {
-    final OTwoWayQueueList queueList = new OTwoWayQueueList();
+    final OTwoSizeQueueList queueList = new OTwoSizeQueueList();
 
     final OByteBufferHolder[] holders = new OByteBufferHolder[4];
 
@@ -114,7 +114,7 @@ public class OTwoWayQueueListTest {
 
   @Test
   public void testPushFourRemoveTwoFromTheMiddleAndTop() {
-    final OTwoWayQueueList queueList = new OTwoWayQueueList();
+    final OTwoSizeQueueList queueList = new OTwoSizeQueueList();
 
     final OByteBufferHolder[] holders = new OByteBufferHolder[4];
 
@@ -143,7 +143,7 @@ public class OTwoWayQueueListTest {
 
   @Test
   public void testPushFourRemoveTwoFromTheMiddleAndEnd() {
-    final OTwoWayQueueList queueList = new OTwoWayQueueList();
+    final OTwoSizeQueueList queueList = new OTwoSizeQueueList();
 
     final OByteBufferHolder[] holders = new OByteBufferHolder[4];
 

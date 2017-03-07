@@ -1,10 +1,10 @@
 package com.orientechnologies.common.directmemory;
 
-public class OTwoWayQueueList {
+public class OTwoSizeQueueList {
   private final OByteBufferHolder head = new OByteBufferHolder(null, -1, -1);
   private final OByteBufferHolder tail = new OByteBufferHolder(null, -1, -1);
 
-  OTwoWayQueueList() {
+  OTwoSizeQueueList() {
     head.prev = null;
     head.next = tail;
 

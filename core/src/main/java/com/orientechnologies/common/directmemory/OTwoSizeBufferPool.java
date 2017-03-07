@@ -1,25 +1,27 @@
 package com.orientechnologies.common.directmemory;
 
+import com.orientechnologies.orient.core.config.OGlobalConfiguration;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
-public class OTwoWayBufferPool {
+public class OTwoSizeBufferPool implements OBufferPool {
   private final long maxHeapAllocationSize;
 
-  private final int maxAllocationSize;
-  private final int pageSize;
+  private final long maxAllocationSize;
+  private final int  pageSize;
 
   private int    heapSize;
   private Heap[] heaps;
   private long   allocationPosition;
 
-  private final OTwoWayQueueList pageQueue       = new OTwoWayQueueList();
-  private final OTwoWayQueueList quatroPageQueue = new OTwoWayQueueList();
+  private final OTwoSizeQueueList pageQueue       = new OTwoSizeQueueList();
+  private final OTwoSizeQueueList quatroPageQueue = new OTwoSizeQueueList();
 
   private final Object lock = new Object();
 
-  public OTwoWayBufferPool(int maxAllocationSize, long maxHeapAllocationSize, int pageSize) {
+  public OTwoSizeBufferPool(long maxAllocationSize, long maxHeapAllocationSize, int pageSize) {
     if (maxHeapAllocationSize <= 0)
       maxHeapAllocationSize = 1 << 30;
 
@@ -34,6 +36,7 @@ public class OTwoWayBufferPool {
     this.heaps = new Heap[0];
   }
 
+  @Override
   public OByteBufferHolder acquire(int chunkSize, boolean clean) {
     final int pages = chunkSize / pageSize;
 
@@ -75,7 +78,10 @@ public class OTwoWayBufferPool {
     return result;
   }
 
-  public void release(OByteBufferHolder holder) {
+  @Override
+  public void release(OByteBufferContainer container) {
+    final OByteBufferHolder holder = (OByteBufferHolder) container;
+
     assert holder.isAcquired();
 
     synchronized (lock) {
@@ -493,6 +499,27 @@ public class OTwoWayBufferPool {
       buffer = ByteBuffer.allocateDirect(allocationSize).order(ByteOrder.nativeOrder());
       pageMap = new OByteBufferHolder[allocationSize / pageSize];
     }
-
   }
+
+  public static OTwoSizeBufferPool instance() {
+    return InstanceHolder.INSTANCE;
+  }
+
+  private static class InstanceHolder {
+    private static final OTwoSizeBufferPool INSTANCE;
+
+    static {
+      // page size in bytes
+      final int pageSize = OGlobalConfiguration.DISK_CACHE_PAGE_SIZE.getValueAsInteger() * 1024;
+
+      // Maximum amount of chunk size which should be allocated at once by system
+      final int memoryChunkSize = OGlobalConfiguration.MEMORY_CHUNK_SIZE.getValueAsInteger();
+
+      final long diskCacheSize = OGlobalConfiguration.DISK_CACHE_SIZE.getValueAsInteger() * 1024L * 1024L;
+
+      // instance of byte buffer which should be used by all storage components
+      INSTANCE = new OTwoSizeBufferPool((long) (diskCacheSize * 1.2), memoryChunkSize, pageSize);
+    }
+  }
+
 }
