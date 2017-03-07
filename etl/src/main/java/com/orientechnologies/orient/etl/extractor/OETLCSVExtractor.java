@@ -85,7 +85,7 @@ public class OETLCSVExtractor extends OETLAbstractSourceExtractor {
   public void configure(ODocument iConfiguration, OCommandContext iContext) {
     super.configure(iConfiguration, iContext);
 
-    csvFormat = CSVFormat.newFormat(',').withNullString(NULL_STRING).withEscape('\\').withQuote('"');
+    csvFormat = CSVFormat.newFormat(',').withNullString(NULL_STRING).withEscape('\\').withQuote('"').withCommentMarker('#');
 
     if (iConfiguration.containsField("predefinedFormat")) {
       csvFormat = CSVFormat.valueOf(iConfiguration.<String>field("predefinedFormat"));
@@ -220,7 +220,7 @@ public class OETLCSVExtractor extends OETLAbstractSourceExtractor {
         final OType fieldType = typeEntry.getValue();
         String fieldValueAsString = recordAsMap.get(fieldName);
         try {
-          if (fieldType.getDefaultJavaType().equals(Date.class)) {
+          if (fieldType != null && fieldType.getDefaultJavaType() != null && fieldType.getDefaultJavaType().equals(Date.class)) {
             if (fieldType.equals(OType.DATE))
               doc.field(fieldName, transformToDate(fieldValueAsString));
             else
@@ -237,7 +237,7 @@ public class OETLCSVExtractor extends OETLAbstractSourceExtractor {
       }
     }
 
-    log(Level.FINE,"document=%s", doc);
+    log(Level.FINE, "document=%s", doc);
     current++;
     return new OETLExtractedItem(current, doc);
   }

@@ -805,6 +805,11 @@ public abstract class ODatabaseDocumentAbstract extends OListenerManger<ODatabas
   }
 
   @Override
+  public OIntent getActiveIntent() {
+    return currentIntent;
+  }
+
+  @Override
   public void close() {
     checkIfActive();
 
@@ -2043,6 +2048,16 @@ public abstract class ODatabaseDocumentAbstract extends OListenerManger<ODatabas
    */
   public ODocument newInstance() {
     return new ODocument();
+  }
+
+  @Override
+  public OBlob newBlob(byte[] bytes) {
+    return new ORecordBytes(bytes);
+  }
+
+  @Override
+  public OBlob newBlob() {
+    return new ORecordBytes();
   }
 
   /**
