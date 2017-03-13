@@ -19,6 +19,8 @@
  */
 package com.orientechnologies.orient.core.storage.cache;
 
+import com.orientechnologies.common.directmemory.OBufferPool;
+import com.orientechnologies.common.directmemory.OByteBufferContainer;
 import com.orientechnologies.common.directmemory.OByteBufferPool;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OLogSequenceNumber;
@@ -45,8 +47,9 @@ public class OCachePointer {
 
   private volatile WritersListener writersListener;
 
-  private final ByteBuffer      buffer;
-  private final OByteBufferPool bufferPool;
+  private final OByteBufferContainer container;
+  private final ByteBuffer           buffer;
+  private final OBufferPool          bufferPool;
 
   private volatile boolean notFlushed;
 
@@ -69,8 +72,17 @@ public class OCachePointer {
   private final long fileId;
   private final long pageIndex;
 
-  public OCachePointer(final ByteBuffer buffer, final OByteBufferPool bufferPool, final long fileId, final long pageIndex) {
-    this.buffer = buffer;
+  public OCachePointer(final OByteBufferContainer container, final OBufferPool bufferPool, final long fileId,
+      final long pageIndex) {
+
+    if (container != null) {
+      this.container = container;
+      this.buffer = container.getBuffer();
+    } else {
+      this.container = null;
+      this.buffer = null;
+    }
+
     this.bufferPool = bufferPool;
 
     this.fileId = fileId;
@@ -195,7 +207,7 @@ public class OCachePointer {
   public void decrementReferrer() {
     final int rf = referrersCount.decrementAndGet();
     if (rf == 0 && buffer != null) {
-      bufferPool.release(buffer);
+      bufferPool.release(container);
     }
 
     if (rf < 0)
@@ -268,13 +280,13 @@ public class OCachePointer {
       OLogManager.instance().error(this, "OCachePointer.finalize: writers != 0");
     }
 
-    if (needInfo && buffer != null)
-      bufferPool.logTrackedBufferInfo("finalizing", buffer);
-
+//    if (needInfo && buffer != null)
+//      bufferPool.logTrackedBufferInfo("finalizing", buffer);
+//
     if (referrersCount.get() > 0 && buffer != null) {
-      if (!needInfo) // not logged yet
-        bufferPool.logTrackedBufferInfo("finalizing", buffer);
-      bufferPool.release(buffer);
+//      if (!needInfo) // not logged yet
+//        bufferPool.logTrackedBufferInfo("finalizing", buffer);
+      bufferPool.release(container);
     }
   }
 

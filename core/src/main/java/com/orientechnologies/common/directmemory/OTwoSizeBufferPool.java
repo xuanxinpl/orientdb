@@ -75,6 +75,8 @@ public class OTwoSizeBufferPool implements OBufferPool {
 
     assert result.isAcquired();
 
+    result.getBuffer().position(0);
+
     return result;
   }
 

@@ -20,6 +20,8 @@
 
 package com.orientechnologies.orient.core.storage.impl.memory;
 
+import com.orientechnologies.common.directmemory.OBufferPool;
+import com.orientechnologies.common.directmemory.OByteBufferContainer;
 import com.orientechnologies.common.directmemory.OByteBufferPool;
 import com.orientechnologies.common.types.OModifiableBoolean;
 import com.orientechnologies.common.util.OCommonConst;
@@ -197,7 +199,6 @@ public class ODirectMemoryOnlyDiskCache extends OAbstractWriteCache implements O
     }
   }
 
-
   @Override
   public OCacheEntry loadForWrite(long fileId, long pageIndex, boolean checkPinnedPages, OWriteCache writeCache, int pageCount)
       throws IOException {
@@ -308,7 +309,6 @@ public class ODirectMemoryOnlyDiskCache extends OAbstractWriteCache implements O
 
     doRelease(cacheEntry);
   }
-
 
   private void doRelease(OCacheEntry cacheEntry) {
     synchronized (cacheEntry) {
@@ -522,10 +522,10 @@ public class ODirectMemoryOnlyDiskCache extends OAbstractWriteCache implements O
             index = lastIndex + 1;
           }
 
-          final OByteBufferPool bufferPool = OByteBufferPool.instance();
-          final ByteBuffer buffer = bufferPool.acquireDirect(true);
+          final OBufferPool bufferPool = OByteBufferPool.instance();
+          final OByteBufferContainer container = bufferPool.acquire(pageSize, true);
 
-          final OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, id, index);
+          final OCachePointer cachePointer = new OCachePointer(container, bufferPool, id, index);
           cachePointer.incrementReferrer();
 
           cacheEntry = new OCacheEntryImpl(composeFileId(storageId, id), index, cachePointer, false);

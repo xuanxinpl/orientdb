@@ -22,6 +22,8 @@ package com.orientechnologies.orient.core.storage.cache.local;
 import com.orientechnologies.common.collection.closabledictionary.OClosableEntry;
 import com.orientechnologies.common.collection.closabledictionary.OClosableLinkedContainer;
 import com.orientechnologies.common.concur.lock.*;
+import com.orientechnologies.common.directmemory.OBufferPool;
+import com.orientechnologies.common.directmemory.OByteBufferContainer;
 import com.orientechnologies.common.directmemory.OByteBufferPool;
 import com.orientechnologies.common.exception.OException;
 import com.orientechnologies.common.io.OIOUtils;
@@ -386,7 +388,7 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
    * Pool of direct memory <code>ByteBuffer</code>s.
    * We can not use them directly because they do not have deallocator.
    */
-  private final OByteBufferPool bufferPool;
+  private final OBufferPool bufferPool;
 
   /**
    * Current mode of data flush in {@link PeriodicFlushTask}.
@@ -400,7 +402,7 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
    */
   private final List<WeakReference<OBackgroundExceptionListener>> backgroundExceptionListeners = new CopyOnWriteArrayList<>();
 
-  public OWOWCache(int pageSize, OByteBufferPool bufferPool, OWriteAheadLog writeAheadLog, long pageFlushInterval,
+  public OWOWCache(int pageSize, OBufferPool bufferPool, OWriteAheadLog writeAheadLog, long pageFlushInterval,
       long exclusiveWriteCacheMaxSize, OLocalPaginatedStorage storageLocal, boolean checkMinSize,
       OClosableLinkedContainer<Long, OFileClassic> files, int id) {
     filesLock.acquireWriteLock();
@@ -1078,8 +1080,8 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
               startAllocationIndex = fileSize / pageSize;
 
               for (long index = startAllocationIndex; index <= stopAllocationIndex; index++) {
-                final ByteBuffer buffer = bufferPool.acquireDirect(true);
-                final OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, fileId, index);
+                final OByteBufferContainer container = bufferPool.acquire(pageSize, true);
+                final OCachePointer cachePointer = new OCachePointer(container, bufferPool, fileId, index);
                 cachePointer.setNotFlushed(true);
 
                 countOfNotFlushedPages.incrementAndGet();
@@ -1716,11 +1718,12 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
 
           try {
             if (pageCount == 1) {
-              final ByteBuffer buffer = bufferPool.acquireDirect(false);
+              final OByteBufferContainer container = bufferPool.acquire(pageSize, false);
+              final ByteBuffer buffer = container.getBuffer();
               fileClassic.read(firstPageStartPosition, buffer);
               buffer.position(0);
 
-              final OCachePointer dataPointer = new OCachePointer(buffer, bufferPool, fileId, startPageIndex);
+              final OCachePointer dataPointer = new OCachePointer(container, bufferPool, fileId, startPageIndex);
               pagesRead = 1;
               return new OCachePointer[] { dataPointer };
             }
@@ -1728,18 +1731,23 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
             final long maxPageCount = (fileClassic.getFileSize() - firstPageStartPosition) / pageSize;
             final int realPageCount = Math.min((int) maxPageCount, pageCount);
 
+            final OByteBufferContainer[] containers = new OByteBufferContainer[realPageCount];
+            for (int i = 0; i < containers.length; i++) {
+              containers[i] = bufferPool.acquire(pageSize, false);
+              assert containers[i].getBuffer().position() == 0;
+            }
+
             final ByteBuffer[] buffers = new ByteBuffer[realPageCount];
             for (int i = 0; i < buffers.length; i++) {
-              buffers[i] = bufferPool.acquireDirect(false);
-              assert buffers[i].position() == 0;
+              buffers[i] = containers[i].getBuffer();
             }
 
             fileClassic.read(firstPageStartPosition, buffers);
 
             final OCachePointer[] dataPointers = new OCachePointer[buffers.length];
-            for (int n = 0; n < buffers.length; n++) {
+            for (int n = 0; n < containers.length; n++) {
               buffers[n].position(0);
-              dataPointers[n] = new OCachePointer(buffers[n], bufferPool, fileId, startPageIndex + n);
+              dataPointers[n] = new OCachePointer(containers[n], bufferPool, fileId, startPageIndex + n);
             }
 
             pagesRead = dataPointers.length;
@@ -2123,7 +2131,7 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
 
     int flushedPages = 0;
 
-    final ArrayList<OTriple<Long, ByteBuffer, OCachePointer>> chunk = new ArrayList<>(CHUNK_SIZE);
+    final ArrayList<OTriple<Long, OByteBufferContainer, OCachePointer>> chunk = new ArrayList<>(CHUNK_SIZE);
 
     long endTs = startTs;
 
@@ -2181,7 +2189,9 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
 
           final long version;
 
-          final ByteBuffer copy = bufferPool.acquireDirect(false);
+          final OByteBufferContainer copyContainer = bufferPool.acquire(pageSize, false);
+          final ByteBuffer copy = copyContainer.getBuffer();
+
           final OCachePointer pointer = cacheEntry.getValue();
 
           pointer.acquireSharedLock();
@@ -2204,22 +2214,22 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
           copy.position(0);
 
           if (chunk.isEmpty()) {
-            chunk.add(new OTriple<>(version, copy, pointer));
+            chunk.add(new OTriple<>(version, copyContainer, pointer));
           } else {
             if (lastFileId != pointer.getFileId() || lastPageIndex != pointer.getPageIndex() - 1) {
               flushedPages += flushPagesChunk(chunk);
               releaseExclusiveLatch();
 
               if (pageKey.fileId != firstFileId || (pageKey.pageIndex - firstPageIndex) > MAX_CHUNK_DISTANCE) {
-                bufferPool.release(copy);
+                bufferPool.release(copyContainer);
                 continue flushCycle;
               } else {
                 endTs = System.nanoTime();
 
-                chunk.add(new OTriple<>(version, copy, pointer));
+                chunk.add(new OTriple<>(version, copyContainer, pointer));
               }
             } else {
-              chunk.add(new OTriple<>(version, copy, pointer));
+              chunk.add(new OTriple<>(version, copyContainer, pointer));
             }
           }
 
@@ -2264,13 +2274,15 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
     buffer.putInt(crc32);
   }
 
-  private int flushPagesChunk(ArrayList<OTriple<Long, ByteBuffer, OCachePointer>> chunk) throws IOException, InterruptedException {
+  private int flushPagesChunk(ArrayList<OTriple<Long, OByteBufferContainer, OCachePointer>> chunk)
+      throws IOException, InterruptedException {
+
     if (chunk.isEmpty())
       return 0;
 
     ByteBuffer[] buffers = new ByteBuffer[chunk.size()];
     for (int i = 0; i < buffers.length; i++) {
-      final ByteBuffer buffer = chunk.get(i).getValue().getKey();
+      final ByteBuffer buffer = chunk.get(i).getValue().getKey().getBuffer();
 
       if (addDataVerificationInformation) {
         addErrorCorrectionCodes(buffer);
@@ -2281,7 +2293,7 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
       buffers[i] = buffer;
     }
 
-    final OTriple<Long, ByteBuffer, OCachePointer> firstChunk = chunk.get(0);
+    final OTriple<Long, OByteBufferContainer, OCachePointer> firstChunk = chunk.get(0);
 
     final OCachePointer firstCachePointer = firstChunk.getValue().getValue();
     final long firstFileId = firstCachePointer.getFileId();
@@ -2295,11 +2307,11 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
       files.release(fileEntry);
     }
 
-    for (ByteBuffer buffer : buffers) {
-      bufferPool.release(buffer);
+    for (OTriple<Long, OByteBufferContainer, OCachePointer> piece : chunk) {
+      bufferPool.release(piece.getValue().getKey());
     }
 
-    for (OTriple<Long, ByteBuffer, OCachePointer> triple : chunk) {
+    for (OTriple<Long, OByteBufferContainer, OCachePointer> triple : chunk) {
       final OCachePointer pointer = triple.getValue().getValue();
 
       final PageKey pageKey = new PageKey(internalFileId(pointer.getFileId()), pointer.getPageIndex());
@@ -2350,7 +2362,7 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
 
     long pagesToFlush = Math.max((long) Math.ceil(flushThreshold * exclusiveWriteCacheMaxSize), 1);
 
-    final ArrayList<OTriple<Long, ByteBuffer, OCachePointer>> chunk = new ArrayList<>(CHUNK_SIZE);
+    final ArrayList<OTriple<Long, OByteBufferContainer, OCachePointer>> chunk = new ArrayList<>(CHUNK_SIZE);
 
     flushCycle:
     while (flushedPages < pagesToFlush) {
@@ -2379,7 +2391,8 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
         } else {
           pointer.acquireSharedLock();
 
-          final ByteBuffer copy = bufferPool.acquireDirect(false);
+          final OByteBufferContainer copyContainer = bufferPool.acquire(pageSize, false);;
+          final ByteBuffer copy = copyContainer.getBuffer();
           try {
             version = pointer.getVersion();
             final ByteBuffer buffer = pointer.getSharedBuffer();
@@ -2398,15 +2411,15 @@ public class OWOWCache extends OAbstractWriteCache implements OWriteCache, OCach
           copy.position(0);
 
           if (chunk.isEmpty()) {
-            chunk.add(new OTriple<>(version, copy, pointer));
+            chunk.add(new OTriple<>(version, copyContainer, pointer));
           } else {
             if (lastFileId != pointer.getFileId() || lastPageIndex != pointer.getPageIndex() - 1) {
               flushedPages += flushPagesChunk(chunk);
               releaseExclusiveLatch();
 
-              chunk.add(new OTriple<>(version, copy, pointer));
+              chunk.add(new OTriple<>(version, copyContainer, pointer));
             } else {
-              chunk.add(new OTriple<>(version, copy, pointer));
+              chunk.add(new OTriple<>(version, copyContainer, pointer));
             }
           }
 

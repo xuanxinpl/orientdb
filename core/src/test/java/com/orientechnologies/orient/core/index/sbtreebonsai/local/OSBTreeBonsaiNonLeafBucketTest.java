@@ -3,12 +3,15 @@ package com.orientechnologies.orient.core.index.sbtreebonsai.local;
 import java.nio.ByteBuffer;
 import java.util.*;
 
+import com.orientechnologies.common.directmemory.OByteBufferContainer;
 import com.orientechnologies.common.directmemory.OByteBufferPool;
+import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntryImpl;
 import com.orientechnologies.orient.core.storage.cache.OCachePointer;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OLogSequenceNumber;
-import org.junit.Assert; import org.junit.Test;
+import org.junit.Assert;
+import org.junit.Test;
 
 import com.orientechnologies.common.serialization.types.OLongSerializer;
 import com.orientechnologies.orient.core.db.record.OIdentifiable;
@@ -19,13 +22,14 @@ import com.orientechnologies.orient.core.serialization.serializer.binary.impl.OL
  * @since 12.08.13
  */
 public class OSBTreeBonsaiNonLeafBucketTest {
+  private static final int pageSize = OGlobalConfiguration.DISK_CACHE_PAGE_SIZE.getValueAsInteger() * 1024;
 
   @Test
   public void testInitialization() throws Exception {
     OByteBufferPool bufferPool = OByteBufferPool.instance();
-    ByteBuffer buffer = bufferPool.acquireDirect(true);
+    OByteBufferContainer container = bufferPool.acquire(pageSize, true);
 
-    OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, 0, 0);
+    OCachePointer cachePointer = new OCachePointer(container, bufferPool, 0, 0);
     cachePointer.incrementReferrer();
     OCacheEntry cacheEntry = new OCacheEntryImpl(0, 0, cachePointer, false);
     cacheEntry.acquireExclusiveLock();
@@ -59,9 +63,9 @@ public class OSBTreeBonsaiNonLeafBucketTest {
     }
 
     OByteBufferPool bufferPool = OByteBufferPool.instance();
-    ByteBuffer buffer = bufferPool.acquireDirect(true);
+    OByteBufferContainer container = bufferPool.acquire(pageSize, true);
 
-    OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, 0, 0);
+    OCachePointer cachePointer = new OCachePointer(container, bufferPool, 0, 0);
     cachePointer.incrementReferrer();
 
     OCacheEntry cacheEntry = new OCacheEntryImpl(0, 0, cachePointer, false);
@@ -126,9 +130,9 @@ public class OSBTreeBonsaiNonLeafBucketTest {
     }
 
     OByteBufferPool bufferPool = OByteBufferPool.instance();
-    ByteBuffer buffer = bufferPool.acquireDirect(true);
+    OByteBufferContainer container = bufferPool.acquire(pageSize, true);
 
-    OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, 0, 0);
+    OCachePointer cachePointer = new OCachePointer(container, bufferPool, 0, 0);
     cachePointer.incrementReferrer();
     OCacheEntry cacheEntry = new OCacheEntryImpl(0, 0, cachePointer, false);
     cacheEntry.acquireExclusiveLock();

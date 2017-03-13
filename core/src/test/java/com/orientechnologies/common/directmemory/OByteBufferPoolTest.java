@@ -12,101 +12,111 @@ import java.util.concurrent.*;
 public class OByteBufferPoolTest {
   @Test
   public void testAcquireReleaseSinglePage() {
-    OByteBufferPool pool = new OByteBufferPool(12);
+    final int pageSize = 12;
+
+    OByteBufferPool pool = new OByteBufferPool(pageSize);
     Assert.assertEquals(pool.getSize(), 0);
 
-    ByteBuffer buffer = pool.acquireDirect(true);
+    OByteBufferContainer container = pool.acquire(pageSize, true);
+    ByteBuffer buffer = container.getBuffer();
     Assert.assertEquals(pool.getSize(), 0);
     Assert.assertEquals(buffer.position(), 0);
 
     buffer.position(10);
     buffer.put((byte) 42);
 
-    pool.release(buffer);
+    pool.release(container);
+
     Assert.assertEquals(pool.getSize(), 1);
 
-    buffer = pool.acquireDirect(false);
+    container = pool.acquire(pageSize, false);
+    buffer = container.getBuffer();
+
     Assert.assertEquals(buffer.position(), 0);
     Assert.assertEquals(buffer.get(10), 42);
 
     Assert.assertEquals(pool.getSize(), 0);
 
-    pool.release(buffer);
+    pool.release(container);
+
     Assert.assertEquals(pool.getSize(), 1);
 
-    buffer = pool.acquireDirect(true);
+    container = pool.acquire(pageSize, true);
+    buffer = container.getBuffer();
+
     Assert.assertEquals(buffer.position(), 0);
     Assert.assertEquals(buffer.get(10), 0);
 
     Assert.assertEquals(pool.getSize(), 0);
 
-    pool.release(buffer);
+    pool.release(container);
     Assert.assertEquals(pool.getSize(), 1);
   }
 
   @Test
   public void testAcquireReleasePageWithPreallocation() {
-    OByteBufferPool pool = new OByteBufferPool(10, 300, 200);
+    final int pageSize = 10;
+
+    OByteBufferPool pool = new OByteBufferPool(pageSize, 300, 200);
 
     Assert.assertEquals(pool.getMaxPagesPerChunk(), 16);
 
     Assert.assertEquals(pool.getSize(), 0);
 
-    List<ByteBuffer> buffers = new ArrayList<ByteBuffer>();
+    List<OByteBufferContainer> containers = new ArrayList<>();
     for (int i = 0; i < 99; i++) {
-      buffers.add(pool.acquireDirect(false));
-      assertBufferOperations(pool, 0);
+      containers.add(pool.acquire(pageSize, false));
+      assertBufferOperations(pool, 0, pageSize);
     }
 
     for (int i = 0; i < 99; i++) {
-      final ByteBuffer buffer = buffers.get(i);
+      final OByteBufferContainer container = containers.get(i);
+      final ByteBuffer buffer = container.getBuffer();
 
       buffer.position(8);
       buffer.put((byte) 42);
 
-      pool.release(buffers.get(i));
-      assertBufferOperations(pool, i + 1);
+      pool.release(containers.get(i));
+      assertBufferOperations(pool, i + 1, pageSize);
     }
   }
 
   @Test
   @Ignore
   public void testAcquireReleasePageWithPreallocationInMT() throws Exception {
-    final OByteBufferPool pool = new OByteBufferPool(10, 300, 200);
+    final int pageSize = 10;
+    final OByteBufferPool pool = new OByteBufferPool(pageSize, 300, 200);
 
     Assert.assertEquals(pool.getMaxPagesPerChunk(), 16);
 
-    final List<Future<Void>> futures = new ArrayList<Future<Void>>();
+    final List<Future<Void>> futures = new ArrayList<>();
     final CountDownLatch latch = new CountDownLatch(1);
     final ExecutorService executor = Executors.newFixedThreadPool(8);
 
     for (int i = 0; i < 5; i++) {
-      futures.add(executor.submit(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          latch.await();
+      futures.add(executor.submit(() -> {
+        latch.await();
 
-          try {
-            for (int n = 0; n < 1000000; n++) {
-              List<ByteBuffer> buffers = new ArrayList<ByteBuffer>();
+        try {
+          for (int n = 0; n < 1000000; n++) {
+            List<OByteBufferContainer> containers = new ArrayList<>();
 
-              for (int i = 0; i < 2000; i++) {
-                buffers.add(pool.acquireDirect(false));
-              }
-
-              for (int i = 0; i < 2000; i++) {
-                final ByteBuffer buffer = buffers.get(i);
-                pool.release(buffer);
-              }
-
+            for (int j = 0; j < 2000; j++) {
+              containers.add(pool.acquire(pageSize, false));
             }
-          } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-          }
 
-          return null;
+            for (int j = 0; j < 2000; j++) {
+              final OByteBufferContainer container = containers.get(j);
+              pool.release(container);
+            }
+
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw e;
         }
+
+        return null;
       }));
     }
 
@@ -118,27 +128,31 @@ public class OByteBufferPoolTest {
 
   }
 
-  private void assertBufferOperations(OByteBufferPool pool, int initialSize) {
-    ByteBuffer buffer = pool.acquireDirect(true);
+  private void assertBufferOperations(OByteBufferPool pool, int initialSize, int pageSize) {
+    OByteBufferContainer container = pool.acquire(pageSize, true);
+    ByteBuffer buffer = container.getBuffer();
+
     Assert.assertEquals(pool.getSize(), initialSize);
     Assert.assertEquals(buffer.position(), 0);
 
     buffer.position(8);
     buffer.put((byte) 42);
 
-    pool.release(buffer);
+    pool.release(container);
     Assert.assertEquals(pool.getSize(), initialSize + 1);
 
-    buffer = pool.acquireDirect(false);
+    container = pool.acquire(pageSize, false);
+    buffer = container.getBuffer();
     Assert.assertEquals(buffer.position(), 0);
     Assert.assertEquals(buffer.get(8), 42);
 
     Assert.assertEquals(pool.getSize(), initialSize);
 
-    pool.release(buffer);
+    pool.release(container);
     Assert.assertEquals(pool.getSize(), initialSize + 1);
 
-    buffer = pool.acquireDirect(true);
+    container = pool.acquire(pageSize, true);
+    buffer = container.getBuffer();
     Assert.assertEquals(buffer.position(), 0);
     Assert.assertEquals(buffer.get(8), 0);
 
@@ -147,7 +161,7 @@ public class OByteBufferPoolTest {
     buffer.position(8);
     buffer.put((byte) 42);
 
-    pool.release(buffer);
+    pool.release(container);
     Assert.assertEquals(pool.getSize(), initialSize + 1);
   }
 

@@ -25,4 +25,9 @@ public class OByteBufferHolder implements OByteBufferContainer {
   public ByteBuffer getBuffer() {
     return buffer;
   }
+
+  @Override
+  public int compareTo(OByteBufferContainer o) {
+    return buffer.compareTo(o.getBuffer());
+  }
 }

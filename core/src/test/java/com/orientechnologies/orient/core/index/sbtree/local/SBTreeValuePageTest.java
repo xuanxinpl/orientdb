@@ -1,6 +1,8 @@
 package com.orientechnologies.orient.core.index.sbtree.local;
 
+import com.orientechnologies.common.directmemory.OByteBufferContainer;
 import com.orientechnologies.common.directmemory.OByteBufferPool;
+import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntryImpl;
 import com.orientechnologies.orient.core.storage.cache.OCachePointer;
@@ -18,12 +20,14 @@ import java.util.Random;
  * @since 10/1/13
  */
 public class SBTreeValuePageTest {
+  private static final int pageSize = OGlobalConfiguration.DISK_CACHE_PAGE_SIZE.getValueAsInteger() * 1024;
+
   @Test
   public void fillPageDataTest() throws Exception {
     OByteBufferPool bufferPool = OByteBufferPool.instance();
-    ByteBuffer bufferOne = bufferPool.acquireDirect(true);
+    OByteBufferContainer containerOne = bufferPool.acquire(pageSize, true);
 
-    OCachePointer cachePointerOne = new OCachePointer(bufferOne, bufferPool, 0, 0);
+    OCachePointer cachePointerOne = new OCachePointer(containerOne, bufferPool, 0, 0);
     cachePointerOne.incrementReferrer();
 
     OCacheEntry cacheEntryOne = new OCacheEntryImpl(0, 0, cachePointerOne, false);
@@ -37,8 +41,8 @@ public class SBTreeValuePageTest {
     int offset = valuePageOne.fillBinaryContent(data, 0);
     Assert.assertEquals(offset, OSBTreeValuePage.MAX_BINARY_VALUE_SIZE);
 
-    ByteBuffer bufferTwo = bufferPool.acquireDirect(true);
-    OCachePointer cachePointerTwo = new OCachePointer(bufferTwo, bufferPool,  0, 0);
+    OByteBufferContainer containerTwo = bufferPool.acquire(pageSize, true);
+    OCachePointer cachePointerTwo = new OCachePointer(containerTwo, bufferPool, 0, 0);
     cachePointerTwo.incrementReferrer();
 
     OCacheEntry cacheEntryTwo = new OCacheEntryImpl(0, 0, cachePointerTwo, false);
@@ -71,9 +75,9 @@ public class SBTreeValuePageTest {
   @Test
   public void testFreeListPointer() throws Exception {
     OByteBufferPool bufferPool = OByteBufferPool.instance();
-    ByteBuffer buffer = bufferPool.acquireDirect(true);
+    OByteBufferContainer container = bufferPool.acquire(pageSize, true);
 
-    OCachePointer cachePointer = new OCachePointer(buffer, bufferPool, 0, 0);
+    OCachePointer cachePointer = new OCachePointer(container, bufferPool, 0, 0);
     cachePointer.incrementReferrer();
 
     OCacheEntry cacheEntry = new OCacheEntryImpl(0, 0, cachePointer, false);

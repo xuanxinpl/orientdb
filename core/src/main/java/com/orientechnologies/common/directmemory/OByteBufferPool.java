@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * @see OGlobalConfiguration#MEMORY_CHUNK_SIZE
  */
-public class OByteBufferPool implements OByteBufferPoolMXBean {
+public class OByteBufferPool implements OByteBufferPoolMXBean, OBufferPool {
   /**
    * {@link OByteBufferPool}'s MBean name.
    */
@@ -81,7 +81,7 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
   private final int pageSize;
 
   /**
-   * Page which is filled with zeros and used to speedup clear operation on page acquire operation {@link #acquireDirect(boolean)}.
+   * Page which is filled with zeros and used to speedup clear operation on page acquire operation {@link #acquire(int, boolean)}.
    */
   private final ByteBuffer zeroPage;
 
@@ -217,7 +217,10 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
    *
    * @return Direct memory buffer instance.
    */
-  public ByteBuffer acquireDirect(boolean clear) {
+  public OSimpleBufferContainer acquire(int chunkSize, boolean clear) {
+    if (chunkSize != pageSize)
+      throw new IllegalArgumentException("Only pages with size " + chunkSize + " are accepted");
+    
     // check the pool first.
     final ByteBuffer buffer = pool.poll();
 
@@ -229,7 +232,7 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
 
       buffer.position(0);
 
-      return trackBuffer(buffer);
+      return new OSimpleBufferContainer(trackBuffer(buffer));
     }
 
     if (maxPagesPerSingleArea > 1) {
@@ -241,7 +244,7 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
 
       //if we hit the end of preallocation buffer we allocate by small chunks
       if (currentAllocationPosition >= preAllocationLimit) {
-        return trackBuffer(ByteBuffer.allocateDirect(pageSize).order(ByteOrder.nativeOrder()));
+        return new OSimpleBufferContainer(trackBuffer(ByteBuffer.allocateDirect(pageSize).order(ByteOrder.nativeOrder())));
       }
 
       //allocation size should be the same for all buffers from chuck with the same index
@@ -315,7 +318,7 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
           }
 
           slice.position(0);
-          return trackBuffer(slice);
+          return new OSimpleBufferContainer(trackBuffer(slice));
         }
       } finally {
         //we put this in final block to be sure that indication about processed memory request was for sure reflected
@@ -330,7 +333,7 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
 
     // this should not happen if amount of pages is needed for storage is calculated correctly
     overflowBufferCount.incrementAndGet();
-    return trackBuffer(ByteBuffer.allocateDirect(pageSize).order(ByteOrder.nativeOrder()));
+    return new OSimpleBufferContainer(trackBuffer(ByteBuffer.allocateDirect(pageSize).order(ByteOrder.nativeOrder())));
   }
 
   /**
@@ -349,9 +352,11 @@ public class OByteBufferPool implements OByteBufferPoolMXBean {
   /**
    * Put buffer which is not used any more back to the pool.
    *
-   * @param buffer Not used instance of buffer.
+   * @param container Not used instance of container.
    */
-  public void release(ByteBuffer buffer) {
+  @Override
+  public void release(OByteBufferContainer container) {
+    final ByteBuffer buffer = container.getBuffer();
     pool.offer(untrackBuffer(buffer));
   }
 

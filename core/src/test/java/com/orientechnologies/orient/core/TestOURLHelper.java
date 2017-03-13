@@ -5,6 +5,8 @@ import com.orientechnologies.orient.core.util.OURLConnection;
 import com.orientechnologies.orient.core.util.OURLHelper;
 import org.junit.Test;
 
+import java.io.File;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -16,7 +18,7 @@ public class TestOURLHelper {
   public void testSimpleUrl() {
     OURLConnection parsed = OURLHelper.parse("plocal:/path/test/to");
     assertEquals(parsed.getType(), "plocal");
-    assertEquals(parsed.getPath(), "/path/test");
+    assertEquals(parsed.getPath(), new File("/path/test").getAbsolutePath());
     assertEquals(parsed.getDbName(), "to");
 
     parsed = OURLHelper.parse("memory:some");
@@ -34,7 +36,7 @@ public class TestOURLHelper {
   public void testSimpleNewUrl() {
     OURLConnection parsed = OURLHelper.parseNew("plocal:/path/test/to");
     assertEquals(parsed.getType(), "embedded");
-    assertEquals(parsed.getPath(), "/path/test");
+    assertEquals(parsed.getPath(), new File("/path/test").getAbsolutePath());
     assertEquals(parsed.getDbName(), "to");
 
     parsed = OURLHelper.parseNew("memory:some");
@@ -44,7 +46,7 @@ public class TestOURLHelper {
 
     parsed = OURLHelper.parseNew("embedded:/path/test/to");
     assertEquals(parsed.getType(), "embedded");
-    assertEquals(parsed.getPath(), "/path/test");
+    assertEquals(parsed.getPath(), new File("/path/test").getAbsolutePath());
     assertEquals(parsed.getDbName(), "to");
 
     parsed = OURLHelper.parseNew("remote:localhost/to");

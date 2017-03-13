@@ -13,4 +13,9 @@ public class OSimpleBufferContainer implements OByteBufferContainer {
   public ByteBuffer getBuffer() {
     return buffer;
   }
+
+  @Override
+  public int compareTo(OByteBufferContainer o) {
+    return buffer.compareTo(o.getBuffer());
+  }
 }
