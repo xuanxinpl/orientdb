@@ -23,7 +23,7 @@ import java.io.IOException;
 
 /**
  * Base test class for HTTP protocol.
- * 
+ *
  * @author Luca Garulli (l.garulli--(at)--orientdb.com) (l.garulli--at-orientdb.com)
  */
 public abstract class BaseHttpTest {
@@ -31,13 +31,13 @@ public abstract class BaseHttpTest {
   private static OServer server;
   private boolean autoshutdownServer = false;
 
-  private String serverCfg    = "/com/orientechnologies/orient/server/network/orientdb-server-config-httponly.xml";
-  private String protocol     = "http";
-  private String host         = "localhost";
-  private int    port         = 2499;
-  private String realm        = "OrientDB-";
-  private String userName     = "admin";
-  private String userPassword = "admin";
+  private static String serverCfg    = "/com/orientechnologies/orient/server/network/orientdb-server-config-httponly.xml";
+  private        String protocol     = "http";
+  private        String host         = "localhost";
+  private        int    port         = 2499;
+  private        String realm        = "OrientDB-";
+  private        String userName     = "admin";
+  private        String userPassword = "admin";
   private String databaseName;
   private Boolean keepAlive = null;
 
@@ -55,16 +55,16 @@ public abstract class BaseHttpTest {
     return this;
   }
 
-  protected void startServer() throws Exception {
+  protected static void startServer() throws Exception {
     if (server == null) {
       server = new OServer(false);
-      server.startup(getClass().getResourceAsStream(getServerCfg()));
+      server.startup(BaseHttpTest.class.getResourceAsStream(getServerCfg()));
       server.activate();
     }
   }
 
-  protected void stopServer() throws Exception {
-    if (autoshutdownServer && server != null) {
+  protected static void stopServer() throws Exception {
+    if (server != null) {
       server.shutdown();
       server = null;
     }
@@ -182,13 +182,12 @@ public abstract class BaseHttpTest {
     return port;
   }
 
-  protected String getServerCfg() {
+  protected static String getServerCfg() {
     return serverCfg;
   }
 
-  protected BaseHttpTest setServerCfg(String serverCfg) {
-    this.serverCfg = serverCfg;
-    return this;
+  protected static void setServerCfg(String serverCfg) {
+    serverCfg = serverCfg;
   }
 
   protected String getDatabaseName() {
