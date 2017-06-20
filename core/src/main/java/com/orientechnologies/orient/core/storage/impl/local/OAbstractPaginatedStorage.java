@@ -3552,6 +3552,29 @@ public abstract class OAbstractPaginatedStorage extends OStorageAbstract
   public void cancelIndexRebuild() throws IOException {
   }
 
+  public void verifyFreeListsInClusters() {
+    checkOpeness();
+
+    OLogManager.instance().info(this, "Start verification of data integrity of free lists of clusters");
+
+    stateLock.acquireWriteLock();
+    try {
+      for (OCluster cluster : clusters) {
+        final OPaginatedCluster pc = (OPaginatedCluster) cluster;
+        OLogManager.instance().info(this, "Verification of cluster " + cluster.getName() + " is started");
+        pc.checkFreeListConsistency();
+        OLogManager.instance().info(this, "Verification of cluster " + cluster.getName() + " is completed");
+      }
+    } catch (IOException e) {
+      final OStorageException exception = new OStorageException("Error during free list verification");
+      throw OException.wrapException(exception, e);
+    } finally {
+      stateLock.releaseWriteLock();
+    }
+
+    OLogManager.instance().info(this, "Verification of data integrity of free lists of clusters is completed");
+  }
+
   private ORawBuffer readRecordIfNotLatest(final OCluster cluster, final ORecordId rid, final int recordVersion)
       throws ORecordNotFoundException {
     checkOpeness();

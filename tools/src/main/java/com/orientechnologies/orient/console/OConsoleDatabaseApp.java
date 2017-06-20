@@ -357,6 +357,13 @@ public class OConsoleDatabaseApp extends OrientConsole implements OCommandOutput
     message("\n\nCurrent database is: " + databaseURL);
   }
 
+  @ConsoleCommand
+  public void verifyFreeList() {
+    final OStorage storage = currentDatabase.getStorage();
+    final OAbstractPaginatedStorage paginatedStorage = (OAbstractPaginatedStorage) storage;
+    paginatedStorage.verifyFreeListsInClusters();
+  }
+
   protected Map<String, String> parseCommandOptions(
       @ConsoleParameter(name = "[options]", optional = true, description = "Additional options, example: -encryption=aes -compression=snappy") String options) {
     final Map<String, String> omap = new HashMap<String, String>();

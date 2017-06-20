@@ -47,8 +47,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static com.orientechnologies.orient.core.config.OGlobalConfiguration.DISK_CACHE_PAGE_SIZE;
 import static com.orientechnologies.orient.core.config.OGlobalConfiguration.PAGINATED_STORAGE_LOWEST_FREELIST_BOUNDARY;
@@ -436,6 +435,111 @@ public class OPaginatedCluster extends ODurableComponent implements OCluster {
     } finally {
       completeOperation();
     }
+  }
+
+  public void checkFreeListConsistency() throws IOException {
+    final Set<Long>[] freeLists = new Set[FREE_LIST_SIZE];
+
+    for (int i = 0; i < freeLists.length; i++) {
+      freeLists[i] = new HashSet<Long>();
+    }
+
+    OLogManager.instance().info(this, "Free list check procedure was started");
+
+    acquireExclusiveLock();
+    try {
+      final OAtomicOperation atomicOperation = atomicOperationsManager.getCurrentOperation();
+
+      final long[] freeListEntries = new long[FREE_LIST_SIZE];
+
+      OLogManager.instance().info(this, "Start gathering information about entries of free list");
+
+      OCacheEntry pinnedStateEntry = loadPage(atomicOperation, fileId, pinnedStateEntryIndex, true);
+      pinnedStateEntry.acquireSharedLock();
+      try {
+        OPaginatedClusterState paginatedClusterState = new OPaginatedClusterState(pinnedStateEntry,
+            getChanges(atomicOperation, pinnedStateEntry));
+
+        for (int i = 0; i < FREE_LIST_SIZE; i++) {
+          freeListEntries[i] = paginatedClusterState.getFreeListPage(i);
+        }
+      } finally {
+        pinnedStateEntry.releaseSharedLock();
+        releasePage(atomicOperation, pinnedStateEntry);
+      }
+
+      OLogManager.instance().info(this, "Gathering information about entries of free list is completed");
+
+      for (int n = 0; n < freeListEntries.length; n++) {
+        long clusterPageIndex = freeListEntries[n];
+        long prevPage = -1;
+
+        while (clusterPageIndex >= 0) {
+          freeLists[n].add(clusterPageIndex);
+
+          final OCacheEntry cacheEntry = loadPage(atomicOperation, fileId, clusterPageIndex, false);
+          cacheEntry.acquireSharedLock();
+          try {
+            final OClusterPage clusterPage = new OClusterPage(cacheEntry, false, getChanges(atomicOperation, cacheEntry));
+
+            if (clusterPage.getPrevPage() != prevPage) {
+              OLogManager.instance().error(this,
+                  "Free list integrity is broken for page " + clusterPageIndex + " previous page index has to be " + prevPage
+                      + " but is " + clusterPage.getPrevPage());
+            }
+
+            prevPage = clusterPageIndex;
+            clusterPageIndex = clusterPage.getNextPage();
+          } finally {
+            cacheEntry.releaseSharedLock();
+            releasePage(atomicOperation, cacheEntry);
+          }
+        }
+      }
+
+      OLogManager.instance().info(this, "Composition of free lists is completed");
+
+      OLogManager.instance().info(this, "Start verification of data pages");
+      final long lastPageIndex = writeCache.getFilledUpTo(fileId);
+      for (long n = 1; n < lastPageIndex; n++) {
+        if (n > 0 && n % 1000 == 0) {
+          OLogManager.instance().info(this, "Page " + n + " out of " + lastPageIndex + " is checking ");
+        }
+
+        OCacheEntry cacheEntry = loadPage(atomicOperation, fileId, n, false);
+        cacheEntry.acquireSharedLock();
+        try {
+          final OClusterPage page = new OClusterPage(cacheEntry, false, getChanges(atomicOperation, cacheEntry));
+
+          final int freeListIndex = calculateFreePageIndex(page);
+          if (freeListIndex >= 0) {
+            if (!freeLists[freeListIndex].contains(n)) {
+              OLogManager.instance().error(this, "Page " + n + " is absent in free list " + freeListIndex);
+            }
+          } else {
+            for (int i = 0; i < freeLists.length; i++) {
+              Set<Long> fl = freeLists[i];
+
+              if (fl.contains(n)) {
+                OLogManager.instance()
+                    .error(this, "Page " + n + " is placed in free list " + i + " but should be absent in free lists");
+              }
+            }
+          }
+
+        } finally {
+          cacheEntry.releaseSharedLock();
+          releasePage(atomicOperation, cacheEntry);
+        }
+      }
+
+      OLogManager.instance().info(this, "Verification of data pages is completed");
+    } finally
+
+    {
+      releaseExclusiveLock();
+    }
+
   }
 
   public OPhysicalPosition createRecord(byte[] content, final int recordVersion, final byte recordType,
