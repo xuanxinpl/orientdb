@@ -33,6 +33,10 @@ import com.orientechnologies.orient.core.sql.OSQLScriptEngine;
 import com.orientechnologies.orient.core.sql.OSQLScriptEngineFactory;
 
 import javax.script.*;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,6 +59,25 @@ public class OScriptManager {
   protected ConcurrentHashMap<String, ODatabaseScriptManager> dbManagers = new ConcurrentHashMap<String, ODatabaseScriptManager>();
 
   public OScriptManager() {
+    InputStream in = null;
+
+    try {
+      in = new FileInputStream(
+          "/home/andrey/orientdb/distribution/target/orientdb-community-2.2.22fl-SNAPSHOT.dir/orientdb-community-2.2.22fl-SNAPSHOT/config/orientdb-client-log.properties");
+      final BufferedInputStream bin = new BufferedInputStream(in);
+      bin.read();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    } finally {
+      try {
+        if (in != null)
+          in.close();
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     scriptEngineManager = new ScriptEngineManager();
 
     registerEngine(OSQLScriptEngine.NAME, new OSQLScriptEngineFactory());
