@@ -67,14 +67,14 @@ public class OScriptManager {
       final BufferedInputStream bin = new BufferedInputStream(in);
       bin.read();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      e.printStackTrace();
     } finally {
       try {
         if (in != null)
           in.close();
 
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        e.printStackTrace();
       }
     }
 
