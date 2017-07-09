@@ -42,8 +42,8 @@ public class OMemory {
   /**
    * @param unlimitedCap the upper limit on reported memory, if JVM reports unlimited memory.
    *
-   * @return same as {@link Runtime#maxMemory()} except that {@code unlimitedCap} limit is applied if JVM reports
-   * {@link Long#MAX_VALUE unlimited memory}.
+   * @return same as {@link Runtime#maxMemory()} except that {@code unlimitedCap} limit is applied if JVM reports {@link
+   * Long#MAX_VALUE unlimited memory}.
    */
   public static long getCappedRuntimeMaxMemory(long unlimitedCap) {
     final long jvmMaxMemory = Runtime.getRuntime().maxMemory();
@@ -80,6 +80,8 @@ public class OMemory {
         OLogManager.instance().warn(OMemory.class, "Unable to determine the amount of installed RAM.");
       else
         OLogManager.instance().debug(OMemory.class, "Unable to determine the amount of installed RAM.", e);
+    } catch (RuntimeException e) {
+      OLogManager.instance().warn(OMemory.class, "Unable to determine the amount of installed RAM.", e);
     }
 
     return osMemory;
